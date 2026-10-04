@@ -8,7 +8,11 @@ Surveyor is intentionally stateless. It does not own maps, grids, campaigns, rou
 
 ## Current capability
 
-Phase 13 provides `map.hex-grid.detect` through the versioned `POST /v1/hex-grid/detect` API. The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
+Phase 13 provides generic periodic-tiling detection through the versioned `POST /v1/periodic-tiling/detect` API. Every caller declares the periodic tiling family with `tilingType`. Phase 13 implements `tilingType=regular` and, within that family, the regular hex shape only.
+
+Regular shapes can be selected by canonical name (`shape=hex`) or by side-count shorthand (`sides=6`). Side count selects a configured default shape; it is not a unique shape identity, so future named shapes may share the same number of sides. Square and other regular tilings are intentionally left for later work.
+
+The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
 
 No arbitrary URL fetching, terrain recognition, road recognition, OCR, semantic feature classification, or machine-learning inference is implemented.
 
