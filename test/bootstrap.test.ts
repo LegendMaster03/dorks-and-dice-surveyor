@@ -17,7 +17,7 @@ const config: SurveyorConfig = {
     analysisMaximumDimension: 2048
 };
 
-test("service identity advertises periodic-tiling families and Regular shape arity", async () => {
+test("service identity advertises periodic-tiling family argument schemas", async () => {
     const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 1000);
     const server = createSurveyorServer({ config, pool });
     server.listen(0, "127.0.0.1");
@@ -32,12 +32,31 @@ test("service identity advertises periodic-tiling families and Regular shape ari
             {
                 name: "Regular",
                 implemented: true,
-                shapeArgumentCount: 1,
-                shapeArgumentFormat: "canonical-name-or-side-count",
+                arguments: [{
+                    name: "shape",
+                    kind: "shape",
+                    ordered: true,
+                    minimumCount: 1,
+                    maximumCount: 1,
+                    formats: ["canonical-name", "side-count"]
+                }],
                 implementedShapes: [{ name: "hex", sides: 6 }]
             },
-            { name: "semiregular", implemented: false },
-            { name: "k-uniform", implemented: false }
+            {
+                name: "semiregular",
+                implemented: false,
+                arguments: [{
+                    name: "semiregularType",
+                    kind: "enum",
+                    required: true,
+                    values: ["Archimedean", "uniform"]
+                }]
+            },
+            { name: "k-uniform", implemented: false, arguments: null },
+            { name: "Plane-vertex", implemented: false, arguments: null },
+            { name: "2-uniform", implemented: false, arguments: null },
+            { name: "Fractalizing", implemented: false, arguments: null },
+            { name: "non-edge-to-edge", implemented: false, arguments: null }
         ]);
     } finally {
         server.close();
