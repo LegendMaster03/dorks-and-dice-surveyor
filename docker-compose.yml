@@ -1,0 +1,20 @@
+services:
+  dorks-and-dice-surveyor:
+    image: dorks-and-dice-surveyor:latest
+    container_name: dorks-and-dice-surveyor
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      SURVEYOR_SERVICE_TOKEN: "${SURVEYOR_SERVICE_TOKEN:?SURVEYOR_SERVICE_TOKEN must be configured}"
+      SURVEYOR_WORKER_COUNT: "${SURVEYOR_WORKER_COUNT:-8}"
+      SURVEYOR_QUEUE_LIMIT: "${SURVEYOR_QUEUE_LIMIT:-16}"
+      SURVEYOR_MAX_UPLOAD_BYTES: "${SURVEYOR_MAX_UPLOAD_BYTES:-33554432}"
+      SURVEYOR_MAX_PIXELS: "${SURVEYOR_MAX_PIXELS:-100000000}"
+      SURVEYOR_ANALYSIS_TIMEOUT: "${SURVEYOR_ANALYSIS_TIMEOUT:-30000}"
+      SURVEYOR_ANALYSIS_MAX_DIMENSION: "${SURVEYOR_ANALYSIS_MAX_DIMENSION:-2048}"
+    networks:
+      - dorks-and-dice-backend
+
+networks:
+  dorks-and-dice-backend:
+    external: true
