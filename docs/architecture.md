@@ -43,6 +43,8 @@ GomJau-Hogg parsing follows the published construction grammar: the seed phase i
 
 `src/resources/periodic-tiling/catalog.ts` maps canonical notation to known logical tiling identities. This is where equivalence between a Cundy-Rollett form and a GomJau-Hogg form is asserted.
 
+Cundy-Rollett is intentionally indexed to a candidate set rather than a single definition because the notation is not unique for every tiling. GomJau-Hogg is indexed as a unique identity. If a future Cundy-Rollett entry maps to multiple registered definitions, C&R alone reports an ambiguous selector instead of silently choosing one; supplying GJ-H allows the catalog to intersect the candidates and resolve an exact identity.
+
 The first cataloged family is `Regular`:
 
 - `regular.triangular`: `3^6` / `3/m30/r(h2)`;
@@ -59,12 +61,13 @@ Resolution distinguishes:
 
 - malformed or geometrically impossible Euclidean Cundy-Rollett notation -> `400 invalid_cr_notation`;
 - malformed GomJau-Hogg notation -> `400 invalid_gjh_notation`;
-- syntactically valid but uncataloged identity -> `501 tiling_identity_unregistered`;
+- structurally valid but uncataloged identity -> `501 tiling_identity_unregistered`;
+- registered but ambiguous Cundy-Rollett identity -> `400 tiling_selector_ambiguous`;
 - registered but detectorless tiling -> `501 tiling_not_implemented`;
-- two registered notations resolving to different identities -> `400 tiling_selector_conflict`;
+- two registered notations resolving to different tilings -> `400 tiling_selector_conflict`;
 - registered and implemented tiling -> detector dispatch.
 
-When both notation systems are supplied, Surveyor only claims equivalence when the catalog can prove that they resolve to the same tiling. It does not infer identity merely because both strings parse.
+When both notation systems are supplied, Surveyor only claims equivalence when the catalog can prove that the GJ-H identity is a member of the C&R candidate set. It does not infer identity merely because both strings parse.
 
 ## Current Regular hexagonal detector
 

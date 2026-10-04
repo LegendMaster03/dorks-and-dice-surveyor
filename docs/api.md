@@ -21,7 +21,7 @@ Supported notation selectors:
 - `crNotation` — Cundy-Rollett notation. This is the preferred selector.
 - `gjhNotation` — GomJau-Hogg notation.
 
-At least one notation selector is required. Both may be supplied only when Surveyor can resolve both to the same cataloged tiling.
+At least one notation selector is required. Both may be supplied when Surveyor can resolve GJ-H to a member of the C&R candidate set. GJ-H is therefore also the disambiguator when a registered C&R identity is non-unique.
 
 ### Parser and catalog behavior
 
@@ -32,6 +32,7 @@ Notation parsing is independent from the registered-tiling catalog and detector 
 | malformed or non-Euclidean Cundy-Rollett vertex syntax | 400 | `invalid_cr_notation` |
 | malformed GomJau-Hogg syntax | 400 | `invalid_gjh_notation` |
 | valid notation with no registered identity | 501 | `tiling_identity_unregistered` |
+| registered non-unique C&R identity without a disambiguator | 400 | `tiling_selector_ambiguous` |
 | registered identity with no detector | 501 | `tiling_not_implemented` |
 | two registered selectors identify different tilings | 400 | `tiling_selector_conflict` |
 

@@ -1,6 +1,6 @@
 import { SurveyorRequestError } from "../../errors.js";
 import {
-    findPeriodicTilingByCundyRollett,
+    findPeriodicTilingsByCundyRollett,
     findPeriodicTilingByGomJauHogg
 } from "./catalog.js";
 import { parseCundyRollettNotation, parseGomJauHoggNotation } from "./notation/index.js";
@@ -30,31 +30,44 @@ export function selectPeriodicTiling(parameters: URLSearchParams): ImplementedPe
 
     const cr = crValues.length === 0 ? undefined : parseCundyRollett(crValues[0]);
     const gjh = gjhValues.length === 0 ? undefined : parseGomJauHogg(gjhValues[0]);
-    const crDefinition = cr == null ? undefined : findPeriodicTilingByCundyRollett(cr.canonical);
+    const crCandidates = cr == null ? [] : findPeriodicTilingsByCundyRollett(cr.canonical);
     const gjhDefinition = gjh == null ? undefined : findPeriodicTilingByGomJauHogg(gjh.canonical);
 
-    if (cr != null && crDefinition == null && gjh == null) {
+    if (cr != null && crCandidates.length === 0 && gjh == null) {
         throw unregistered("Cundy-Rollett", cr.canonical);
     }
     if (gjh != null && gjhDefinition == null && cr == null) {
         throw unregistered("GomJau-Hogg", gjh.canonical);
     }
-    if ((cr != null && crDefinition == null) || (gjh != null && gjhDefinition == null)) {
+    if ((cr != null && crCandidates.length === 0) || (gjh != null && gjhDefinition == null)) {
         throw new SurveyorRequestError(
             501,
             "tiling_identity_unregistered",
-            "The supplied notations are syntactically valid, but Surveyor does not yet have enough catalog identity data to prove that they describe the same tiling.");
+            "The supplied notations are structurally valid, but Surveyor does not yet have enough catalog identity data to prove that they describe the same tiling.");
     }
 
-    const selected = crDefinition ?? gjhDefinition;
-    if (!selected) {
-        throw new SurveyorRequestError(500, "tiling_resolution_failure", "The periodic tiling could not be resolved.");
-    }
-    if (crDefinition != null && gjhDefinition != null && crDefinition.id !== gjhDefinition.id) {
+    let selected: PeriodicTilingDefinition | undefined;
+    if (gjhDefinition != null && cr != null) {
+        if (!crCandidates.some(candidate => candidate.id === gjhDefinition.id)) {
+            throw new SurveyorRequestError(
+                400,
+                "tiling_selector_conflict",
+                "The supplied periodic-tiling notations resolve to different tilings.");
+        }
+        selected = gjhDefinition;
+    } else if (gjhDefinition != null) {
+        selected = gjhDefinition;
+    } else if (crCandidates.length === 1) {
+        selected = crCandidates[0];
+    } else if (crCandidates.length > 1) {
         throw new SurveyorRequestError(
             400,
-            "tiling_selector_conflict",
-            "The supplied periodic-tiling notations resolve to different tilings.");
+            "tiling_selector_ambiguous",
+            "The supplied Cundy-Rollett notation identifies multiple registered tilings. Supply the GomJau-Hogg notation to disambiguate the requested tiling.");
+    }
+
+    if (!selected) {
+        throw new SurveyorRequestError(500, "tiling_resolution_failure", "The periodic tiling could not be resolved.");
     }
     if (selected.detectorId == null) {
         throw new SurveyorRequestError(
@@ -101,5 +114,5 @@ function unregistered(notation: string, canonical: string): SurveyorRequestError
     return new SurveyorRequestError(
         501,
         "tiling_identity_unregistered",
-        `${notation} notation '${canonical}' is syntactically valid, but Surveyor does not yet have a catalog identity or detector registration for it.`);
+        `${notation} notation '${canonical}' is structurally valid, but Surveyor does not yet have a catalog identity or detector registration for it.`);
 }

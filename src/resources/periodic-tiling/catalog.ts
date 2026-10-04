@@ -23,15 +23,30 @@ const definitions: readonly PeriodicTilingDefinition[] = [
     }
 ] as const;
 
-const byCundyRollett = new Map(
-    definitions.map(definition => [parseCundyRollettNotation(definition.crNotation).canonical, definition]));
-const byGomJauHogg = new Map(
-    definitions.map(definition => [parseGomJauHoggNotation(definition.gjhNotation).canonical, definition]));
+const byCundyRollett = new Map<string, PeriodicTilingDefinition[]>();
+const byGomJauHogg = new Map<string, PeriodicTilingDefinition>();
+const ids = new Set<string>();
+
+for (const definition of definitions) {
+    if (ids.has(definition.id)) throw new Error(`Duplicate periodic-tiling id '${definition.id}'.`);
+    ids.add(definition.id);
+
+    const crCanonical = parseCundyRollettNotation(definition.crNotation).canonical;
+    const crCandidates = byCundyRollett.get(crCanonical) ?? [];
+    crCandidates.push(definition);
+    byCundyRollett.set(crCanonical, crCandidates);
+
+    const gjhCanonical = parseGomJauHoggNotation(definition.gjhNotation).canonical;
+    if (byGomJauHogg.has(gjhCanonical)) {
+        throw new Error(`Duplicate GomJau-Hogg periodic-tiling identity '${gjhCanonical}'.`);
+    }
+    byGomJauHogg.set(gjhCanonical, definition);
+}
 
 export const periodicTilingDefinitions = definitions;
 
-export function findPeriodicTilingByCundyRollett(canonical: string): PeriodicTilingDefinition | undefined {
-    return byCundyRollett.get(canonical);
+export function findPeriodicTilingsByCundyRollett(canonical: string): readonly PeriodicTilingDefinition[] {
+    return byCundyRollett.get(canonical) ?? [];
 }
 
 export function findPeriodicTilingByGomJauHogg(canonical: string): PeriodicTilingDefinition | undefined {
