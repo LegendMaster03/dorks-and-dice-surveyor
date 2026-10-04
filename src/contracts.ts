@@ -16,8 +16,8 @@ export type SurveyorHexGridAnalysis = {
     capability: typeof PeriodicTilingDetectionCapability;
     tiling: {
         periodicTilingType: "Regular";
-        cundyRollettNotation: "6^3";
-        gomJauHoggNotation: "6/m30/r(h1)";
+        crNotation: "6^3";
+        gjhNotation: "6/m30/r(h1)";
     };
     status: PeriodicTilingDetectionStatus;
     reason: string;
