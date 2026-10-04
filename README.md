@@ -15,15 +15,15 @@ Every periodic-tiling detection request declares a `periodicTilingType`. The fam
 For the implemented `Regular` family, the preferred workflow is:
 
 - declare `periodicTilingType=Regular`; and
-- identify the tiling with Cundy-Rollett notation, for example `cundyRollettNotation=6^3` for the regular hexagonal tiling.
+- identify the tiling with Cundy-Rollett notation, for example `crNotation=6^3` for the regular hexagonal tiling.
 
-GomJau-Hogg (GJ-H) notation is also a first-class selector, for example `gomJauHoggNotation=6/m30/r(h1)`. Surveyor normalizes either notation to the same tiling identity and returns both notations in the response.
+GomJau-Hogg (GJ-H) notation is also a first-class selector, for example `gjhNotation=6/m30/r(h1)`. Surveyor normalizes either notation to the same tiling identity and returns both normalized notations in the response.
 
-A `shape` selector remains available as a convenience for families where it is unambiguous. For `Regular`, `shape=hex` and `shape=6` resolve to the same tiling as C&R `6^3`. Side count is shorthand, not identity; multiple named shapes may share a side count in future work.
+Shape names and polygon side counts are not part of the public periodic-tiling API. Standard notation is the canonical identity boundary.
 
-Phase 13 implements only the Regular hexagonal tiling. Triangle and square Regular tilings are recognized by identity but intentionally return not implemented until detectors exist.
+Phase 13 implements only the Regular hexagonal tiling. Triangle and square Regular tilings are recognized by notation but intentionally return not implemented until detectors exist.
 
-The API reserves additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also reserves the enum values `Archimedean` and `uniform`. Their future argument schemas do not have to be shape-based.
+The API reserves additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also reserves the enum values `Archimedean` and `uniform`. Their future argument schemas do not have to resemble the Regular family.
 
 The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
 
