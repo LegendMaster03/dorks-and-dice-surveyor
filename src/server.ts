@@ -23,52 +23,26 @@ export type SurveyorDependencies = {
 
 type RegularTilingSelection = {
     periodicTilingType: "Regular";
-    cundyRollettNotation: "6^3";
-    gomJauHoggNotation: "6/m30/r(h1)";
-    shapes: [{
-        name: "hex";
-        sides: 6;
-    }];
+    crNotation: "6^3";
+    gjhNotation: "6/m30/r(h1)";
 };
 
 type KnownRegularTiling = {
-    name: string;
-    sides: number;
-    cundyRollettNotation: string;
-    gomJauHoggNotation: string;
+    crNotation: string;
+    gjhNotation: string;
     implemented: boolean;
 };
 
 const knownRegularTilings: KnownRegularTiling[] = [
-    {
-        name: "triangle",
-        sides: 3,
-        cundyRollettNotation: "3^6",
-        gomJauHoggNotation: "3/m30/r(h2)",
-        implemented: false
-    },
-    {
-        name: "square",
-        sides: 4,
-        cundyRollettNotation: "4^4",
-        gomJauHoggNotation: "4/m45/r(h1)",
-        implemented: false
-    },
-    {
-        name: "hex",
-        sides: 6,
-        cundyRollettNotation: "6^3",
-        gomJauHoggNotation: "6/m30/r(h1)",
-        implemented: true
-    }
+    { crNotation: "3^6", gjhNotation: "3/m30/r(h2)", implemented: false },
+    { crNotation: "4^4", gjhNotation: "4/m45/r(h1)", implemented: false },
+    { crNotation: "6^3", gjhNotation: "6/m30/r(h1)", implemented: true }
 ];
 
-const regularTilingByName = new Map(knownRegularTilings.map(tiling => [tiling.name, tiling]));
-const defaultRegularTilingBySideCount = new Map(knownRegularTilings.map(tiling => [tiling.sides, tiling]));
-const regularTilingByCundyRollett = new Map(
-    knownRegularTilings.map(tiling => [normalizeCundyRollettNotation(tiling.cundyRollettNotation), tiling]));
-const regularTilingByGomJauHogg = new Map(
-    knownRegularTilings.map(tiling => [normalizeGomJauHoggNotation(tiling.gomJauHoggNotation), tiling]));
+const regularTilingByCr = new Map(
+    knownRegularTilings.map(tiling => [normalizeCrNotation(tiling.crNotation), tiling]));
+const regularTilingByGjh = new Map(
+    knownRegularTilings.map(tiling => [normalizeGjhNotation(tiling.gjhNotation), tiling]));
 
 const canonicalPeriodicTilingTypes = new Map<string, string>([
     ["regular", "Regular"],
@@ -120,34 +94,24 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
                         implemented: true,
                         arguments: [
                             {
-                                name: "cundyRollettNotation",
+                                name: "crNotation",
                                 kind: "notation",
                                 notation: "Cundy-Rollett",
                                 required: false,
                                 preferred: true
                             },
                             {
-                                name: "gomJauHoggNotation",
+                                name: "gjhNotation",
                                 kind: "notation",
                                 notation: "GomJau-Hogg",
                                 required: false,
                                 preferred: false
-                            },
-                            {
-                                name: "shape",
-                                kind: "shape",
-                                ordered: true,
-                                minimumCount: 1,
-                                maximumCount: 1,
-                                formats: ["canonical-name", "side-count"],
-                                convenience: true
                             }
                         ],
-                        selectorRule: "At least one selector is required. Multiple selectors are accepted only when they resolve to the same tiling.",
+                        selectorRule: "At least one notation is required. Both may be supplied only when they resolve to the same tiling.",
                         implementedTilings: [{
-                            cundyRollettNotation: "6^3",
-                            gomJauHoggNotation: "6/m30/r(h1)",
-                            shapes: [{ name: "hex", sides: 6 }]
+                            crNotation: "6^3",
+                            gjhNotation: "6/m30/r(h1)"
                         }]
                     },
                     {
@@ -196,67 +160,63 @@ function selectPeriodicTiling(parameters: URLSearchParams): RegularTilingSelecti
 }
 
 function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelection {
-    if (parameters.has("sides")) {
+    if (parameters.has("shape") || parameters.has("sides")) {
         throw new SurveyorRequestError(
             400,
             "regular_selector_invalid",
-            "Use cundyRollettNotation, gomJauHoggNotation, or shape for Regular periodic tilings. Side count shorthand is supplied through shape, for example shape=6.");
+            "Regular periodic tilings are selected with crNotation and/or gjhNotation.");
     }
 
-    const selections: KnownRegularTiling[] = [];
-    const cundyRollettValues = parameters.getAll("cundyRollettNotation");
-    const gomJauHoggValues = parameters.getAll("gomJauHoggNotation");
-    const shapeValues = parameters.getAll("shape");
-
-    if (cundyRollettValues.length > 1 || gomJauHoggValues.length > 1 || shapeValues.length > 1) {
+    const crValues = parameters.getAll("crNotation");
+    const gjhValues = parameters.getAll("gjhNotation");
+    if (crValues.length > 1 || gjhValues.length > 1) {
         throw new SurveyorRequestError(
             400,
             "regular_selector_count",
-            "Regular periodic-tiling selectors may each be supplied at most once.");
+            "Regular periodic-tiling notation selectors may each be supplied at most once.");
     }
 
-    if (cundyRollettValues.length === 1) selections.push(resolveRegularCundyRollett(cundyRollettValues[0]));
-    if (gomJauHoggValues.length === 1) selections.push(resolveRegularGomJauHogg(gomJauHoggValues[0]));
-    if (shapeValues.length === 1) selections.push(resolveRegularShape(shapeValues[0]));
+    const selections: KnownRegularTiling[] = [];
+    if (crValues.length === 1) selections.push(resolveRegularCr(crValues[0]));
+    if (gjhValues.length === 1) selections.push(resolveRegularGjh(gjhValues[0]));
 
     if (selections.length === 0) {
         throw new SurveyorRequestError(
             400,
             "regular_selector_required",
-            "Regular periodic tilings require a selector. The preferred selector is cundyRollettNotation; gomJauHoggNotation and shape are also accepted.");
+            "Regular periodic tilings require crNotation or gjhNotation. crNotation is the preferred selector.");
     }
 
     const selected = selections[0];
-    if (selections.some(candidate => candidate.name !== selected.name)) {
+    if (selections.some(candidate => candidate.crNotation !== selected.crNotation)) {
         throw new SurveyorRequestError(
             400,
             "regular_selector_conflict",
-            "The supplied Regular periodic-tiling selectors resolve to different tilings.");
+            "The supplied Regular periodic-tiling notations resolve to different tilings.");
     }
     if (!selected.implemented) {
         throw new SurveyorRequestError(
             501,
             "regular_tiling_not_implemented",
-            `Regular tiling '${selected.cundyRollettNotation}' (${selected.name}) is recognized but not implemented by this Surveyor deployment.`);
+            `Regular tiling '${selected.crNotation}' is recognized but not implemented by this Surveyor deployment.`);
     }
-    if (selected.name !== "hex" || selected.sides !== 6) {
+    if (selected.crNotation !== "6^3") {
         throw new SurveyorRequestError(500, "regular_tiling_dispatch_failure", "The implemented Regular tiling could not be dispatched.");
     }
 
     return {
         periodicTilingType: "Regular",
-        cundyRollettNotation: "6^3",
-        gomJauHoggNotation: "6/m30/r(h1)",
-        shapes: [{ name: "hex", sides: 6 }]
+        crNotation: "6^3",
+        gjhNotation: "6/m30/r(h1)"
     };
 }
 
-function resolveRegularCundyRollett(raw: string): KnownRegularTiling {
-    const normalized = normalizeCundyRollettNotation(raw);
+function resolveRegularCr(raw: string): KnownRegularTiling {
+    const normalized = normalizeCrNotation(raw);
     if (!normalized) {
-        throw new SurveyorRequestError(400, "invalid_cundy_rollett_notation", "cundyRollettNotation can not be empty.");
+        throw new SurveyorRequestError(400, "invalid_cr_notation", "crNotation can not be empty.");
     }
-    const tiling = regularTilingByCundyRollett.get(normalized);
+    const tiling = regularTilingByCr.get(normalized);
     if (!tiling) {
         throw new SurveyorRequestError(
             501,
@@ -266,12 +226,12 @@ function resolveRegularCundyRollett(raw: string): KnownRegularTiling {
     return tiling;
 }
 
-function resolveRegularGomJauHogg(raw: string): KnownRegularTiling {
-    const normalized = normalizeGomJauHoggNotation(raw);
+function resolveRegularGjh(raw: string): KnownRegularTiling {
+    const normalized = normalizeGjhNotation(raw);
     if (!normalized) {
-        throw new SurveyorRequestError(400, "invalid_gomjau_hogg_notation", "gomJauHoggNotation can not be empty.");
+        throw new SurveyorRequestError(400, "invalid_gjh_notation", "gjhNotation can not be empty.");
     }
-    const tiling = regularTilingByGomJauHogg.get(normalized);
+    const tiling = regularTilingByGjh.get(normalized);
     if (!tiling) {
         throw new SurveyorRequestError(
             501,
@@ -281,38 +241,7 @@ function resolveRegularGomJauHogg(raw: string): KnownRegularTiling {
     return tiling;
 }
 
-function resolveRegularShape(rawArgument: string): KnownRegularTiling {
-    const argument = rawArgument.trim();
-    if (!argument) {
-        throw new SurveyorRequestError(400, "regular_shape_argument_invalid", "Regular tiling shape arguments can not be empty.");
-    }
-
-    if (/^[0-9]+$/.test(argument)) {
-        const sides = Number(argument);
-        if (!Number.isInteger(sides) || sides < 3 || sides > 1000) {
-            throw new SurveyorRequestError(400, "invalid_regular_shape_sides", "A numeric Regular shape argument must be an integer between 3 and 1000.");
-        }
-        const tiling = defaultRegularTilingBySideCount.get(sides);
-        if (!tiling) {
-            throw new SurveyorRequestError(
-                501,
-                "regular_tiling_not_implemented",
-                `No default Regular periodic tiling is configured for ${sides}-sided polygons.`);
-        }
-        return tiling;
-    }
-
-    const tiling = regularTilingByName.get(argument.toLowerCase());
-    if (!tiling) {
-        throw new SurveyorRequestError(
-            501,
-            "regular_tiling_not_implemented",
-            `Regular tiling shape '${argument.toLowerCase()}' is not implemented by this Surveyor deployment.`);
-    }
-    return tiling;
-}
-
-function normalizeCundyRollettNotation(value: string): string {
+function normalizeCrNotation(value: string): string {
     return value
         .trim()
         .replace(/\s+/g, "")
@@ -327,7 +256,7 @@ function normalizeCundyRollettNotation(value: string): string {
         .replace(/⁹/g, "^9");
 }
 
-function normalizeGomJauHoggNotation(value: string): string {
+function normalizeGjhNotation(value: string): string {
     return value.trim().replace(/\s+/g, "").toLowerCase();
 }
 
@@ -371,9 +300,8 @@ async function detectRegularHexTiling(
             capability: PeriodicTilingDetectionCapability,
             tiling: {
                 periodicTilingType: tiling.periodicTilingType,
-                cundyRollettNotation: tiling.cundyRollettNotation,
-                gomJauHoggNotation: tiling.gomJauHoggNotation,
-                shapes: tiling.shapes
+                crNotation: tiling.crNotation,
+                gjhNotation: tiling.gjhNotation
             },
             status: mapped.status,
             reason: mapped.reason,
@@ -403,10 +331,8 @@ async function detectRegularHexTiling(
             correlationId,
             capability: PeriodicTilingDetectionCapability,
             periodicTilingType: tiling.periodicTilingType,
-            cundyRollettNotation: tiling.cundyRollettNotation,
-            gomJauHoggNotation: tiling.gomJauHoggNotation,
-            gridShapes: tiling.shapes.map(shape => shape.name),
-            gridSides: tiling.shapes.map(shape => shape.sides),
+            crNotation: tiling.crNotation,
+            gjhNotation: tiling.gjhNotation,
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -423,9 +349,8 @@ async function detectRegularHexTiling(
             correlationId,
             capability: PeriodicTilingDetectionCapability,
             periodicTilingType: tiling.periodicTilingType,
-            cundyRollettNotation: tiling.cundyRollettNotation,
-            gomJauHoggNotation: tiling.gomJauHoggNotation,
-            gridShapes: tiling.shapes.map(shape => shape.name),
+            crNotation: tiling.crNotation,
+            gjhNotation: tiling.gjhNotation,
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });
