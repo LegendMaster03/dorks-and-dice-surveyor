@@ -28,31 +28,22 @@ type RegularTilingSelection = {
 };
 
 type KnownRegularTiling = {
+    periodicTilingType: "Regular";
     crNotation: string;
     gjhNotation: string;
     implemented: boolean;
 };
 
 const knownRegularTilings: KnownRegularTiling[] = [
-    { crNotation: "3^6", gjhNotation: "3/m30/r(h2)", implemented: false },
-    { crNotation: "4^4", gjhNotation: "4/m45/r(h1)", implemented: false },
-    { crNotation: "6^3", gjhNotation: "6/m30/r(h1)", implemented: true }
+    { periodicTilingType: "Regular", crNotation: "3^6", gjhNotation: "3/m30/r(h2)", implemented: false },
+    { periodicTilingType: "Regular", crNotation: "4^4", gjhNotation: "4/m45/r(h1)", implemented: false },
+    { periodicTilingType: "Regular", crNotation: "6^3", gjhNotation: "6/m30/r(h1)", implemented: true }
 ];
 
 const regularTilingByCr = new Map(
     knownRegularTilings.map(tiling => [normalizeCrNotation(tiling.crNotation), tiling]));
 const regularTilingByGjh = new Map(
     knownRegularTilings.map(tiling => [normalizeGjhNotation(tiling.gjhNotation), tiling]));
-
-const canonicalPeriodicTilingTypes = new Map<string, string>([
-    ["regular", "Regular"],
-    ["semiregular", "semiregular"],
-    ["k-uniform", "k-uniform"],
-    ["plane-vertex", "Plane-vertex"],
-    ["2-uniform", "2-uniform"],
-    ["fractalizing", "Fractalizing"],
-    ["non-edge-to-edge", "non-edge-to-edge"]
-]);
 
 export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
     return createHttpServer((request, response) => {
@@ -88,47 +79,37 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
             capabilities: [{
                 id: PeriodicTilingDetectionCapability,
                 path: "/v1/periodic-tiling/detect",
-                periodicTilingTypes: [
+                notationSelectors: [
                     {
-                        name: "Regular",
-                        implemented: true,
-                        arguments: [
-                            {
-                                name: "crNotation",
-                                kind: "notation",
-                                notation: "Cundy-Rollett",
-                                required: false,
-                                preferred: true
-                            },
-                            {
-                                name: "gjhNotation",
-                                kind: "notation",
-                                notation: "GomJau-Hogg",
-                                required: false,
-                                preferred: false
-                            }
-                        ],
-                        selectorRule: "At least one notation is required. Both may be supplied only when they resolve to the same tiling.",
-                        implementedTilings: [{
-                            crNotation: "6^3",
-                            gjhNotation: "6/m30/r(h1)"
-                        }]
+                        name: "crNotation",
+                        kind: "notation",
+                        notation: "Cundy-Rollett",
+                        required: false,
+                        preferred: true
                     },
                     {
-                        name: "semiregular",
-                        implemented: false,
-                        arguments: [{
-                            name: "semiregularType",
-                            kind: "enum",
-                            required: true,
-                            values: ["Archimedean", "uniform"]
-                        }]
-                    },
-                    { name: "k-uniform", implemented: false, arguments: null },
-                    { name: "Plane-vertex", implemented: false, arguments: null },
-                    { name: "2-uniform", implemented: false, arguments: null },
-                    { name: "Fractalizing", implemented: false, arguments: null },
-                    { name: "non-edge-to-edge", implemented: false, arguments: null }
+                        name: "gjhNotation",
+                        kind: "notation",
+                        notation: "GomJau-Hogg",
+                        required: false,
+                        preferred: false
+                    }
+                ],
+                selectorRule: "At least one notation is required. Both may be supplied only when they resolve to the same tiling.",
+                derivedIdentity: ["periodicTilingType", "crNotation", "gjhNotation"],
+                implementedTilings: [{
+                    periodicTilingType: "Regular",
+                    crNotation: "6^3",
+                    gjhNotation: "6/m30/r(h1)"
+                }],
+                recognizedTilingFamilies: [
+                    { name: "Regular", implemented: true },
+                    { name: "semiregular", implemented: false, subtypes: ["Archimedean", "uniform"] },
+                    { name: "k-uniform", implemented: false },
+                    { name: "Plane-vertex", implemented: false },
+                    { name: "2-uniform", implemented: false },
+                    { name: "Fractalizing", implemented: false },
+                    { name: "non-edge-to-edge", implemented: false }
                 ]
             }]
         });
@@ -142,29 +123,11 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
 }
 
 function selectPeriodicTiling(parameters: URLSearchParams): RegularTilingSelection {
-    const rawType = parameters.get("periodicTilingType")?.trim() ?? "";
-    if (!rawType) {
+    if (parameters.has("periodicTilingType") || parameters.has("shape") || parameters.has("sides")) {
         throw new SurveyorRequestError(
             400,
-            "periodic_tiling_type_required",
-            "periodicTilingType is required for periodic-tiling detection.");
-    }
-    const canonicalType = canonicalPeriodicTilingTypes.get(rawType.toLowerCase()) ?? rawType;
-    if (canonicalType !== "Regular") {
-        throw new SurveyorRequestError(
-            501,
-            "periodic_tiling_type_not_implemented",
-            `Periodic tiling type '${canonicalType}' is recognized but not implemented by this Surveyor deployment.`);
-    }
-    return selectRegularTiling(parameters);
-}
-
-function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelection {
-    if (parameters.has("shape") || parameters.has("sides")) {
-        throw new SurveyorRequestError(
-            400,
-            "regular_selector_invalid",
-            "Regular periodic tilings are selected with crNotation and/or gjhNotation.");
+            "tiling_selector_invalid",
+            "Periodic tilings are selected with crNotation and/or gjhNotation. periodicTilingType, shape, and sides are derived identity and are not request selectors.");
     }
 
     const crValues = parameters.getAll("crNotation");
@@ -172,8 +135,8 @@ function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelectio
     if (crValues.length > 1 || gjhValues.length > 1) {
         throw new SurveyorRequestError(
             400,
-            "regular_selector_count",
-            "Regular periodic-tiling notation selectors may each be supplied at most once.");
+            "tiling_selector_count",
+            "Periodic-tiling notation selectors may each be supplied at most once.");
     }
 
     const selections: KnownRegularTiling[] = [];
@@ -183,25 +146,26 @@ function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelectio
     if (selections.length === 0) {
         throw new SurveyorRequestError(
             400,
-            "regular_selector_required",
-            "Regular periodic tilings require crNotation or gjhNotation. crNotation is the preferred selector.");
+            "tiling_selector_required",
+            "Periodic tilings require crNotation or gjhNotation. crNotation is the preferred selector.");
     }
 
     const selected = selections[0];
-    if (selections.some(candidate => candidate.crNotation !== selected.crNotation)) {
+    if (selections.some(candidate => candidate.periodicTilingType !== selected.periodicTilingType
+        || candidate.crNotation !== selected.crNotation)) {
         throw new SurveyorRequestError(
             400,
-            "regular_selector_conflict",
-            "The supplied Regular periodic-tiling notations resolve to different tilings.");
+            "tiling_selector_conflict",
+            "The supplied periodic-tiling notations resolve to different tilings.");
     }
     if (!selected.implemented) {
         throw new SurveyorRequestError(
             501,
-            "regular_tiling_not_implemented",
-            `Regular tiling '${selected.crNotation}' is recognized but not implemented by this Surveyor deployment.`);
+            "tiling_not_implemented",
+            `${selected.periodicTilingType} tiling '${selected.crNotation}' is recognized but not implemented by this Surveyor deployment.`);
     }
-    if (selected.crNotation !== "6^3") {
-        throw new SurveyorRequestError(500, "regular_tiling_dispatch_failure", "The implemented Regular tiling could not be dispatched.");
+    if (selected.periodicTilingType !== "Regular" || selected.crNotation !== "6^3") {
+        throw new SurveyorRequestError(500, "tiling_dispatch_failure", "The implemented periodic tiling could not be dispatched.");
     }
 
     return {
@@ -220,8 +184,8 @@ function resolveRegularCr(raw: string): KnownRegularTiling {
     if (!tiling) {
         throw new SurveyorRequestError(
             501,
-            "regular_tiling_not_implemented",
-            `Regular Cundy-Rollett notation '${raw.trim()}' is not implemented by this Surveyor deployment.`);
+            "tiling_not_implemented",
+            `Cundy-Rollett notation '${raw.trim()}' is not implemented by this Surveyor deployment.`);
     }
     return tiling;
 }
@@ -235,8 +199,8 @@ function resolveRegularGjh(raw: string): KnownRegularTiling {
     if (!tiling) {
         throw new SurveyorRequestError(
             501,
-            "regular_tiling_not_implemented",
-            `Regular GomJau-Hogg notation '${raw.trim()}' is not implemented by this Surveyor deployment.`);
+            "tiling_not_implemented",
+            `GomJau-Hogg notation '${raw.trim()}' is not implemented by this Surveyor deployment.`);
     }
     return tiling;
 }

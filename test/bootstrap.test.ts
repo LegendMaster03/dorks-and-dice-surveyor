@@ -17,7 +17,7 @@ const config: SurveyorConfig = {
     analysisMaximumDimension: 2048
 };
 
-test("service identity advertises capability-specific periodic-tiling selectors", async () => {
+test("service identity advertises notation selectors and derived tiling identity", async () => {
     const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 1000);
     const server = createSurveyorServer({ config, pool });
     server.listen(0, "127.0.0.1");
@@ -29,11 +29,7 @@ test("service identity advertises capability-specific periodic-tiling selectors"
         assert.equal(value.apiVersion, "v1");
         assert.equal(value.capabilities[0].id, "map.periodic-tiling.detect");
         assert.equal(value.capabilities[0].path, "/v1/periodic-tiling/detect");
-
-        const regular = value.capabilities[0].periodicTilingTypes[0];
-        assert.equal(regular.name, "Regular");
-        assert.equal(regular.implemented, true);
-        assert.deepEqual(regular.arguments, [
+        assert.deepEqual(value.capabilities[0].notationSelectors, [
             {
                 name: "crNotation",
                 kind: "notation",
@@ -49,27 +45,20 @@ test("service identity advertises capability-specific periodic-tiling selectors"
                 preferred: false
             }
         ]);
-        assert.deepEqual(regular.implementedTilings, [{
+        assert.deepEqual(value.capabilities[0].derivedIdentity, ["periodicTilingType", "crNotation", "gjhNotation"]);
+        assert.deepEqual(value.capabilities[0].implementedTilings, [{
+            periodicTilingType: "Regular",
             crNotation: "6^3",
             gjhNotation: "6/m30/r(h1)"
         }]);
-
-        assert.deepEqual(value.capabilities[0].periodicTilingTypes.slice(1), [
-            {
-                name: "semiregular",
-                implemented: false,
-                arguments: [{
-                    name: "semiregularType",
-                    kind: "enum",
-                    required: true,
-                    values: ["Archimedean", "uniform"]
-                }]
-            },
-            { name: "k-uniform", implemented: false, arguments: null },
-            { name: "Plane-vertex", implemented: false, arguments: null },
-            { name: "2-uniform", implemented: false, arguments: null },
-            { name: "Fractalizing", implemented: false, arguments: null },
-            { name: "non-edge-to-edge", implemented: false, arguments: null }
+        assert.deepEqual(value.capabilities[0].recognizedTilingFamilies, [
+            { name: "Regular", implemented: true },
+            { name: "semiregular", implemented: false, subtypes: ["Archimedean", "uniform"] },
+            { name: "k-uniform", implemented: false },
+            { name: "Plane-vertex", implemented: false },
+            { name: "2-uniform", implemented: false },
+            { name: "Fractalizing", implemented: false },
+            { name: "non-edge-to-edge", implemented: false }
         ]);
     } finally {
         server.close();

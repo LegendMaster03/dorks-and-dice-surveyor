@@ -10,20 +10,13 @@ Surveyor is intentionally stateless. It does not own maps, grids, campaigns, rou
 
 Surveyor is one service with separate APIs for separate computer-vision operations. Phase 13 implements only known periodic-tiling detection through the versioned `POST /v1/periodic-tiling/detect` API. Future operations such as recognizing an unknown tiling or performing unrelated computer vision belong on separate capability endpoints rather than being folded into this route.
 
-Every periodic-tiling detection request declares a `periodicTilingType`. The family then defines which selectors and arguments are meaningful.
+Periodic tilings are selected with standard notation. The notation already carries the tiling identity, so callers do not separately provide `periodicTilingType`, shape names, or polygon side counts.
 
-For the implemented `Regular` family, the preferred workflow is:
-
-- declare `periodicTilingType=Regular`; and
-- identify the tiling with Cundy-Rollett notation, for example `crNotation=6^3` for the regular hexagonal tiling.
-
-GomJau-Hogg (GJ-H) notation is also a first-class selector, for example `gjhNotation=6/m30/r(h1)`. Surveyor normalizes either notation to the same tiling identity and returns both normalized notations in the response.
-
-Shape names and polygon side counts are not part of the public periodic-tiling API. Standard notation is the canonical identity boundary.
+The preferred workflow uses Cundy-Rollett notation, for example `crNotation=6^3` for the regular hexagonal tiling. GomJau-Hogg (GJ-H) notation is also a first-class selector, for example `gjhNotation=6/m30/r(h1)`. Surveyor resolves either notation to the same known tiling, derives its periodic-tiling classification, and returns both normalized notations plus the derived `periodicTilingType` in the response.
 
 Phase 13 implements only the Regular hexagonal tiling. Triangle and square Regular tilings are recognized by notation but intentionally return not implemented until detectors exist.
 
-The API reserves additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also reserves the enum values `Archimedean` and `uniform`. Their future argument schemas do not have to resemble the Regular family.
+The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform`. These are derived classification values rather than request selectors.
 
 The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
 

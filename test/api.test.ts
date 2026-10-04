@@ -8,7 +8,7 @@ import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
-const regularHexQuery = "periodicTilingType=Regular&crNotation=6%5E3";
+const regularHexQuery = "crNotation=6%5E3";
 
 async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Partial<SurveyorConfig> = {}): Promise<void> {
     const config: SurveyorConfig = {
@@ -81,28 +81,23 @@ test("analysis requires bearer authentication", async () => {
     });
 });
 
-test("periodic tiling type selects a family-specific notation contract", async () => {
+test("notation selects the tiling and derives periodic tiling type", async () => {
     await withServer(async baseUrl => {
         const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
         const encoded = await plainPng();
         const route = `${baseUrl}/v1/periodic-tiling/detect`;
         const send = (query: string) => fetch(`${route}?${query}`, { method: "POST", headers, body: bodyOf(encoded) });
 
-        assert.equal((await send("crNotation=6%5E3")).status, 400);
-        assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 501);
-        assert.equal((await send("periodicTilingType=k-uniform")).status, 501);
-        assert.equal((await send("periodicTilingType=Plane-vertex")).status, 501);
-        assert.equal((await send("periodicTilingType=2-uniform")).status, 501);
-        assert.equal((await send("periodicTilingType=Fractalizing")).status, 501);
-        assert.equal((await send("periodicTilingType=non-edge-to-edge")).status, 501);
-        assert.equal((await send("periodicTilingType=Regular")).status, 400);
+        assert.equal((await send("")).status, 400);
+        assert.equal((await send("periodicTilingType=Regular&crNotation=6%5E3")).status, 400);
+        assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 400);
 
         const selectors = [
-            "periodicTilingType=Regular&crNotation=6%5E3",
-            "periodicTilingType=Regular&crNotation=6%5E%7B3%7D",
-            `periodicTilingType=Regular&crNotation=${encodeURIComponent("6³")}`,
-            `periodicTilingType=Regular&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
-            `periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`
+            "crNotation=6%5E3",
+            "crNotation=6%5E%7B3%7D",
+            `crNotation=${encodeURIComponent("6³")}`,
+            `gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
+            `crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`
         ];
         for (const selector of selectors) {
             const response = await send(selector);
@@ -111,12 +106,12 @@ test("periodic tiling type selects a family-specific notation contract", async (
             assert.deepEqual(value.tiling, expectedRegularHexIdentity(), selector);
         }
 
-        assert.equal((await send("periodicTilingType=Regular&crNotation=4%5E4")).status, 501);
-        assert.equal((await send(`periodicTilingType=Regular&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
-        assert.equal((await send("periodicTilingType=Regular&shape=hex")).status, 400);
-        assert.equal((await send("periodicTilingType=Regular&sides=6")).status, 400);
-        assert.equal((await send(`periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);
-        assert.equal((await send("periodicTilingType=Regular&crNotation=6%5E3&crNotation=6%5E3")).status, 400);
+        assert.equal((await send("crNotation=4%5E4")).status, 501);
+        assert.equal((await send(`gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send("shape=hex")).status, 400);
+        assert.equal((await send("sides=6")).status, 400);
+        assert.equal((await send(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);
+        assert.equal((await send("crNotation=6%5E3&crNotation=6%5E3")).status, 400);
     });
 });
 
