@@ -12,16 +12,14 @@ Known-tiling detection, unknown-tiling recognition, generic line/feature analysi
 
 ## Periodic-tiling capability model
 
-A request first declares `periodicTilingType`. That value selects the family-specific parser and detector contract. Future periodic-tiling families may require notation, enums, parameters, or other family-specific arguments without changing the top-level endpoint.
-
-For `Regular`, standard notation is the public identity boundary:
+Standard notation is the public tiling identity boundary. The notation already identifies the periodic tiling, so the caller does not separately provide `periodicTilingType`, shape names, or polygon side counts.
 
 - `crNotation` is Cundy-Rollett notation and is the preferred selector;
 - `gjhNotation` is GomJau-Hogg notation and is an equivalent first-class selector.
 
-At least one notation is required. Both may be supplied only when they resolve to the same tiling. Shape names and polygon side counts are not part of the public API. Responses return both normalized notation identities, keeping consumers independent of Surveyor's internal detector names.
+At least one notation is required. Both may be supplied only when they resolve to the same tiling. Surveyor derives `periodicTilingType` from the resolved tiling and returns the normalized C&R notation, GJ-H notation, and derived type together. If a notation is ambiguous among known tilings, Surveyor should report that ambiguity or require the more specific notation rather than reintroducing a caller-supplied family discriminator.
 
-Known but currently unimplemented periodic-tiling families include `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` reserves the enum values `Archimedean` and `uniform`. Adding any of these should register a family-specific parser and detector behind the periodic-tiling detection capability rather than changing the Regular contract or the Hex Crawl integration.
+Known but currently unimplemented periodic-tiling classifications include `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` retains the classification vocabulary `Archimedean` and `uniform`. Adding detectors for these families should extend the notation registry and dispatch behind the periodic-tiling detection capability without changing the Hex Crawl integration contract.
 
 ## Phase 13 implementation
 
@@ -33,7 +31,7 @@ The current `Regular` `6^3` / `6/m30/r(h1)` detector performs:
 4. the extracted deterministic hex-lattice detector;
 5. normalization of spacing, anchor, and residual back into source-image pixels.
 
-Hex Crawl explicitly requests `periodicTilingType=Regular&crNotation=6^3` and validates the returned `Regular` / `6^3` / `6/m30/r(h1)` identity before accepting the observation. Hex Crawl continues to own physical scale, Wonderdraft reconciliation, registration proposals, preview, confirmation, grid identity, optimistic concurrency, expedition safety, and persistence.
+Hex Crawl requests `crNotation=6^3` and validates the returned derived `Regular` / `6^3` / `6/m30/r(h1)` identity before accepting the observation. Hex Crawl continues to own physical scale, Wonderdraft reconciliation, registration proposals, preview, confirmation, grid identity, optimistic concurrency, expedition safety, and persistence.
 
 ## Concurrency
 
