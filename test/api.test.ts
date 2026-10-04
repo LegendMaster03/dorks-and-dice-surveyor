@@ -40,8 +40,15 @@ async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Pa
     }
 }
 
+async function plainImage(format: "png" | "jpeg" | "webp", size = 96): Promise<Buffer> {
+    const image = sharp({ create: { width: size, height: size, channels: 3, background: "white" } });
+    if (format === "png") return image.png().toBuffer();
+    if (format === "jpeg") return image.jpeg({ quality: 95 }).toBuffer();
+    return image.webp({ quality: 95 }).toBuffer();
+}
+
 async function plainPng(size = 96): Promise<Buffer> {
-    return sharp({ create: { width: size, height: size, channels: 3, background: "white" } }).png().toBuffer();
+    return plainImage("png", size);
 }
 
 function bodyOf(buffer: Buffer): ArrayBuffer {
@@ -86,6 +93,53 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         assert.deepEqual(value.source, { width: 96, height: 96, mediaType: "image/png" });
         assert.equal(value.analysis.sourceResolutionVerified, true);
         assert.ok(value.fit === null || ["PointyTop", "FlatTop"].includes(value.fit.orientation));
+    });
+});
+
+test("PNG JPEG and WebP traverse decode grayscale detector and source-coordinate response", async () => {
+    await withServer(async baseUrl => {
+        for (const fixture of [
+            { format: "png", mediaType: "image/png" },
+            { format: "jpeg", mediaType: "image/jpeg" },
+            { format: "webp", mediaType: "image/webp" }
+        ] as const) {
+            const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
+                method: "POST",
+                headers: {
+                    "content-type": fixture.mediaType,
+                    authorization: `Bearer ${token}`
+                },
+                body: bodyOf(await plainImage(fixture.format))
+            });
+            assert.equal(response.status, 200, fixture.mediaType);
+            const value = await response.json() as Record<string, any>;
+            assert.equal(value.source.mediaType, fixture.mediaType);
+            assert.equal(value.source.width, 96);
+            assert.equal(value.source.height, 96);
+            assert.equal(value.analysis.width, 96);
+            assert.equal(value.analysis.height, 96);
+            assert.equal(value.analysis.scale, 1);
+            assert.equal(value.status, "gridless");
+            assert.equal(value.fit, null);
+        }
+    });
+});
+
+test("same encoded input produces deterministic analysis apart from timing", async () => {
+    await withServer(async baseUrl => {
+        const encoded = await plainPng();
+        const analyze = async () => {
+            const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
+                method: "POST",
+                headers: { "content-type": "image/png", authorization: `Bearer ${token}` },
+                body: bodyOf(encoded)
+            });
+            assert.equal(response.status, 200);
+            const value = await response.json() as Record<string, any>;
+            delete value.timing;
+            return value;
+        };
+        assert.deepEqual(await analyze(), await analyze());
     });
 });
 
