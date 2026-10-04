@@ -2,7 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { performance } from "node:perf_hooks";
 import type { SurveyorConfig } from "./config.js";
-import { HexGridDetectionCapability, SurveyorApiVersion, type PublicHexGridDetectionOptions, type SurveyorErrorResponse, type SurveyorHexGridAnalysis } from "./contracts.js";
+import { GridDetectionCapability, SurveyorApiVersion, type PublicHexGridDetectionOptions, type SurveyorErrorResponse, type SurveyorHexGridAnalysis } from "./contracts.js";
 import { WorkerJobCancelledError, WorkerJobTimeoutError, WorkerPoolOverloadedError, SurveyorRequestError } from "./errors.js";
 import { prepareRaster } from "./image/preprocess.js";
 import { log } from "./logging.js";
@@ -14,6 +14,20 @@ export type SurveyorDependencies = {
     config: SurveyorConfig;
     pool: BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>;
 };
+
+type GridShapeSelection = {
+    name: "hex";
+    sides: 6;
+};
+
+const regularShapeNamesBySideCount = new Map<number, string>([
+    [3, "triangle"],
+    [4, "square"],
+    [6, "hex"]
+]);
+
+const regularShapeSideCountsByName = new Map<string, number>(
+    [...regularShapeNamesBySideCount.entries()].map(([sides, name]) => [name, sides]));
 
 export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
     return createHttpServer((request, response) => {
@@ -46,24 +60,79 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
         return writeJson(response, 200, {
             service: "Dorks & Dice Surveyor",
             apiVersion: SurveyorApiVersion,
-            capabilities: [HexGridDetectionCapability]
+            capabilities: [{
+                id: GridDetectionCapability,
+                implementedShapes: [{ name: "hex", sides: 6 }],
+                selectors: ["shape", "sides"]
+            }]
         });
     }
-    if (request.method === "POST" && url.pathname === "/v1/hex-grid/detect") {
-        return detectHexGrid(request, response, url, dependencies);
+    if (request.method === "POST" && url.pathname === "/v1/grid/detect") {
+        requireServiceToken(request, dependencies.config.serviceToken);
+        const shape = selectGridShape(url.searchParams);
+        return detectHexGrid(request, response, url, dependencies, shape);
     }
     writeJson(response, 404, { error: "not_found" });
+}
+
+function selectGridShape(parameters: URLSearchParams): GridShapeSelection {
+    const rawName = parameters.get("shape")?.trim().toLowerCase() ?? "";
+    const rawSides = parameters.get("sides")?.trim() ?? "";
+    if (!rawName && !rawSides) {
+        throw new SurveyorRequestError(
+            400,
+            "grid_shape_required",
+            "Specify the grid shape with shape=<canonical name> or sides=<regular polygon side count>.");
+    }
+
+    let sides: number | null = null;
+    if (rawSides) {
+        const parsed = Number(rawSides);
+        if (!Number.isInteger(parsed) || parsed < 3 || parsed > 1000) {
+            throw new SurveyorRequestError(400, "invalid_grid_sides", "sides must be an integer between 3 and 1000.");
+        }
+        sides = parsed;
+    }
+
+    const sidesFromName = rawName ? regularShapeSideCountsByName.get(rawName) ?? null : null;
+    const nameFromSides = sides == null ? null : regularShapeNamesBySideCount.get(sides) ?? null;
+    if (rawName && sidesFromName != null && sides != null && sidesFromName !== sides) {
+        throw new SurveyorRequestError(
+            400,
+            "grid_shape_selector_conflict",
+            `shape=${rawName} and sides=${sides} identify different regular grid shapes.`);
+    }
+    if (rawName && nameFromSides != null && rawName !== nameFromSides) {
+        throw new SurveyorRequestError(
+            400,
+            "grid_shape_selector_conflict",
+            `shape=${rawName} and sides=${sides} identify different regular grid shapes.`);
+    }
+
+    const canonicalName = rawName || nameFromSides;
+    const canonicalSides = sides ?? sidesFromName;
+    if (canonicalName === "hex" && canonicalSides === 6) return { name: "hex", sides: 6 };
+    if (canonicalName === "hex" && canonicalSides == null) return { name: "hex", sides: 6 };
+    if (!canonicalName && canonicalSides === 6) return { name: "hex", sides: 6 };
+
+    const description = canonicalName
+        ? `Grid shape '${canonicalName}'${canonicalSides == null ? "" : ` (${canonicalSides} sides)`}`
+        : `Regular ${canonicalSides}-sided grid shape`;
+    throw new SurveyorRequestError(
+        501,
+        "grid_shape_not_implemented",
+        `${description} is not implemented by this Surveyor deployment.`);
 }
 
 async function detectHexGrid(
     request: IncomingMessage,
     response: ServerResponse,
     url: URL,
-    dependencies: SurveyorDependencies): Promise<void> {
+    dependencies: SurveyorDependencies,
+    shape: GridShapeSelection): Promise<void> {
     const totalStarted = performance.now();
     const correlationId = correlationIdentifier(request.headers["x-correlation-id"]);
     response.setHeader("x-correlation-id", correlationId);
-    requireServiceToken(request, dependencies.config.serviceToken);
     const contentType = request.headers["content-type"] ?? "";
     const sourceOptions = parseDetectionOptions(url.searchParams);
     const controller = new AbortController();
@@ -92,7 +161,8 @@ async function detectHexGrid(
         const detectorMs = Math.max(0, workerResult.detectorTotalMs - edgeFieldMs);
         const result: SurveyorHexGridAnalysis = {
             apiVersion: SurveyorApiVersion,
-            capability: HexGridDetectionCapability,
+            capability: GridDetectionCapability,
+            gridKind: "hex",
             status: mapped.status,
             reason: mapped.reason,
             source: {
@@ -119,7 +189,9 @@ async function detectHexGrid(
         response.setHeader("server-timing", serverTiming(result));
         log("info", "surveyor.analysis.completed", {
             correlationId,
-            capability: HexGridDetectionCapability,
+            capability: GridDetectionCapability,
+            gridShape: shape.name,
+            gridSides: shape.sides,
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -134,7 +206,9 @@ async function detectHexGrid(
     } catch (error) {
         log("error", "surveyor.analysis.failed", {
             correlationId,
-            capability: HexGridDetectionCapability,
+            capability: GridDetectionCapability,
+            gridShape: shape.name,
+            gridSides: shape.sides,
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });
@@ -266,7 +340,7 @@ function writeError(response: ServerResponse, error: unknown): void {
     if (status === 401) response.setHeader("www-authenticate", "Bearer");
     const body: SurveyorErrorResponse = {
         apiVersion: SurveyorApiVersion,
-        capability: HexGridDetectionCapability,
+        capability: GridDetectionCapability,
         error: { code, message }
     };
     writeJson(response, status, body);
