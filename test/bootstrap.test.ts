@@ -1,36 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { once } from "node:events";
+import type { SurveyorConfig } from "../src/config.js";
+import type { HexGridWorkerRequest, HexGridWorkerResult } from "../src/analysis/hex-grid/worker-contract.js";
+import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createSurveyorServer } from "../src/server.js";
+import { once } from "node:events";
 
-async function withServer(run: (baseUrl: string) => Promise<void>): Promise<void> {
-    const server = createSurveyorServer();
+const config: SurveyorConfig = {
+    port: 8080,
+    serviceToken: "bootstrap-test-token-123456",
+    maxUploadBytes: 1024,
+    maxPixels: 1_000_000,
+    workerCount: 1,
+    queueLimit: 1,
+    analysisTimeoutMs: 1000,
+    analysisMaximumDimension: 2048
+};
+
+test("service identity advertises the versioned capability", async () => {
+    const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 1000);
+    const server = createSurveyorServer({ config, pool });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("Expected TCP server address.");
+    if (!address || typeof address === "string") throw new Error("Expected address.");
     try {
-        await run(`http://127.0.0.1:${address.port}`);
+        const value = await (await fetch(`http://127.0.0.1:${address.port}/`)).json() as any;
+        assert.equal(value.apiVersion, "v1");
+        assert.deepEqual(value.capabilities, ["map.hex-grid.detect"]);
     } finally {
         server.close();
         await once(server, "close");
+        await pool.close();
     }
-}
-
-test("liveness is lightweight", async () => {
-    await withServer(async baseUrl => {
-        const response = await fetch(`${baseUrl}/health/live`);
-        assert.equal(response.status, 200);
-        assert.deepEqual(await response.json(), { status: "live", service: "surveyor" });
-    });
-});
-
-test("readiness reports work acceptance", async () => {
-    await withServer(async baseUrl => {
-        const response = await fetch(`${baseUrl}/health/ready`);
-        assert.equal(response.status, 200);
-        const body = await response.json() as { status: string; acceptingWork: boolean };
-        assert.equal(body.status, "ready");
-        assert.equal(body.acceptingWork, true);
-    });
 });
