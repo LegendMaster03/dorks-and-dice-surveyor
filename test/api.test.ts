@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import sharp from "sharp";
-import type { SurveyorConfig } from "../src/config.js";
 import type { HexGridWorkerRequest, HexGridWorkerResult } from "../src/analysis/hex-grid/worker-contract.js";
+import type { SurveyorConfig } from "../src/config.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
+import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
@@ -27,7 +28,8 @@ async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Pa
         config.workerCount,
         config.queueLimit,
         config.analysisTimeoutMs);
-    const server = createSurveyorServer({ config, pool });
+    const resources = [createPeriodicTilingResource({ config, pool })];
+    const server = createSurveyorServer({ resources, readiness: pool });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address();
@@ -108,6 +110,8 @@ test("notation selects the tiling and derives periodic tiling type", async () =>
 
         assert.equal((await send("crNotation=4%5E4")).status, 501);
         assert.equal((await send(`gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send(`crNotation=${encodeURIComponent("3.4.6.4")}`)).status, 501);
+        assert.equal((await send(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`)).status, 501);
         assert.equal((await send("shape=hex")).status, 400);
         assert.equal((await send("sides=6")).status, 400);
         assert.equal((await send(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);

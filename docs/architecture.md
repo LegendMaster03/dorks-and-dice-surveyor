@@ -4,9 +4,11 @@ Surveyor is a stateless host for independent headless analysis resources. It obs
 
 The dependency direction is consumer -> Surveyor. Surveyor has no dependency on Hex Crawl world, campaign, expedition, grid, or persistence types.
 
-## Service and resource boundaries
+## Service, composition, and resource boundaries
 
-`src/server.ts` is intentionally a thin service router. It owns only service-level health/discovery routes and dispatches requests to registered resources.
+`src/main.ts` is the composition root. It constructs resource-specific dependencies, registers the headless resources hosted by this deployment, and hands only generic resource/readiness interfaces to the HTTP server.
+
+`src/server.ts` is intentionally a domain-neutral service router. It owns only service-level health/discovery routes and dispatches requests to the supplied resource registry. It does not import the periodic-tiling resource, the hex detector, or detector-specific worker contracts.
 
 A resource implements the `SurveyorResource` boundary in `src/resources/resource.ts`:
 
@@ -17,7 +19,9 @@ A resource implements the `SurveyorResource` boundary in `src/resources/resource
 
 Domain-specific parsing, catalogs, analysis orchestration, and dispatch belong inside the resource rather than the root server. Shared HTTP/authentication/error helpers live outside resources. Shared bounded image preparation and worker infrastructure can likewise be reused by multiple resources without coupling their domain models.
 
-The current resource registry contains `periodic-tiling`. Additional headless resources should be added as siblings under `src/resources/` and registered by the server rather than expanding `server.ts` into a catch-all controller.
+The generic bounded worker pool imports only a service-level worker-envelope contract from `src/infrastructure/worker-contract.ts`. Detector-specific worker payloads remain owned by their detector/resource. Additional headless resources can therefore register their own worker implementations without depending on the hex-grid contract.
+
+The current composition root registers `periodic-tiling`. Additional headless resources should be added as siblings under `src/resources/` and registered in the composition root rather than expanding `server.ts` into a catch-all controller.
 
 ## Periodic-tiling resource
 
@@ -95,7 +99,7 @@ The published GomJau-Hogg system is a construction notation for edge-to-edge reg
 
 CPU-heavy lattice detection runs in a fixed worker-thread pool. Worker count and queued work are bounded. A full queue produces explicit overload rather than spawning unbounded workers. Cancellation or timeout terminates the affected worker and replaces it, preventing abandoned CPU-heavy analysis from continuing indefinitely.
 
-The present worker contract is hex-detector-specific because only `regular.hexagonal` is registered. As additional CPU-heavy resources or tiling detectors are implemented, worker dispatch can be generalized behind the resource boundary without changing public routing.
+The current deployment uses a dedicated pool for the `regular.hexagonal` detector. Future CPU-heavy resources can own separate pools or share a generalized worker dispatcher without changing the HTTP server contract.
 
 ## Security boundary
 

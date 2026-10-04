@@ -1,7 +1,8 @@
 import { parentPort } from "node:worker_threads";
 import { performance } from "node:perf_hooks";
 import { detectHexLattice } from "./hex-grid/detector.js";
-import type { HexGridWorkerRequest, HexGridWorkerResult, WorkerRequestEnvelope, WorkerResponseEnvelope } from "./hex-grid/worker-contract.js";
+import type { HexGridWorkerRequest, HexGridWorkerResult } from "./hex-grid/worker-contract.js";
+import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../infrastructure/worker-contract.js";
 
 if (!parentPort) throw new Error("Surveyor analysis worker requires a worker-thread parent port.");
 

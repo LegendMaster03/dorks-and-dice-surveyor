@@ -11,11 +11,9 @@ export type HexGridWorkerResult = {
     detectorTotalMs: number;
 };
 
-export type WorkerRequestEnvelope<T> = {
-    jobId: string;
-    payload: T;
-};
-
-export type WorkerResponseEnvelope<T> =
-    | { jobId: string; ok: true; result: T }
-    | { jobId: string; ok: false; error: string };
+// Transitional re-exports preserve source compatibility while the generic worker
+// envelope now belongs to service infrastructure rather than this hex detector.
+export type {
+    WorkerRequestEnvelope,
+    WorkerResponseEnvelope
+} from "../../infrastructure/worker-contract.js";

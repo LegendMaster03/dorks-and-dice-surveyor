@@ -1,21 +1,31 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { SurveyorConfig } from "./config.js";
 import { SurveyorApiVersion } from "./contracts.js";
 import { writeError, writeJson } from "./http.js";
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "./analysis/hex-grid/worker-contract.js";
-import type { BoundedWorkerPool } from "./infrastructure/worker-pool.js";
-import { createPeriodicTilingResource } from "./resources/periodic-tiling/resource.js";
 import type { SurveyorResource } from "./resources/resource.js";
 
-export type SurveyorDependencies = {
-    config: SurveyorConfig;
-    pool: BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>;
+export type SurveyorReadinessSnapshot = {
+    workers: number;
+    busy: number;
+    queued: number;
+    queueLimit: number;
 };
 
-export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
-    const resources: readonly SurveyorResource[] = [createPeriodicTilingResource(dependencies)];
+export type SurveyorReadinessProvider = {
+    readonly canAccept: boolean;
+    snapshot(): SurveyorReadinessSnapshot;
+};
+
+export type SurveyorServerDependencies = {
+    resources: readonly SurveyorResource[];
+    readiness: SurveyorReadinessProvider;
+};
+
+export function createSurveyorServer(dependencies: SurveyorServerDependencies): Server {
+    const resources = [...dependencies.resources];
+    assertUniqueResourceRegistration(resources);
+
     return createHttpServer((request, response) => {
-        void route(request, response, dependencies, resources).catch(error => {
+        void route(request, response, dependencies.readiness, resources).catch(error => {
             if (!response.headersSent) writeError(response, error, "surveyor");
             else response.destroy();
         });
@@ -25,7 +35,7 @@ export function createSurveyorServer(dependencies: SurveyorDependencies): Server
 async function route(
     request: IncomingMessage,
     response: ServerResponse,
-    dependencies: SurveyorDependencies,
+    readiness: SurveyorReadinessProvider,
     resources: readonly SurveyorResource[]): Promise<void> {
     const url = new URL(request.url ?? "/", "http://surveyor.local");
 
@@ -34,8 +44,8 @@ async function route(
     }
 
     if (request.method === "GET" && url.pathname === "/health/ready") {
-        const snapshot = dependencies.pool.snapshot();
-        const ready = dependencies.pool.canAccept;
+        const snapshot = readiness.snapshot();
+        const ready = readiness.canAccept;
         return writeJson(response, ready ? 200 : 503, {
             status: ready ? "ready" : "overloaded",
             service: "surveyor",
@@ -63,4 +73,22 @@ async function route(
     }
 
     writeJson(response, 404, { error: "not_found" });
+}
+
+function assertUniqueResourceRegistration(resources: readonly SurveyorResource[]): void {
+    const ids = new Set<string>();
+    const routes = new Set<string>();
+
+    for (const resource of resources) {
+        if (ids.has(resource.id)) throw new Error(`Duplicate Surveyor resource id '${resource.id}'.`);
+        ids.add(resource.id);
+
+        for (const capability of resource.capabilities) {
+            const route = `${capability.id}:${capability.path}`;
+            if (routes.has(route)) {
+                throw new Error(`Duplicate Surveyor capability registration '${route}'.`);
+            }
+            routes.add(route);
+        }
+    }
 }

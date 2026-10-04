@@ -1,19 +1,25 @@
-import { loadConfig } from "./config.js";
-import { log } from "./logging.js";
-import { createSurveyorServer } from "./server.js";
 import type { HexGridWorkerRequest, HexGridWorkerResult } from "./analysis/hex-grid/worker-contract.js";
+import { loadConfig } from "./config.js";
 import { BoundedWorkerPool } from "./infrastructure/worker-pool.js";
+import { log } from "./logging.js";
+import { createPeriodicTilingResource } from "./resources/periodic-tiling/resource.js";
+import { createSurveyorServer } from "./server.js";
 
 const config = loadConfig();
-const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
+const periodicTilingPool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
     new URL("./analysis/worker.js", import.meta.url),
     config.workerCount,
     config.queueLimit,
     config.analysisTimeoutMs);
-const server = createSurveyorServer({ config, pool });
+const resources = [
+    createPeriodicTilingResource({ config, pool: periodicTilingPool })
+] as const;
+const server = createSurveyorServer({ resources, readiness: periodicTilingPool });
+
 server.listen(config.port, "0.0.0.0", () => {
     log("info", "surveyor.started", {
         port: config.port,
+        resources: resources.map(resource => resource.id),
         workerCount: config.workerCount,
         queueLimit: config.queueLimit,
         maxUploadBytes: config.maxUploadBytes,
@@ -27,7 +33,7 @@ async function shutdown(signal: string): Promise<void> {
     stopping = true;
     log("info", "surveyor.stopping", { signal });
     server.close();
-    await pool.close();
+    await periodicTilingPool.close();
 }
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
