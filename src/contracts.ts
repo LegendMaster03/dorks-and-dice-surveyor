@@ -21,6 +21,7 @@ export type SurveyorHexGridAnalysis = {
     tiling: {
         periodicTilingType: "Regular";
         cundyRollettNotation: "6^3";
+        gomJauHoggNotation: "6/m30/r(h1)";
         shapes: [{
             name: "hex";
             sides: 6;
