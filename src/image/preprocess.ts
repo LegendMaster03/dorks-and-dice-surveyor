@@ -17,6 +17,21 @@ export type PreparedRaster = {
     };
 };
 
+type ImageMetadata = {
+    width?: number;
+    height?: number;
+    format?: string;
+};
+
+type RawImageResult = {
+    data: Buffer;
+    info: {
+        width: number;
+        height: number;
+        channels: number;
+    };
+};
+
 export async function prepareRaster(
     encoded: Buffer,
     declaredMediaType: string,
@@ -24,7 +39,7 @@ export async function prepareRaster(
     maximumDimension: number): Promise<PreparedRaster> {
     const mediaType = normalizeMediaType(declaredMediaType);
     const preparationStarted = performance.now();
-    let metadata: sharp.Metadata;
+    let metadata: ImageMetadata;
     try {
         metadata = await sharp(encoded, {
             failOn: "error",
@@ -56,7 +71,7 @@ export async function prepareRaster(
     const preparationMs = performance.now() - preparationStarted;
 
     const decodeStarted = performance.now();
-    let decoded: { data: Buffer; info: sharp.OutputInfo };
+    let decoded: RawImageResult;
     try {
         let pipeline = sharp(encoded, {
             failOn: "error",
