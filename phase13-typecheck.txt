@@ -2,8 +2,6 @@
 > @dorks-and-dice/surveyor@0.1.0 typecheck
 > tsc -p tsconfig.json --noEmit
 
-src/image/preprocess.ts(27,19): error TS2503: Cannot find namespace 'sharp'.
-src/image/preprocess.ts(59,40): error TS2503: Cannot find namespace 'sharp'.
 test/api.test.ts(57,128): error TS2769: No overload matches this call.
   Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
     Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
