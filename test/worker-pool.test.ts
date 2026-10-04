@@ -3,6 +3,14 @@ import test from "node:test";
 import { WorkerJobCancelledError, WorkerJobTimeoutError, WorkerPoolOverloadedError } from "../src/errors.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 
+async function waitUntil(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+        if (Date.now() >= deadline) throw new Error("Timed out waiting for Surveyor worker capacity to recover.");
+        await new Promise(resolve => setTimeout(resolve, 5));
+    }
+}
+
 test("worker count and queue are bounded with explicit overload", async () => {
     const pool = new BoundedWorkerPool<{ delayMs: number; value: number }, number>(
         new URL("./delay-worker.js", import.meta.url), 1, 1, 2000);
@@ -32,11 +40,13 @@ test("running cancellation stops work and replaces the worker", async () => {
     }
 });
 
-test("analysis timeout is bounded and capacity recovers", async () => {
+test("analysis timeout is bounded and capacity recovers after worker replacement", async () => {
     const pool = new BoundedWorkerPool<{ delayMs: number; value: number }, number>(
         new URL("./delay-worker.js", import.meta.url), 1, 0, 30);
     try {
         await assert.rejects(pool.run({ delayMs: 1000, value: 1 }), WorkerJobTimeoutError);
+        await assert.rejects(pool.run({ delayMs: 1, value: 2 }), WorkerPoolOverloadedError);
+        await waitUntil(() => pool.canAccept);
         assert.equal(await pool.run({ delayMs: 1, value: 5 }, { timeoutMs: 1000 }), 5);
     } finally {
         await pool.close();
