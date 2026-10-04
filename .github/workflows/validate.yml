@@ -51,7 +51,7 @@ jobs:
           import sharp from 'sharp';
           await sharp({ create: { width: 96, height: 96, channels: 3, background: 'white' } }).png().toFile('/tmp/surveyor-smoke.png');
           NODE
-          curl -fsS -X POST 'http://127.0.0.1:18094/v1/periodic-tiling/detect?periodicTilingType=Regular&crNotation=6%5E3&minimumConfidence=0.54' \
+          curl -fsS -X POST 'http://127.0.0.1:18094/v1/periodic-tiling/detect?crNotation=6%5E3&minimumConfidence=0.54' \
             -H "Authorization: Bearer $token" \
             -H 'Content-Type: image/png' \
             --data-binary '@/tmp/surveyor-smoke.png' \
