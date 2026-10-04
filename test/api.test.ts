@@ -66,15 +66,38 @@ test("health endpoints do not require analysis authentication", async () => {
 test("analysis requires bearer authentication", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { "content-type": "image/png" }, body })).status, 401);
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { "content-type": "image/png", authorization: "Bearer wrong" }, body })).status, 401);
+        const route = `${baseUrl}/v1/grid/detect?sides=6`;
+        assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png" }, body })).status, 401);
+        assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png", authorization: "Bearer wrong" }, body })).status, 401);
+    });
+});
+
+test("grid shape is explicitly requested by canonical name or side-count shorthand", async () => {
+    await withServer(async baseUrl => {
+        const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
+        const encoded = await plainPng();
+        for (const selector of ["shape=hex", "sides=6", "shape=hex&sides=6"]) {
+            const response = await fetch(`${baseUrl}/v1/grid/detect?${selector}`, {
+                method: "POST",
+                headers,
+                body: bodyOf(encoded)
+            });
+            assert.equal(response.status, 200, selector);
+            const value = await response.json() as Record<string, any>;
+            assert.deepEqual(value.shape, { name: "hex", sides: 6 });
+        }
+
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?sides=4`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?shape=square`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?shape=hex&sides=4`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
     });
 });
 
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        const response = await fetch(`${baseUrl}/v1/hex-grid/detect?minimumConfidence=0.54`, {
+        const response = await fetch(`${baseUrl}/v1/grid/detect?sides=6&minimumConfidence=0.54`, {
             method: "POST",
             headers: {
                 "content-type": "image/png",
@@ -88,7 +111,8 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         assert.match(response.headers.get("server-timing") ?? "", /detector;dur=/);
         const value = await response.json() as Record<string, any>;
         assert.equal(value.apiVersion, "v1");
-        assert.equal(value.capability, "map.hex-grid.detect");
+        assert.equal(value.capability, "map.grid.detect");
+        assert.deepEqual(value.shape, { name: "hex", sides: 6 });
         assert.ok(["detected", "inconclusive", "gridless"].includes(value.status));
         assert.deepEqual(value.source, { width: 96, height: 96, mediaType: "image/png" });
         assert.equal(value.analysis.sourceResolutionVerified, true);
@@ -103,7 +127,7 @@ test("PNG JPEG and WebP traverse decode grayscale detector and source-coordinate
             { format: "jpeg", mediaType: "image/jpeg" },
             { format: "webp", mediaType: "image/webp" }
         ] as const) {
-            const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
+            const response = await fetch(`${baseUrl}/v1/grid/detect?sides=6`, {
                 method: "POST",
                 headers: {
                     "content-type": fixture.mediaType,
@@ -129,7 +153,7 @@ test("same encoded input produces deterministic analysis apart from timing", asy
     await withServer(async baseUrl => {
         const encoded = await plainPng();
         const analyze = async () => {
-            const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
+            const response = await fetch(`${baseUrl}/v1/grid/detect?sides=6`, {
                 method: "POST",
                 headers: { "content-type": "image/png", authorization: `Bearer ${token}` },
                 body: bodyOf(encoded)
@@ -147,12 +171,12 @@ test("invalid options, unsupported media, malformed image, and upload limit are 
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
         const headers = { authorization: `Bearer ${token}` };
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect?minimumConfidence=NaN`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body })).status, 400);
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { ...headers, "content-type": "image/gif" }, body })).status, 415);
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: bodyOf(Buffer.from("bad")) })).status, 422);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?sides=6&minimumConfidence=NaN`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body })).status, 400);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?sides=6`, { method: "POST", headers: { ...headers, "content-type": "image/gif" }, body })).status, 415);
+        assert.equal((await fetch(`${baseUrl}/v1/grid/detect?sides=6`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: bodyOf(Buffer.from("bad")) })).status, 422);
     });
     await withServer(async baseUrl => {
-        const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
+        const response = await fetch(`${baseUrl}/v1/grid/detect?sides=6`, {
             method: "POST",
             headers: { authorization: `Bearer ${token}`, "content-type": "image/png" },
             body: bodyOf(Buffer.alloc(129))
