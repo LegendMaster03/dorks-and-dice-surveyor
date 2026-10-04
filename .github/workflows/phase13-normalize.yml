@@ -1,0 +1,50 @@
+name: Phase 13 normalize generated state
+
+on:
+  push:
+    branches: [ "feature/phase-13-shared-map-processing" ]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/phase-13-shared-map-processing
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+      - name: Add detector timing hook and refresh lock file
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/analysis/hex-grid/detector.ts')
+          text = path.read_text()
+          old = '''export type HexLatticeDetectionOptions = {\n    minimumSpacingPixels?: number;\n    maximumSpacingPixels?: number;\n    maximumEdgeSamples?: number;\n    minimumConfidence?: number;\n};'''
+          new = '''export type HexLatticeDetectionOptions = {\n    minimumSpacingPixels?: number;\n    maximumSpacingPixels?: number;\n    maximumEdgeSamples?: number;\n    minimumConfidence?: number;\n    timingSink?: (stage: \"edge-field\", durationMs: number) => void;\n};'''
+          if old not in text:
+              raise SystemExit('detector option shape not found')
+          text = text.replace(old, new, 1)
+          old = '    const field = buildEdgeField(raster, options.maximumEdgeSamples ?? 90_000);'
+          new = '''    const edgeFieldStarted = performance.now();\n    const field = buildEdgeField(raster, options.maximumEdgeSamples ?? 90_000);\n    options.timingSink?.(\"edge-field\", performance.now() - edgeFieldStarted);'''
+          if old not in text:
+              raise SystemExit('edge-field construction not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit normalized feature state
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/analysis/hex-grid/detector.ts package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Normalize Surveyor detector instrumentation and lock file'
+          git push origin HEAD:feature/phase-13-shared-map-processing
