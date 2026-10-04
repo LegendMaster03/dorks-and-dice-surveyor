@@ -32,6 +32,7 @@ export type HexLatticeDetectionOptions = {
     maximumSpacingPixels?: number;
     maximumEdgeSamples?: number;
     minimumConfidence?: number;
+    timingSink?: (stage: "edge-field", durationMs: number) => void;
 };
 
 type EdgeSample = { x: number; y: number; normal: number };
@@ -108,7 +109,9 @@ export function detectHexLattice(
         return inconclusive("The raster is too small to establish repeated hex-grid spacing.");
     }
 
+    const edgeFieldStarted = performance.now();
     const field = buildEdgeField(raster, options.maximumEdgeSamples ?? 90_000);
+    options.timingSink?.("edge-field", performance.now() - edgeFieldStarted);
     if (field.samples.length < 500) {
         return gridless("The raster does not contain enough edge evidence for a hex lattice.");
     }
