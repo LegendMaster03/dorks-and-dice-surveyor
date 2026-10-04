@@ -1,0 +1,113 @@
+name: Deploy Surveyor
+run-name: Deploy ${{ github.event.workflow_run.head_branch || github.ref_name }} at ${{ github.event.workflow_run.head_sha || github.sha }}
+
+on:
+  workflow_run:
+    workflows: [ "Validate Surveyor" ]
+    types: [ completed ]
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: dorks-and-dice-surveyor
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: [self-hosted, dorks-and-dice-surveyor]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Build image
+        timeout-minutes: 10
+        run: docker build -t dorks-and-dice-surveyor:latest .
+
+      - name: Smoke test container
+        timeout-minutes: 5
+        run: |
+          docker rm -f dorks-and-dice-surveyor-smoketest 2>/dev/null || true
+          docker network create dorks-and-dice-surveyor-test 2>/dev/null || true
+          docker run -d --name dorks-and-dice-surveyor-smoketest \
+            --network dorks-and-dice-surveyor-test \
+            -e 'SURVEYOR_SERVICE_TOKEN=deploy-smoke-token-1234567890' \
+            -e 'SURVEYOR_WORKER_COUNT=2' \
+            -e 'SURVEYOR_QUEUE_LIMIT=2' \
+            dorks-and-dice-surveyor:latest >/dev/null
+
+          ready=false
+          for i in {1..45}; do
+            if [ "$(docker inspect -f '{{.State.Running}}' dorks-and-dice-surveyor-smoketest 2>/dev/null)" != "true" ]; then
+              docker logs dorks-and-dice-surveyor-smoketest || true
+              exit 1
+            fi
+            live=$(docker run --rm --network dorks-and-dice-surveyor-test curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor-smoketest:8080/health/live 2>/dev/null || true)
+            readiness=$(docker run --rm --network dorks-and-dice-surveyor-test curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor-smoketest:8080/health/ready 2>/dev/null || true)
+            if echo "$live" | grep -q '"status":"live"' \
+              && echo "$readiness" | grep -q '"status":"ready"'; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then
+            docker logs dorks-and-dice-surveyor-smoketest || true
+            exit 1
+          fi
+
+      - name: Cleanup smoke-test infrastructure
+        if: always()
+        timeout-minutes: 3
+        run: |
+          docker rm -f dorks-and-dice-surveyor-smoketest 2>/dev/null || true
+          docker network rm dorks-and-dice-surveyor-test 2>/dev/null || true
+
+      - name: Deploy
+        timeout-minutes: 5
+        run: |
+          ENV_FILE=/mnt/HDDs/www/dorks-and-dice-surveyor/.env
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Surveyor deployment configuration is missing: $ENV_FILE"
+            exit 1
+          fi
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f docker-compose.yml config >/dev/null
+          docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f docker-compose.yml up -d --force-recreate --remove-orphans
+
+      - name: Verify deployed service
+        timeout-minutes: 5
+        run: |
+          ready=false
+          for i in {1..60}; do
+            live=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor:8080/health/live 2>/dev/null || true)
+            readiness=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor:8080/health/ready 2>/dev/null || true)
+            if echo "$live" | grep -q '"status":"live"' \
+              && echo "$readiness" | grep -q '"status":"ready"'; then
+              echo "$readiness"
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "true" ]; then
+            docker logs dorks-and-dice-surveyor || true
+            exit 1
+          fi
