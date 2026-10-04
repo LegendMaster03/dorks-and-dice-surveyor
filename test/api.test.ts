@@ -115,7 +115,7 @@ test("periodic tiling type selects a family-specific notation contract", async (
         assert.equal((await send(`periodicTilingType=Regular&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
         assert.equal((await send("periodicTilingType=Regular&shape=hex")).status, 400);
         assert.equal((await send("periodicTilingType=Regular&sides=6")).status, 400);
-        assert.equal((await send(`periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send(`periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);
         assert.equal((await send("periodicTilingType=Regular&crNotation=6%5E3&crNotation=6%5E3")).status, 400);
     });
 });
