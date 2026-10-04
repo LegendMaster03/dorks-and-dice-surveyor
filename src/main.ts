@@ -1,22 +1,34 @@
-import { loadBootstrapConfig } from "./config.js";
+import { loadConfig } from "./config.js";
 import { log } from "./logging.js";
 import { createSurveyorServer } from "./server.js";
+import type { HexGridWorkerRequest, HexGridWorkerResult } from "./analysis/hex-grid/worker-contract.js";
+import { BoundedWorkerPool } from "./infrastructure/worker-pool.js";
 
-const config = loadBootstrapConfig();
-const server = createSurveyorServer();
+const config = loadConfig();
+const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
+    new URL("./analysis/worker.js", import.meta.url),
+    config.workerCount,
+    config.queueLimit,
+    config.analysisTimeoutMs);
+const server = createSurveyorServer({ config, pool });
 server.listen(config.port, "0.0.0.0", () => {
-    log("info", "surveyor.started", { port: config.port });
+    log("info", "surveyor.started", {
+        port: config.port,
+        workerCount: config.workerCount,
+        queueLimit: config.queueLimit,
+        maxUploadBytes: config.maxUploadBytes,
+        maxPixels: config.maxPixels
+    });
 });
 
-function shutdown(signal: string): void {
+let stopping = false;
+async function shutdown(signal: string): Promise<void> {
+    if (stopping) return;
+    stopping = true;
     log("info", "surveyor.stopping", { signal });
-    server.close(error => {
-        if (error) {
-            log("error", "surveyor.stop_failed", { message: error.message });
-            process.exitCode = 1;
-        }
-    });
+    server.close();
+    await pool.close();
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
