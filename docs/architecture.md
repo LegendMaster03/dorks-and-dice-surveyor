@@ -12,25 +12,20 @@ Known-tiling detection, unknown-tiling recognition, generic line/feature analysi
 
 ## Periodic-tiling capability model
 
-Surveyor exposes the generic capability `map.periodic-tiling.detect` rather than a hex-specific service API.
+A request first declares `periodicTilingType`. That value selects the family-specific parser and detector contract. Future periodic-tiling families may require notation, enums, parameters, or other family-specific arguments without changing the top-level endpoint.
 
-A request first declares `periodicTilingType`. That value selects the family-specific parser and detector contract. Periodic-tiling families are not assumed to use the same number or kind of shape arguments; a future family can require enums, notation, parameters, multiple shapes, or no shape arguments at all without changing the top-level endpoint.
+For `Regular`, standard notation is the public identity boundary:
 
-For `Regular`, standard notation is the primary identity:
+- `crNotation` is Cundy-Rollett notation and is the preferred selector;
+- `gjhNotation` is GomJau-Hogg notation and is an equivalent first-class selector.
 
-- Cundy-Rollett notation is the preferred request selector;
-- GomJau-Hogg (GJ-H) notation is an equivalent first-class selector;
-- shape name or side count remains a convenience selector.
+At least one notation is required. Both may be supplied only when they resolve to the same tiling. Shape names and polygon side counts are not part of the public API. Responses return both normalized notation identities, keeping consumers independent of Surveyor's internal detector names.
 
-Selectors are resolved to one canonical tiling identity before detector dispatch. If multiple selectors are supplied, they must agree. Responses return both normalized notation identities and the resolved shape metadata.
-
-Side count is not identity. Multiple named shapes may share a side count. Numeric shape shorthand exists only to choose a configured default when the caller elects to use the convenience selector.
-
-Known but currently unimplemented periodic-tiling families include `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` reserves the enum values `Archimedean` and `uniform`. Adding any of these should register a family-specific selector parser and detector behind the periodic-tiling detection capability rather than changing the Regular contract or the Hex Crawl integration.
+Known but currently unimplemented periodic-tiling families include `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` reserves the enum values `Archimedean` and `uniform`. Adding any of these should register a family-specific parser and detector behind the periodic-tiling detection capability rather than changing the Regular contract or the Hex Crawl integration.
 
 ## Phase 13 implementation
 
-The current `Regular` hex detector performs:
+The current `Regular` `6^3` / `6/m30/r(h1)` detector performs:
 
 1. bounded PNG/JPEG/WebP decode;
 2. bounded-resolution raster preparation;
@@ -38,7 +33,7 @@ The current `Regular` hex detector performs:
 4. the extracted deterministic hex-lattice detector;
 5. normalization of spacing, anchor, and residual back into source-image pixels.
 
-Hex Crawl explicitly requests `periodicTilingType=Regular&cundyRollettNotation=6^3` and validates the returned Regular/`6^3`/GJ-H `6/m30/r(h1)` identity before accepting the observation. Hex Crawl continues to own physical scale, Wonderdraft reconciliation, registration proposals, preview, confirmation, grid identity, optimistic concurrency, expedition safety, and persistence.
+Hex Crawl explicitly requests `periodicTilingType=Regular&crNotation=6^3` and validates the returned `Regular` / `6^3` / `6/m30/r(h1)` identity before accepting the observation. Hex Crawl continues to own physical scale, Wonderdraft reconciliation, registration proposals, preview, confirmation, grid identity, optimistic concurrency, expedition safety, and persistence.
 
 ## Concurrency
 
