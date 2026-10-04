@@ -1,11 +1,13 @@
 import type { HexLatticeDetectionOptions, HexLatticeFit } from "./analysis/hex-grid/detector.js";
 
 export const SurveyorApiVersion = "v1" as const;
-export const HexGridDetectionCapability = "map.hex-grid.detect" as const;
+export const GridDetectionCapability = "map.grid.detect" as const;
+export const SupportedGridKinds = ["hex"] as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 
+export type SupportedGridKind = typeof SupportedGridKinds[number];
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
-export type HexGridDetectionStatus = "detected" | "inconclusive" | "gridless";
+export type GridDetectionStatus = "detected" | "inconclusive" | "gridless";
 
 export type PublicHexGridDetectionOptions = Pick<
     HexLatticeDetectionOptions,
@@ -13,8 +15,9 @@ export type PublicHexGridDetectionOptions = Pick<
 
 export type SurveyorHexGridAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
-    capability: typeof HexGridDetectionCapability;
-    status: HexGridDetectionStatus;
+    capability: typeof GridDetectionCapability;
+    gridKind: "hex";
+    status: GridDetectionStatus;
     reason: string;
     source: {
         width: number;
@@ -42,7 +45,7 @@ export type SurveyorTiming = {
 
 export type SurveyorErrorResponse = {
     apiVersion: typeof SurveyorApiVersion;
-    capability: typeof HexGridDetectionCapability;
+    capability: typeof GridDetectionCapability;
     error: {
         code: string;
         message: string;
