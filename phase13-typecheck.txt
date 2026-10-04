@@ -2,38 +2,3 @@
 > @dorks-and-dice/surveyor@0.1.0 typecheck
 > tsc -p tsconfig.json --noEmit
 
-test/api.test.ts(57,128): error TS2769: No overload matches this call.
-  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-test/api.test.ts(58,159): error TS2769: No overload matches this call.
-  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-test/api.test.ts(72,13): error TS2769: No overload matches this call.
-  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-test/api.test.ts(91,162): error TS2769: No overload matches this call.
-  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-test/api.test.ts(92,140): error TS2769: No overload matches this call.
-  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
-  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
-    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit | null | undefined'.
-      Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
