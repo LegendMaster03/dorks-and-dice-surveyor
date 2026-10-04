@@ -6,10 +6,6 @@ export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp
 
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
 export type PeriodicTilingDetectionStatus = "detected" | "inconclusive" | "gridless";
-export type GridShapeIdentity = {
-    name: string;
-    sides: number | null;
-};
 
 export type PublicHexGridDetectionOptions = Pick<
     HexLatticeDetectionOptions,
@@ -22,10 +18,6 @@ export type SurveyorHexGridAnalysis = {
         periodicTilingType: "Regular";
         cundyRollettNotation: "6^3";
         gomJauHoggNotation: "6/m30/r(h1)";
-        shapes: [{
-            name: "hex";
-            sides: 6;
-        }];
     };
     status: PeriodicTilingDetectionStatus;
     reason: string;
