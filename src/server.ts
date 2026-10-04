@@ -17,10 +17,10 @@ export type SurveyorDependencies = {
 
 type RegularTilingSelection = {
     periodicTilingType: "Regular";
-    shape: {
+    shapes: [{
         name: "hex";
         sides: 6;
-    };
+    }];
 };
 
 type KnownRegularShape = {
@@ -35,7 +35,7 @@ const knownRegularShapes = new Map<string, KnownRegularShape>([
 ]);
 
 // Side count is shorthand, not identity. Multiple named shapes may share a side count.
-// This table selects the default shape only when a caller supplies sides without shape.
+// This table selects the default shape only when a numeric shape argument is supplied.
 const defaultRegularShapeBySideCount = new Map<number, string>([
     [3, "triangle"],
     [4, "square"],
@@ -85,8 +85,9 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
                     {
                         name: "Regular",
                         implemented: true,
-                        implementedShapes: [{ name: "hex", sides: 6 }],
-                        selectors: ["shape", "sides"]
+                        shapeArgumentCount: 1,
+                        shapeArgumentFormat: "canonical-name-or-side-count",
+                        implementedShapes: [{ name: "hex", sides: 6 }]
                     },
                     { name: "semiregular", implemented: false },
                     { name: "k-uniform", implemented: false }
@@ -121,55 +122,72 @@ function selectPeriodicTiling(parameters: URLSearchParams): RegularTilingSelecti
 }
 
 function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelection {
-    const rawName = parameters.get("shape")?.trim().toLowerCase() ?? "";
-    const rawSides = parameters.get("sides")?.trim() ?? "";
-    if (!rawName && !rawSides) {
+    if (parameters.has("sides")) {
         throw new SurveyorRequestError(
             400,
-            "regular_shape_required",
-            "Regular periodic tilings require shape=<canonical name> or sides=<polygon side count>.");
+            "regular_shape_argument_invalid",
+            "Regular tilings use ordered shape arguments. Use shape=6 instead of sides=6.");
     }
 
-    let requestedSides: number | null = null;
-    if (rawSides) {
-        const parsed = Number(rawSides);
-        if (!Number.isInteger(parsed) || parsed < 3 || parsed > 1000) {
-            throw new SurveyorRequestError(400, "invalid_regular_shape_sides", "sides must be an integer between 3 and 1000.");
-        }
-        requestedSides = parsed;
-    }
-
-    const canonicalName = rawName || (requestedSides == null ? "" : defaultRegularShapeBySideCount.get(requestedSides) ?? "");
-    if (!canonicalName) {
-        throw new SurveyorRequestError(
-            501,
-            "regular_shape_not_implemented",
-            `No default Regular tiling shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
-    }
-
-    const known = knownRegularShapes.get(canonicalName);
-    if (rawName && known?.sides != null && requestedSides != null && known.sides !== requestedSides) {
+    const shapeArguments = parameters.getAll("shape");
+    if (shapeArguments.length !== 1) {
         throw new SurveyorRequestError(
             400,
-            "regular_shape_selector_conflict",
-            `shape=${canonicalName} has ${known.sides} sides, which conflicts with sides=${requestedSides}.`);
+            "regular_shape_argument_count",
+            `Regular periodic tilings require exactly one shape argument; received ${shapeArguments.length}.`);
     }
 
-    if (!known?.implemented) {
-        const sideDetail = requestedSides ?? known?.sides;
-        throw new SurveyorRequestError(
-            501,
-            "regular_shape_not_implemented",
-            `Regular tiling shape '${canonicalName}'${sideDetail == null ? "" : ` (${sideDetail} sides)`} is not implemented by this Surveyor deployment.`);
-    }
-
-    if (canonicalName === "hex") {
+    const shape = resolveRegularShape(shapeArguments[0]);
+    if (shape.name === "hex" && shape.sides === 6) {
         return {
             periodicTilingType: "Regular",
-            shape: { name: "hex", sides: 6 }
+            shapes: [{ name: "hex", sides: 6 }]
         };
     }
-    throw new SurveyorRequestError(501, "regular_shape_not_implemented", `Regular tiling shape '${canonicalName}' is not implemented.`);
+    throw new SurveyorRequestError(501, "regular_shape_not_implemented", `Regular tiling shape '${shape.name}' is not implemented.`);
+}
+
+function resolveRegularShape(rawArgument: string): { name: string; sides: number | null } {
+    const argument = rawArgument.trim();
+    if (!argument) {
+        throw new SurveyorRequestError(400, "regular_shape_argument_invalid", "Regular tiling shape arguments can not be empty.");
+    }
+
+    if (/^[0-9]+$/.test(argument)) {
+        const sides = Number(argument);
+        if (!Number.isInteger(sides) || sides < 3 || sides > 1000) {
+            throw new SurveyorRequestError(400, "invalid_regular_shape_sides", "A numeric Regular shape argument must be an integer between 3 and 1000.");
+        }
+        const defaultName = defaultRegularShapeBySideCount.get(sides);
+        if (!defaultName) {
+            throw new SurveyorRequestError(
+                501,
+                "regular_shape_not_implemented",
+                `No default Regular tiling shape is configured for ${sides} sides.`);
+        }
+        return requireImplementedRegularShape(defaultName, sides);
+    }
+
+    const canonicalName = argument.toLowerCase();
+    const known = knownRegularShapes.get(canonicalName);
+    if (!known) {
+        throw new SurveyorRequestError(
+            501,
+            "regular_shape_not_implemented",
+            `Regular tiling shape '${canonicalName}' is not implemented by this Surveyor deployment.`);
+    }
+    return requireImplementedRegularShape(canonicalName, known.sides);
+}
+
+function requireImplementedRegularShape(name: string, sides: number | null): { name: string; sides: number | null } {
+    const known = knownRegularShapes.get(name);
+    if (!known?.implemented) {
+        throw new SurveyorRequestError(
+            501,
+            "regular_shape_not_implemented",
+            `Regular tiling shape '${name}'${sides == null ? "" : ` (${sides} sides)`} is not implemented by this Surveyor deployment.`);
+    }
+    return { name, sides };
 }
 
 async function detectRegularHexTiling(
@@ -212,7 +230,7 @@ async function detectRegularHexTiling(
             capability: PeriodicTilingDetectionCapability,
             tiling: {
                 periodicTilingType: tiling.periodicTilingType,
-                shape: tiling.shape
+                shapes: tiling.shapes
             },
             status: mapped.status,
             reason: mapped.reason,
@@ -242,8 +260,8 @@ async function detectRegularHexTiling(
             correlationId,
             capability: PeriodicTilingDetectionCapability,
             periodicTilingType: tiling.periodicTilingType,
-            gridShape: tiling.shape.name,
-            gridSides: tiling.shape.sides,
+            gridShapes: tiling.shapes.map(shape => shape.name),
+            gridSides: tiling.shapes.map(shape => shape.sides),
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -260,8 +278,7 @@ async function detectRegularHexTiling(
             correlationId,
             capability: PeriodicTilingDetectionCapability,
             periodicTilingType: tiling.periodicTilingType,
-            gridShape: tiling.shape.name,
-            gridSides: tiling.shape.sides,
+            gridShapes: tiling.shapes.map(shape => shape.name),
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });
