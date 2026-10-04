@@ -16,7 +16,7 @@ export type SurveyorDependencies = {
 };
 
 type RegularTilingSelection = {
-    tilingType: "regular";
+    periodicTilingType: "Regular";
     shape: {
         name: "hex";
         sides: 6;
@@ -40,6 +40,12 @@ const defaultRegularShapeBySideCount = new Map<number, string>([
     [3, "triangle"],
     [4, "square"],
     [6, "hex"]
+]);
+
+const canonicalPeriodicTilingTypes = new Map<string, string>([
+    ["regular", "Regular"],
+    ["semiregular", "semiregular"],
+    ["k-uniform", "k-uniform"]
 ]);
 
 export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
@@ -75,11 +81,16 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
             apiVersion: SurveyorApiVersion,
             capabilities: [{
                 id: PeriodicTilingDetectionCapability,
-                tilingTypes: [{
-                    name: "regular",
-                    implementedShapes: [{ name: "hex", sides: 6 }],
-                    selectors: ["shape", "sides"]
-                }]
+                periodicTilingTypes: [
+                    {
+                        name: "Regular",
+                        implemented: true,
+                        implementedShapes: [{ name: "hex", sides: 6 }],
+                        selectors: ["shape", "sides"]
+                    },
+                    { name: "semiregular", implemented: false },
+                    { name: "k-uniform", implemented: false }
+                ]
             }]
         });
     }
@@ -92,18 +103,19 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
 }
 
 function selectPeriodicTiling(parameters: URLSearchParams): RegularTilingSelection {
-    const tilingType = parameters.get("tilingType")?.trim().toLowerCase() ?? "";
-    if (!tilingType) {
+    const rawType = parameters.get("periodicTilingType")?.trim() ?? "";
+    if (!rawType) {
         throw new SurveyorRequestError(
             400,
-            "tiling_type_required",
-            "tilingType is required for periodic-tiling detection.");
+            "periodic_tiling_type_required",
+            "periodicTilingType is required for periodic-tiling detection.");
     }
-    if (tilingType !== "regular") {
+    const canonicalType = canonicalPeriodicTilingTypes.get(rawType.toLowerCase()) ?? rawType;
+    if (canonicalType !== "Regular") {
         throw new SurveyorRequestError(
             501,
-            "tiling_type_not_implemented",
-            `Periodic tiling type '${tilingType}' is not implemented by this Surveyor deployment.`);
+            "periodic_tiling_type_not_implemented",
+            `Periodic tiling type '${canonicalType}' is not implemented by this Surveyor deployment.`);
     }
     return selectRegularTiling(parameters);
 }
@@ -132,7 +144,7 @@ function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelectio
         throw new SurveyorRequestError(
             501,
             "regular_shape_not_implemented",
-            `No default regular tiling shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
+            `No default Regular tiling shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
     }
 
     const known = knownRegularShapes.get(canonicalName);
@@ -153,7 +165,7 @@ function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelectio
 
     if (canonicalName === "hex") {
         return {
-            tilingType: "regular",
+            periodicTilingType: "Regular",
             shape: { name: "hex", sides: 6 }
         };
     }
@@ -199,7 +211,7 @@ async function detectRegularHexTiling(
             apiVersion: SurveyorApiVersion,
             capability: PeriodicTilingDetectionCapability,
             tiling: {
-                type: tiling.tilingType,
+                periodicTilingType: tiling.periodicTilingType,
                 shape: tiling.shape
             },
             status: mapped.status,
@@ -229,7 +241,7 @@ async function detectRegularHexTiling(
         log("info", "surveyor.analysis.completed", {
             correlationId,
             capability: PeriodicTilingDetectionCapability,
-            tilingType: tiling.tilingType,
+            periodicTilingType: tiling.periodicTilingType,
             gridShape: tiling.shape.name,
             gridSides: tiling.shape.sides,
             mediaType: prepared.mediaType,
@@ -247,7 +259,7 @@ async function detectRegularHexTiling(
         log("error", "surveyor.analysis.failed", {
             correlationId,
             capability: PeriodicTilingDetectionCapability,
-            tilingType: tiling.tilingType,
+            periodicTilingType: tiling.periodicTilingType,
             gridShape: tiling.shape.name,
             gridSides: tiling.shape.sides,
             errorCategory: errorCategory(error),
