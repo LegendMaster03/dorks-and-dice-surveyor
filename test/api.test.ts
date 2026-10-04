@@ -8,7 +8,7 @@ import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
-const regularHexQuery = "periodicTilingType=Regular&cundyRollettNotation=6%5E3";
+const regularHexQuery = "periodicTilingType=Regular&crNotation=6%5E3";
 
 async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Partial<SurveyorConfig> = {}): Promise<void> {
     const config: SurveyorConfig = {
@@ -60,9 +60,8 @@ function bodyOf(buffer: Buffer): ArrayBuffer {
 function expectedRegularHexIdentity(): Record<string, unknown> {
     return {
         periodicTilingType: "Regular",
-        cundyRollettNotation: "6^3",
-        gomJauHoggNotation: "6/m30/r(h1)",
-        shapes: [{ name: "hex", sides: 6 }]
+        crNotation: "6^3",
+        gjhNotation: "6/m30/r(h1)"
     };
 }
 
@@ -82,14 +81,14 @@ test("analysis requires bearer authentication", async () => {
     });
 });
 
-test("periodic tiling type selects a family-specific selector contract", async () => {
+test("periodic tiling type selects a family-specific notation contract", async () => {
     await withServer(async baseUrl => {
         const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
         const encoded = await plainPng();
         const route = `${baseUrl}/v1/periodic-tiling/detect`;
         const send = (query: string) => fetch(`${route}?${query}`, { method: "POST", headers, body: bodyOf(encoded) });
 
-        assert.equal((await send("cundyRollettNotation=6%5E3")).status, 400);
+        assert.equal((await send("crNotation=6%5E3")).status, 400);
         assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 501);
         assert.equal((await send("periodicTilingType=k-uniform")).status, 501);
         assert.equal((await send("periodicTilingType=Plane-vertex")).status, 501);
@@ -99,13 +98,11 @@ test("periodic tiling type selects a family-specific selector contract", async (
         assert.equal((await send("periodicTilingType=Regular")).status, 400);
 
         const selectors = [
-            "periodicTilingType=Regular&cundyRollettNotation=6%5E3",
-            "periodicTilingType=Regular&cundyRollettNotation=6%5E%7B3%7D",
-            `periodicTilingType=Regular&cundyRollettNotation=${encodeURIComponent("6³")}`,
-            `periodicTilingType=Regular&gomJauHoggNotation=${encodeURIComponent("6/m30/r(h1)")}`,
-            "periodicTilingType=Regular&shape=hex",
-            "periodicTilingType=Regular&shape=6",
-            `periodicTilingType=Regular&cundyRollettNotation=6%5E3&gomJauHoggNotation=${encodeURIComponent("6/m30/r(h1)")}&shape=hex`
+            "periodicTilingType=Regular&crNotation=6%5E3",
+            "periodicTilingType=Regular&crNotation=6%5E%7B3%7D",
+            `periodicTilingType=Regular&crNotation=${encodeURIComponent("6³")}`,
+            `periodicTilingType=Regular&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
+            `periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`
         ];
         for (const selector of selectors) {
             const response = await send(selector);
@@ -114,12 +111,12 @@ test("periodic tiling type selects a family-specific selector contract", async (
             assert.deepEqual(value.tiling, expectedRegularHexIdentity(), selector);
         }
 
-        assert.equal((await send("periodicTilingType=Regular&cundyRollettNotation=4%5E4")).status, 501);
-        assert.equal((await send(`periodicTilingType=Regular&gomJauHoggNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
-        assert.equal((await send("periodicTilingType=Regular&shape=square")).status, 501);
+        assert.equal((await send("periodicTilingType=Regular&crNotation=4%5E4")).status, 501);
+        assert.equal((await send(`periodicTilingType=Regular&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send("periodicTilingType=Regular&shape=hex")).status, 400);
         assert.equal((await send("periodicTilingType=Regular&sides=6")).status, 400);
-        assert.equal((await send("periodicTilingType=Regular&cundyRollettNotation=6%5E3&shape=4")).status, 400);
-        assert.equal((await send("periodicTilingType=Regular&shape=hex&shape=6")).status, 400);
+        assert.equal((await send(`periodicTilingType=Regular&crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send("periodicTilingType=Regular&crNotation=6%5E3&crNotation=6%5E3")).status, 400);
     });
 });
 
