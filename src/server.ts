@@ -20,14 +20,24 @@ type GridShapeSelection = {
     sides: 6;
 };
 
-const regularShapeNamesBySideCount = new Map<number, string>([
+type KnownGridShape = {
+    sides: number | null;
+    implemented: boolean;
+};
+
+const knownGridShapes = new Map<string, KnownGridShape>([
+    ["triangle", { sides: 3, implemented: false }],
+    ["square", { sides: 4, implemented: false }],
+    ["hex", { sides: 6, implemented: true }]
+]);
+
+// Side count is shorthand, not identity. Multiple named shapes may share a side count.
+// This table selects the default shape only when a caller supplies sides without shape.
+const defaultShapeBySideCount = new Map<number, string>([
     [3, "triangle"],
     [4, "square"],
     [6, "hex"]
 ]);
-
-const regularShapeSideCountsByName = new Map<string, number>(
-    [...regularShapeNamesBySideCount.entries()].map(([sides, name]) => [name, sides]));
 
 export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
     return createHttpServer((request, response) => {
@@ -85,43 +95,41 @@ function selectGridShape(parameters: URLSearchParams): GridShapeSelection {
             "Specify the grid shape with shape=<canonical name> or sides=<regular polygon side count>.");
     }
 
-    let sides: number | null = null;
+    let requestedSides: number | null = null;
     if (rawSides) {
         const parsed = Number(rawSides);
         if (!Number.isInteger(parsed) || parsed < 3 || parsed > 1000) {
             throw new SurveyorRequestError(400, "invalid_grid_sides", "sides must be an integer between 3 and 1000.");
         }
-        sides = parsed;
+        requestedSides = parsed;
     }
 
-    const sidesFromName = rawName ? regularShapeSideCountsByName.get(rawName) ?? null : null;
-    const nameFromSides = sides == null ? null : regularShapeNamesBySideCount.get(sides) ?? null;
-    if (rawName && sidesFromName != null && sides != null && sidesFromName !== sides) {
+    const canonicalName = rawName || (requestedSides == null ? "" : defaultShapeBySideCount.get(requestedSides) ?? "");
+    if (!canonicalName) {
+        throw new SurveyorRequestError(
+            501,
+            "grid_shape_not_implemented",
+            `No default grid shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
+    }
+
+    const known = knownGridShapes.get(canonicalName);
+    if (rawName && known?.sides != null && requestedSides != null && known.sides !== requestedSides) {
         throw new SurveyorRequestError(
             400,
             "grid_shape_selector_conflict",
-            `shape=${rawName} and sides=${sides} identify different regular grid shapes.`);
+            `shape=${canonicalName} has ${known.sides} sides, which conflicts with sides=${requestedSides}.`);
     }
-    if (rawName && nameFromSides != null && rawName !== nameFromSides) {
+
+    if (!known?.implemented) {
+        const sideDetail = requestedSides ?? known?.sides;
         throw new SurveyorRequestError(
-            400,
-            "grid_shape_selector_conflict",
-            `shape=${rawName} and sides=${sides} identify different regular grid shapes.`);
+            501,
+            "grid_shape_not_implemented",
+            `Grid shape '${canonicalName}'${sideDetail == null ? "" : ` (${sideDetail} sides)`} is not implemented by this Surveyor deployment.`);
     }
 
-    const canonicalName = rawName || nameFromSides;
-    const canonicalSides = sides ?? sidesFromName;
-    if (canonicalName === "hex" && canonicalSides === 6) return { name: "hex", sides: 6 };
-    if (canonicalName === "hex" && canonicalSides == null) return { name: "hex", sides: 6 };
-    if (!canonicalName && canonicalSides === 6) return { name: "hex", sides: 6 };
-
-    const description = canonicalName
-        ? `Grid shape '${canonicalName}'${canonicalSides == null ? "" : ` (${canonicalSides} sides)`}`
-        : `Regular ${canonicalSides}-sided grid shape`;
-    throw new SurveyorRequestError(
-        501,
-        "grid_shape_not_implemented",
-        `${description} is not implemented by this Surveyor deployment.`);
+    if (canonicalName === "hex") return { name: "hex", sides: 6 };
+    throw new SurveyorRequestError(501, "grid_shape_not_implemented", `Grid shape '${canonicalName}' is not implemented.`);
 }
 
 async function detectHexGrid(
@@ -162,7 +170,7 @@ async function detectHexGrid(
         const result: SurveyorHexGridAnalysis = {
             apiVersion: SurveyorApiVersion,
             capability: GridDetectionCapability,
-            gridKind: "hex",
+            shape,
             status: mapped.status,
             reason: mapped.reason,
             source: {
