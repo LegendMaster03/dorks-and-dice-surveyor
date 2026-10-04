@@ -62,7 +62,7 @@ test("Cundy-Rollett parser rejects malformed or non-Euclidean vertex syntax rath
     }
 });
 
-test("GomJau-Hogg parser handles placement phases and generic transform stages", () => {
+test("GomJau-Hogg parser handles published placement phases and generic transform stages", () => {
     const regular = parseGomJauHoggNotation(" 6 / M30 / R(H1) ");
     assert.equal(regular.canonical, "6/m30/r(h1)");
     assert.deepEqual(regular.placement, [{ polygons: [6] }]);
@@ -80,11 +80,11 @@ test("GomJau-Hogg parser handles placement phases and generic transform stages",
     assert.equal(skippedSides.canonical, "12-0,3,3-0,4/m45/m(h1)");
 });
 
-test("GomJau-Hogg parser validates grammar independently from the tiling catalog", () => {
-    const unknownButValid = parseGomJauHoggNotation("5-3/r45/m(v2)");
-    assert.equal(unknownButValid.canonical, "5-3/r45/m(v2)");
+test("GomJau-Hogg parser validates published grammar independently from the tiling catalog", () => {
+    const knownNotationWithoutCatalogEntry = parseGomJauHoggNotation("12-3/m30/r(h3)");
+    assert.equal(knownNotationWithoutCatalogEntry.canonical, "12-3/m30/r(h3)");
 
-    for (const value of ["", "6/m30", "6//r(h1)", "2/m30/r(h1)", "6/x30/r(h1)", "6/m361/r(h1)"]) {
+    for (const value of ["", "6/m30", "6//r(h1)", "2/m30/r(h1)", "5-3/r45/m(v2)", "6/x30/r(h1)", "6/m361/r(h1)"]) {
         assert.throws(
             () => parseGomJauHoggNotation(value),
             error => error instanceof PeriodicTilingNotationError && error.notation === "GomJau-Hogg",

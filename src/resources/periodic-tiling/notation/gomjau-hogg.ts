@@ -21,11 +21,17 @@ export type GomJauHoggNotation = {
 };
 
 const transformPattern = /^([mr])([0-9]+(?:\.[0-9]+)?)?(?:\(([cvh])([1-9][0-9]*)\))?$/;
+const seedPolygonSides = new Set([3, 4, 6, 8, 12]);
+const maximumNotationLength = 4096;
 
 export function parseGomJauHoggNotation(raw: string): GomJauHoggNotation {
-    const source = raw.trim().replace(/\s+/g, "").toLowerCase();
-    if (!source) throw syntaxError("GomJau-Hogg notation can not be empty.");
+    const trimmed = raw.trim();
+    if (!trimmed) throw syntaxError("GomJau-Hogg notation can not be empty.");
+    if (trimmed.length > maximumNotationLength) {
+        throw syntaxError(`GomJau-Hogg notation can not exceed ${maximumNotationLength} characters.`);
+    }
 
+    const source = trimmed.replace(/\s+/g, "").toLowerCase();
     const stages = source.split("/");
     if (stages.length < 3 || stages.some(stage => stage.length === 0)) {
         throw syntaxError("GomJau-Hogg notation requires a polygon-placement stage followed by at least two transformation stages.");
@@ -53,8 +59,8 @@ function parsePlacement(source: string): GomJauHoggPlacementPhase[] {
             throw syntaxError("GomJau-Hogg polygon side counts must be safe integers.");
         }
         if (phaseIndex === 0) {
-            if (polygons.length !== 1 || polygons[0] < 3) {
-                throw syntaxError("The GomJau-Hogg seed phase must contain exactly one regular polygon with at least 3 sides.");
+            if (polygons.length !== 1 || !seedPolygonSides.has(polygons[0])) {
+                throw syntaxError("The GomJau-Hogg seed phase must contain exactly one of 3, 4, 6, 8, or 12 polygon sides.");
             }
         } else if (polygons.some(value => value !== 0 && value < 3)) {
             throw syntaxError("GomJau-Hogg placement values after the seed must be 0 or a polygon with at least 3 sides.");

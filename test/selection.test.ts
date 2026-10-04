@@ -16,7 +16,7 @@ function requestError(statusCode: number, code: string) {
 test("catalog resolution is separate from notation parsing", () => {
     assert.throws(selection("crNotation=3.4.6.4"), requestError(501, "tiling_identity_unregistered"));
     assert.throws(
-        selection(`gjhNotation=${encodeURIComponent("5-3/r45/m(v2)")}`),
+        selection(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`),
         requestError(501, "tiling_identity_unregistered"));
 
     assert.throws(selection("crNotation=6%5E"), requestError(400, "invalid_cr_notation"));
@@ -45,6 +45,6 @@ test("two notation systems must resolve to the same catalog identity", () => {
         requestError(400, "tiling_selector_conflict"));
 
     assert.throws(
-        selection(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("5-3/r45/m(v2)")}`),
+        selection(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`),
         requestError(501, "tiling_identity_unregistered"));
 });

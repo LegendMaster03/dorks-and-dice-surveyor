@@ -35,11 +35,11 @@ Notation parsing is independent from the registered-tiling catalog and detector 
 | registered identity with no detector | 501 | `tiling_not_implemented` |
 | two registered selectors identify different tilings | 400 | `tiling_selector_conflict` |
 
-A structurally valid unknown tiling is therefore not mislabeled as a missing detector, and the parser does not use a detector-specific allowlist.
+A structurally valid unknown tiling is therefore not mislabeled as a missing detector, and the parser does not use a detector-specific allowlist. The tests use the published uniform `12-3/m30/r(h3)` as a valid GJ-H notation that is intentionally not yet in Surveyor's Regular-only catalog.
 
 Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Vertex configurations are cyclic, so alternate starting points and reflected readings canonicalize together. Parenthesized repetition is interpreted from Euclidean angle closure: `(3.6)^2` is the single vertex configuration `3.6.3.6`, while `(3^6)^2` denotes two complete `3^6` vertices. Reordered semicolon-separated vertex types and expanded duplicate vertices canonicalize to one stable identity. Bracketed ambiguity variants are retained.
 
-GomJau-Hogg comparison ignores insignificant whitespace and case and canonicalizes placement and transformation stages. Polygon-placement phases and mirror/rotation stages are parsed structurally even when the resulting tiling has no catalog entry.
+GomJau-Hogg parsing follows the published seed grammar (`3`, `4`, `6`, `8`, or `12`), shape-placement phases, `0` side skips, and mirror/rotation transformations. Comparison ignores insignificant whitespace and case.
 
 ### Regular tilings
 
@@ -84,6 +84,10 @@ These are detector options, not tiling identity selectors. A future detector doe
 ## Classification vocabulary
 
 Derived periodic-tiling classification vocabulary currently includes `Regular`, `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These values are not request selectors.
+
+## Scope note
+
+GomJau-Hogg as published is a construction notation for edge-to-edge regular-polygon tessellations. Some non-edge-to-edge periodic families require continuous geometric parameters such as offsets or ratios, so future support for those families may require parameterized identity in addition to a topological notation. The current API does not invent those parameters or treat C&R/GJ-H as carrying information they do not encode.
 
 ## Health
 

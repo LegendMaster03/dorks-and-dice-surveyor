@@ -37,7 +37,7 @@ The parsers validate notation structure and return canonical parsed representati
 
 Cundy-Rollett parsing handles polygon side counts and exponents, cyclic vertex configurations, semicolon-separated vertices, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. Cyclic rotations and reflected readings of one vertex configuration canonicalize to the same form. The overloaded parenthesized repetition is resolved using Euclidean vertex angle closure: `(3.6)^2` expands one local polygon sequence because `3.6.3.6` closes 360 degrees, while `(3^6)^2` represents two complete `3^6` vertices because `3^6` already closes 360 degrees. Repeated equivalent vertices are canonicalized to a vertex multiplicity.
 
-GomJau-Hogg parsing handles the polygon-placement stage, hyphen-separated placement phases, comma-separated polygon placements including `0` side skips, and generic mirror/rotation transformation stages with optional angles and `c`, `v`, or `h` indexed origins.
+GomJau-Hogg parsing follows the published construction grammar: the seed phase is exactly one polygon with `3`, `4`, `6`, `8`, or `12` sides; later shape-placement phases are hyphen-separated and can contain comma-separated polygon placements or `0` side skips; and at least two mirror/rotation transformation stages follow, with optional angles and `c`, `v`, or `h` indexed origins.
 
 ### Tiling catalog
 
@@ -83,6 +83,10 @@ The public contract is now named for periodic tilings rather than hex grids. Tra
 The current response `fit` is still the hex-lattice fit because hexagonal Regular tiling is the only implemented detector. A square or triangular detector should not overload `PointyTop`/`FlatTop` or other hex-specific semantics. Before those detectors are added, the periodic-tiling fit contract should become a geometry-neutral common envelope or a discriminated union of detector-specific fits.
 
 That contract change is deliberately separate from this resource/parser cleanup.
+
+## Notation scope beyond edge-to-edge tilings
+
+The published GomJau-Hogg system is a construction notation for edge-to-edge regular-polygon tessellations, including the regular, uniform, and k-uniform families it documents. It should not be treated as proof that every eventual Surveyor periodic-tiling family can be uniquely parameterized by GJ-H alone. In particular, non-edge-to-edge isogonal families can contain continuous geometric parameters such as offsets or edge-length ratios. Future support for those families should preserve the resource/catalog boundary and introduce explicit parameterized identity rather than overloading the parser or pretending the notation contains information it does not encode.
 
 ## Concurrency
 
