@@ -65,10 +65,14 @@ async function detectHexGrid(
     response.setHeader("x-correlation-id", correlationId);
     requireServiceToken(request, dependencies.config.serviceToken);
     const contentType = request.headers["content-type"] ?? "";
-    const options = parseDetectionOptions(url.searchParams);
+    const sourceOptions = parseDetectionOptions(url.searchParams);
     const controller = new AbortController();
-    const abort = () => controller.abort();
-    request.once("aborted", abort);
+    const abortRequest = () => controller.abort();
+    const abortDisconnectedResponse = () => {
+        if (!response.writableEnded) controller.abort();
+    };
+    request.once("aborted", abortRequest);
+    response.once("close", abortDisconnectedResponse);
 
     try {
         const encoded = await readBodyBounded(request, dependencies.config.maxUploadBytes);
@@ -77,7 +81,8 @@ async function detectHexGrid(
             contentType,
             dependencies.config.maxPixels,
             dependencies.config.analysisMaximumDimension);
-        const workerResult = await dependencies.pool.run({ raster: prepared.raster, options }, {
+        const detectorOptions = mapOptionsToAnalysisSpace(sourceOptions, prepared.analysisScale);
+        const workerResult = await dependencies.pool.run({ raster: prepared.raster, options: detectorOptions }, {
             signal: controller.signal,
             timeoutMs: dependencies.config.analysisTimeoutMs
         });
@@ -135,7 +140,8 @@ async function detectHexGrid(
         });
         if (!response.headersSent && !controller.signal.aborted) writeError(response, error);
     } finally {
-        request.removeListener("aborted", abort);
+        request.removeListener("aborted", abortRequest);
+        response.removeListener("close", abortDisconnectedResponse);
     }
 }
 
@@ -152,6 +158,26 @@ function parseDetectionOptions(parameters: URLSearchParams): PublicHexGridDetect
         ...(maximumSpacingPixels == null ? {} : { maximumSpacingPixels }),
         ...(maximumEdgeSamples == null ? {} : { maximumEdgeSamples }),
         ...(minimumConfidence == null ? {} : { minimumConfidence })
+    };
+}
+
+function mapOptionsToAnalysisSpace(
+    sourceOptions: PublicHexGridDetectionOptions,
+    analysisScale: number): PublicHexGridDetectionOptions {
+    const minimumSpacingPixels = sourceOptions.minimumSpacingPixels == null
+        ? undefined
+        : Math.max(8, Math.floor(sourceOptions.minimumSpacingPixels * analysisScale));
+    let maximumSpacingPixels = sourceOptions.maximumSpacingPixels == null
+        ? undefined
+        : Math.max(8.25, sourceOptions.maximumSpacingPixels * analysisScale);
+    if (maximumSpacingPixels != null && minimumSpacingPixels != null && maximumSpacingPixels <= minimumSpacingPixels) {
+        maximumSpacingPixels = minimumSpacingPixels + 0.25;
+    }
+    return {
+        ...(minimumSpacingPixels == null ? {} : { minimumSpacingPixels }),
+        ...(maximumSpacingPixels == null ? {} : { maximumSpacingPixels }),
+        ...(sourceOptions.maximumEdgeSamples == null ? {} : { maximumEdgeSamples: sourceOptions.maximumEdgeSamples }),
+        ...(sourceOptions.minimumConfidence == null ? {} : { minimumConfidence: sourceOptions.minimumConfidence })
     };
 }
 
