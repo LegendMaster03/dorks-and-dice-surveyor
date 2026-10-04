@@ -8,7 +8,7 @@ import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
-const regularHexQuery = "periodicTilingType=Regular&shape=6";
+const regularHexQuery = "periodicTilingType=Regular&cundyRollettNotation=6%5E3";
 
 async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Partial<SurveyorConfig> = {}): Promise<void> {
     const config: SurveyorConfig = {
@@ -57,6 +57,15 @@ function bodyOf(buffer: Buffer): ArrayBuffer {
     return copy.buffer;
 }
 
+function expectedRegularHexIdentity(): Record<string, unknown> {
+    return {
+        periodicTilingType: "Regular",
+        cundyRollettNotation: "6^3",
+        gomJauHoggNotation: "6/m30/r(h1)",
+        shapes: [{ name: "hex", sides: 6 }]
+    };
+}
+
 test("health endpoints do not require analysis authentication", async () => {
     await withServer(async baseUrl => {
         assert.equal((await fetch(`${baseUrl}/health/live`)).status, 200);
@@ -73,35 +82,44 @@ test("analysis requires bearer authentication", async () => {
     });
 });
 
-test("periodic tiling type selects the shape-argument contract", async () => {
+test("periodic tiling type selects a family-specific selector contract", async () => {
     await withServer(async baseUrl => {
         const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
         const encoded = await plainPng();
         const route = `${baseUrl}/v1/periodic-tiling/detect`;
+        const send = (query: string) => fetch(`${route}?${query}`, { method: "POST", headers, body: bodyOf(encoded) });
 
-        assert.equal((await fetch(`${route}?shape=6`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
-        assert.equal((await fetch(`${route}?periodicTilingType=semiregular&shape=6`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
-        assert.equal((await fetch(`${route}?periodicTilingType=k-uniform&shape=6`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
+        assert.equal((await send("cundyRollettNotation=6%5E3")).status, 400);
+        assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 501);
+        assert.equal((await send("periodicTilingType=k-uniform")).status, 501);
+        assert.equal((await send("periodicTilingType=Plane-vertex")).status, 501);
+        assert.equal((await send("periodicTilingType=2-uniform")).status, 501);
+        assert.equal((await send("periodicTilingType=Fractalizing")).status, 501);
+        assert.equal((await send("periodicTilingType=non-edge-to-edge")).status, 501);
+        assert.equal((await send("periodicTilingType=Regular")).status, 400);
 
-        for (const shapeArgument of ["hex", "6"]) {
-            const response = await fetch(`${route}?periodicTilingType=Regular&shape=${shapeArgument}`, {
-                method: "POST",
-                headers,
-                body: bodyOf(encoded)
-            });
-            assert.equal(response.status, 200, shapeArgument);
+        const selectors = [
+            "periodicTilingType=Regular&cundyRollettNotation=6%5E3",
+            "periodicTilingType=Regular&cundyRollettNotation=6%5E%7B3%7D",
+            `periodicTilingType=Regular&cundyRollettNotation=${encodeURIComponent("6³")}`,
+            `periodicTilingType=Regular&gomJauHoggNotation=${encodeURIComponent("6/m30/r(h1)")}`,
+            "periodicTilingType=Regular&shape=hex",
+            "periodicTilingType=Regular&shape=6",
+            `periodicTilingType=Regular&cundyRollettNotation=6%5E3&gomJauHoggNotation=${encodeURIComponent("6/m30/r(h1)")}&shape=hex`
+        ];
+        for (const selector of selectors) {
+            const response = await send(selector);
+            assert.equal(response.status, 200, selector);
             const value = await response.json() as Record<string, any>;
-            assert.deepEqual(value.tiling, {
-                periodicTilingType: "Regular",
-                shapes: [{ name: "hex", sides: 6 }]
-            });
+            assert.deepEqual(value.tiling, expectedRegularHexIdentity(), selector);
         }
 
-        assert.equal((await fetch(`${route}?periodicTilingType=Regular`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
-        assert.equal((await fetch(`${route}?periodicTilingType=Regular&shape=hex&shape=6`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
-        assert.equal((await fetch(`${route}?periodicTilingType=Regular&shape=4`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
-        assert.equal((await fetch(`${route}?periodicTilingType=Regular&shape=square`, { method: "POST", headers, body: bodyOf(encoded) })).status, 501);
-        assert.equal((await fetch(`${route}?periodicTilingType=Regular&sides=6`, { method: "POST", headers, body: bodyOf(encoded) })).status, 400);
+        assert.equal((await send("periodicTilingType=Regular&cundyRollettNotation=4%5E4")).status, 501);
+        assert.equal((await send(`periodicTilingType=Regular&gomJauHoggNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send("periodicTilingType=Regular&shape=square")).status, 501);
+        assert.equal((await send("periodicTilingType=Regular&sides=6")).status, 400);
+        assert.equal((await send("periodicTilingType=Regular&cundyRollettNotation=6%5E3&shape=4")).status, 400);
+        assert.equal((await send("periodicTilingType=Regular&shape=hex&shape=6")).status, 400);
     });
 });
 
@@ -123,10 +141,7 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         const value = await response.json() as Record<string, any>;
         assert.equal(value.apiVersion, "v1");
         assert.equal(value.capability, "map.periodic-tiling.detect");
-        assert.deepEqual(value.tiling, {
-            periodicTilingType: "Regular",
-            shapes: [{ name: "hex", sides: 6 }]
-        });
+        assert.deepEqual(value.tiling, expectedRegularHexIdentity());
         assert.ok(["detected", "inconclusive", "gridless"].includes(value.status));
         assert.deepEqual(value.source, { width: 96, height: 96, mediaType: "image/png" });
         assert.equal(value.analysis.sourceResolutionVerified, true);
