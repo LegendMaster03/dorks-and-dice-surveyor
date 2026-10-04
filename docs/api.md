@@ -14,7 +14,7 @@ A future operation that attempts to recognize an unknown tiling should use a sep
 
 The request body is the encoded raster itself. `Content-Type` must be `image/png`, `image/jpeg`, or `image/webp`. The caller authenticates with `Authorization: Bearer <service token>`.
 
-Every request must declare exactly one `periodicTilingType`. The selected periodic-tiling family determines which additional arguments identify the requested tiling. The family is therefore the first-level discriminator; different families may require different argument counts and kinds, and they are not required to use shape arguments at all.
+Every request must declare exactly one `periodicTilingType`. The selected periodic-tiling family determines which additional arguments identify the requested tiling. The family is therefore the first-level discriminator; different families may require different argument counts and kinds.
 
 Known periodic-tiling families currently include:
 
@@ -28,53 +28,39 @@ Known periodic-tiling families currently include:
 
 ### Regular periodic tilings
 
-The expected workflow is to declare `periodicTilingType=Regular` and identify the requested tiling with standard notation.
+The normal workflow is to declare `periodicTilingType=Regular` and identify the requested tiling with standard notation.
 
-Preferred selector:
+Supported notation selectors:
 
-- `cundyRollettNotation` — Cundy-Rollett (C&R) notation.
+- `crNotation` — Cundy-Rollett (C&R) notation. This is the preferred selector.
+- `gjhNotation` — GomJau-Hogg (GJ-H) notation.
 
-Also supported:
+At least one notation selector is required. Both may be supplied only when they resolve to the same tiling. Shape names and side-count shorthand are deliberately not part of the public API.
 
-- `gomJauHoggNotation` — GomJau-Hogg (GJ-H) notation;
-- `shape` — convenience selector accepting a canonical shape name or side-count shorthand.
+Phase 13 implements only the Regular hexagonal tiling. These requests are equivalent:
 
-At least one selector is required. More than one selector may be supplied only when every selector resolves to the same tiling. Conflicting selectors return `400`.
-
-Phase 13 implements only the Regular hexagonal tiling. The following requests are equivalent:
-
-- `periodicTilingType=Regular&cundyRollettNotation=6^3`
-- `periodicTilingType=Regular&gomJauHoggNotation=6/m30/r(h1)`
-- `periodicTilingType=Regular&shape=hex`
-- `periodicTilingType=Regular&shape=6`
+- `periodicTilingType=Regular&crNotation=6^3`
+- `periodicTilingType=Regular&gjhNotation=6/m30/r(h1)`
 
 C&R normalization accepts the plain form `6^3`, braced exponent form `6^{3}`, and Unicode superscript form `6³`. GJ-H comparison ignores insignificant whitespace and letter case; the response always returns the canonical stored form.
 
 For reference, the three Regular Euclidean tilings are recognized as:
 
-| Tiling | C&R | GJ-H | Phase 13 detector |
-| --- | --- | --- | --- |
-| triangular | `3^6` | `3/m30/r(h2)` | not implemented |
-| square | `4^4` | `4/m45/r(h1)` | not implemented |
-| hexagonal | `6^3` | `6/m30/r(h1)` | implemented |
+| C&R | GJ-H | Phase 13 detector |
+| --- | --- | --- |
+| `3^6` | `3/m30/r(h2)` | not implemented |
+| `4^4` | `4/m45/r(h1)` | not implemented |
+| `6^3` | `6/m30/r(h1)` | implemented |
 
-The `shape` selector is deliberately secondary. Numeric shape arguments select a configured default shape for that side count; side count is shorthand, not shape identity. Future families may define completely different selector schemas.
-
-The response returns normalized tiling identity explicitly:
+The response returns normalized notation identity explicitly:
 
 ```json
 {
   "capability": "map.periodic-tiling.detect",
   "tiling": {
     "periodicTilingType": "Regular",
-    "cundyRollettNotation": "6^3",
-    "gomJauHoggNotation": "6/m30/r(h1)",
-    "shapes": [
-      {
-        "name": "hex",
-        "sides": 6
-      }
-    ]
+    "crNotation": "6^3",
+    "gjhNotation": "6/m30/r(h1)"
   }
 }
 ```
@@ -88,7 +74,7 @@ Optional detector parameters for the current Regular-hex implementation:
 - `maximumEdgeSamples`
 - `minimumConfidence`
 
-The service returns a versioned error object for missing/unsupported periodic-tiling types, missing/conflicting selectors, recognized but unimplemented tilings, malformed requests, unsupported images, authentication failures, overload, timeout, and internal failure. Transport/service failure is never reported as `gridless`.
+The service returns a versioned error object for missing/unsupported periodic-tiling types, missing/conflicting notation selectors, recognized but unimplemented tilings, malformed requests, unsupported images, authentication failures, overload, timeout, and internal failure. Transport/service failure is never reported as `gridless`.
 
 ## Health and capability discovery
 
