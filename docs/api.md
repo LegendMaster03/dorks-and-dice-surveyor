@@ -8,50 +8,61 @@ Capability: `map.periodic-tiling.detect`
 
 The request body is the encoded raster itself. `Content-Type` must be `image/png`, `image/jpeg`, or `image/webp`. The caller authenticates with `Authorization: Bearer <service token>`.
 
-Every request must declare `tilingType`. Phase 13 implements only:
+Every request must declare exactly one `periodicTilingType`. The selected periodic-tiling family determines the required ordered `shape` arguments that follow it.
 
-- `tilingType=regular`
+Known periodic-tiling families currently include:
 
-A regular tiling must then identify the polygon shape with either:
+- `periodicTilingType=Regular` — implemented in Phase 13;
+- `periodicTilingType=semiregular` — reserved, not yet implemented;
+- `periodicTilingType=k-uniform` — reserved, not yet implemented.
 
-- `shape=<canonical name>`; or
-- `sides=<polygon side count>`.
+### Regular periodic tilings
 
-`shape` is the canonical identity. `sides` is shorthand that selects a configured default shape for that side count; it does not imply that only one named shape may have that side count. If both selectors are supplied, the side count must agree with the named shape.
+`Regular` requires exactly one `shape` argument.
 
-Phase 13 implements only the regular hex tiling. Equivalent current requests are therefore:
+The shape argument accepts either:
 
-- `tilingType=regular&shape=hex`
-- `tilingType=regular&sides=6`
-- `tilingType=regular&shape=hex&sides=6`
+- a canonical shape name, for example `shape=hex`; or
+- a polygon side-count shorthand, for example `shape=6`.
 
-Square and other regular shapes are intentionally not implemented yet. Other periodic-tiling families can be added later under new `tilingType` values without changing this endpoint.
+A numeric shape argument resolves to a configured default shape for that side count. Side count is shorthand, not shape identity: multiple named shapes may share the same number of sides without changing this contract.
 
-Optional detector parameters for the current regular-hex implementation:
+Phase 13 implements only the Regular hex tiling. These requests are equivalent:
+
+- `periodicTilingType=Regular&shape=hex`
+- `periodicTilingType=Regular&shape=6`
+
+Supplying zero or more than one `shape` argument for `Regular` is invalid. Square and other Regular shapes are intentionally not implemented yet.
+
+Future periodic-tiling families may require a different number or interpretation of ordered `shape` arguments. The endpoint and top-level selector remain unchanged; the selected `periodicTilingType` owns that validation contract.
+
+Optional detector parameters for the current Regular-hex implementation:
 
 - `minimumSpacingPixels`
 - `maximumSpacingPixels`
 - `maximumEdgeSamples`
 - `minimumConfidence`
 
-The response identifies the resolved tiling explicitly, for example:
+The response identifies the resolved tiling explicitly and always returns shapes as an ordered array:
 
 ```json
 {
   "capability": "map.periodic-tiling.detect",
   "tiling": {
-    "type": "regular",
-    "shape": {
-      "name": "hex",
-      "sides": 6
-    }
+    "periodicTilingType": "Regular",
+    "shapes": [
+      {
+        "name": "hex",
+        "sides": 6
+      }
+    ]
   }
 }
 ```
 
 The full response also reports source dimensions/media type, bounded analysis dimensions/scale, whether analysis ran at source resolution, classification (`detected`, `inconclusive`, or `gridless`), and an optional fit. Fit spacing, anchor, and residual are always in original source-image pixel coordinates.
 
-The service returns a versioned error object for missing/unsupported tiling selectors, malformed requests, unsupported images, authentication failures, overload, timeout, and internal failure. Transport/service failure is never reported as `gridless`.
+The service returns a versioned error object for missing/unsupported periodic-tiling types, invalid shape-argument counts, unsupported shapes, malformed requests, unsupported images, authentication failures, overload, timeout, and internal failure. Transport/service failure is never reported as `gridless`.
 
 ## Health
 
