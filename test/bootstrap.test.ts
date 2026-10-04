@@ -17,7 +17,7 @@ const config: SurveyorConfig = {
     analysisMaximumDimension: 2048
 };
 
-test("service identity advertises periodic-tiling family argument schemas", async () => {
+test("service identity advertises capability-specific periodic-tiling selectors", async () => {
     const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 1000);
     const server = createSurveyorServer({ config, pool });
     server.listen(0, "127.0.0.1");
@@ -28,20 +28,43 @@ test("service identity advertises periodic-tiling family argument schemas", asyn
         const value = await (await fetch(`http://127.0.0.1:${address.port}/`)).json() as any;
         assert.equal(value.apiVersion, "v1");
         assert.equal(value.capabilities[0].id, "map.periodic-tiling.detect");
-        assert.deepEqual(value.capabilities[0].periodicTilingTypes, [
+        assert.equal(value.capabilities[0].path, "/v1/periodic-tiling/detect");
+
+        const regular = value.capabilities[0].periodicTilingTypes[0];
+        assert.equal(regular.name, "Regular");
+        assert.equal(regular.implemented, true);
+        assert.deepEqual(regular.arguments, [
             {
-                name: "Regular",
-                implemented: true,
-                arguments: [{
-                    name: "shape",
-                    kind: "shape",
-                    ordered: true,
-                    minimumCount: 1,
-                    maximumCount: 1,
-                    formats: ["canonical-name", "side-count"]
-                }],
-                implementedShapes: [{ name: "hex", sides: 6 }]
+                name: "cundyRollettNotation",
+                kind: "notation",
+                notation: "Cundy-Rollett",
+                required: false,
+                preferred: true
             },
+            {
+                name: "gomJauHoggNotation",
+                kind: "notation",
+                notation: "GomJau-Hogg",
+                required: false,
+                preferred: false
+            },
+            {
+                name: "shape",
+                kind: "shape",
+                ordered: true,
+                minimumCount: 1,
+                maximumCount: 1,
+                formats: ["canonical-name", "side-count"],
+                convenience: true
+            }
+        ]);
+        assert.deepEqual(regular.implementedTilings, [{
+            cundyRollettNotation: "6^3",
+            gomJauHoggNotation: "6/m30/r(h1)",
+            shapes: [{ name: "hex", sides: 6 }]
+        }]);
+
+        assert.deepEqual(value.capabilities[0].periodicTilingTypes.slice(1), [
             {
                 name: "semiregular",
                 implemented: false,
