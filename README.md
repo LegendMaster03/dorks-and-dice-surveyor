@@ -8,9 +8,15 @@ Surveyor is intentionally stateless. It does not own maps, grids, campaigns, rou
 
 ## Current capability
 
-Phase 13 provides generic periodic-tiling detection through the versioned `POST /v1/periodic-tiling/detect` API. Every caller declares the periodic tiling family with `tilingType`. Phase 13 implements `tilingType=regular` and, within that family, the regular hex shape only.
+Phase 13 provides generic periodic-tiling detection through the versioned `POST /v1/periodic-tiling/detect` API.
 
-Regular shapes can be selected by canonical name (`shape=hex`) or by side-count shorthand (`sides=6`). Side count selects a configured default shape; it is not a unique shape identity, so future named shapes may share the same number of sides. Square and other regular tilings are intentionally left for later work.
+Every request declares a `periodicTilingType`. That family determines how many ordered `shape` arguments are required and how those arguments are interpreted. Phase 13 implements only `periodicTilingType=Regular`, which requires exactly one shape argument.
+
+For `Regular`, the shape argument can be a canonical name (`shape=hex`) or side-count shorthand (`shape=6`). Numeric shorthand selects a configured default shape for that side count. Side count is not shape identity, so multiple named shapes may share the same number of sides in future work.
+
+The API already reserves other periodic-tiling families, including `semiregular` and `k-uniform`, without pretending to implement them. Their shape-argument contracts can be added under the same endpoint later.
+
+Phase 13 implements only the Regular hex shape. Square and other Regular tilings are intentionally left for later work.
 
 The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
 
