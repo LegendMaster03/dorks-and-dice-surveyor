@@ -20,6 +20,7 @@ export type SurveyorHexGridAnalysis = {
     capability: typeof PeriodicTilingDetectionCapability;
     tiling: {
         periodicTilingType: "Regular";
+        cundyRollettNotation: "6^3";
         shapes: [{
             name: "hex";
             sides: 6;
