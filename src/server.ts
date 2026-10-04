@@ -45,7 +45,11 @@ const defaultRegularShapeBySideCount = new Map<number, string>([
 const canonicalPeriodicTilingTypes = new Map<string, string>([
     ["regular", "Regular"],
     ["semiregular", "semiregular"],
-    ["k-uniform", "k-uniform"]
+    ["k-uniform", "k-uniform"],
+    ["plane-vertex", "Plane-vertex"],
+    ["2-uniform", "2-uniform"],
+    ["fractalizing", "Fractalizing"],
+    ["non-edge-to-edge", "non-edge-to-edge"]
 ]);
 
 export function createSurveyorServer(dependencies: SurveyorDependencies): Server {
@@ -85,12 +89,31 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
                     {
                         name: "Regular",
                         implemented: true,
-                        shapeArgumentCount: 1,
-                        shapeArgumentFormat: "canonical-name-or-side-count",
+                        arguments: [{
+                            name: "shape",
+                            kind: "shape",
+                            ordered: true,
+                            minimumCount: 1,
+                            maximumCount: 1,
+                            formats: ["canonical-name", "side-count"]
+                        }],
                         implementedShapes: [{ name: "hex", sides: 6 }]
                     },
-                    { name: "semiregular", implemented: false },
-                    { name: "k-uniform", implemented: false }
+                    {
+                        name: "semiregular",
+                        implemented: false,
+                        arguments: [{
+                            name: "semiregularType",
+                            kind: "enum",
+                            required: true,
+                            values: ["Archimedean", "uniform"]
+                        }]
+                    },
+                    { name: "k-uniform", implemented: false, arguments: null },
+                    { name: "Plane-vertex", implemented: false, arguments: null },
+                    { name: "2-uniform", implemented: false, arguments: null },
+                    { name: "Fractalizing", implemented: false, arguments: null },
+                    { name: "non-edge-to-edge", implemented: false, arguments: null }
                 ]
             }]
         });
