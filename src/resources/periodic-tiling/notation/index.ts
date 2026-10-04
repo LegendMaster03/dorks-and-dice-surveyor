@@ -1,9 +1,8 @@
 export {
     parseCundyRollettNotation,
-    type CundyRollettFactor,
-    type CundyRollettGroupFactor,
     type CundyRollettNotation,
-    type CundyRollettPolygonFactor
+    type CundyRollettPolygonFactor,
+    type CundyRollettVertex
 } from "./cundy-rollett.js";
 export {
     parseGomJauHoggNotation,

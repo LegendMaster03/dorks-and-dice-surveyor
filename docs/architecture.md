@@ -35,9 +35,9 @@ These layers have deliberately different responsibilities.
 
 The parsers validate notation structure and return canonical parsed representations. They do not ask whether Surveyor currently knows or implements the represented tiling. Therefore adding a new catalog entry or detector does not require editing the parser merely to accept that notation's structure.
 
-Cundy-Rollett parsing currently handles polygon side counts, exponents, grouped repetitions, multiple vertex configurations, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. It also derives a Regular single-vertex signature when the parsed vertex is composed entirely of one regular polygon and exactly closes 360 degrees.
+Cundy-Rollett parsing handles polygon side counts and exponents, semicolon-separated vertex configurations, repeated vertex configurations such as `(3^6)^2`, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. Equivalent adjacent repeated vertex configurations are canonicalized to a vertex multiplicity rather than being interpreted as additional polygons around one vertex. It also derives a Regular single-vertex signature when one non-repeated vertex configuration is composed entirely of one regular polygon and exactly closes 360 degrees.
 
-GomJau-Hogg parsing currently handles the polygon-placement stage, hyphen-separated placement phases, comma-separated polygon placements including `0` side skips, and generic mirror/rotation transformation stages with optional angles and `c`, `v`, or `h` indexed origins.
+GomJau-Hogg parsing handles the polygon-placement stage, hyphen-separated placement phases, comma-separated polygon placements including `0` side skips, and generic mirror/rotation transformation stages with optional angles and `c`, `v`, or `h` indexed origins.
 
 ### Tiling catalog
 

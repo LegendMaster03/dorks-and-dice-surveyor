@@ -1,23 +1,19 @@
 import { PeriodicTilingNotationError } from "../types.js";
 
 export type CundyRollettPolygonFactor = {
-    kind: "polygon";
     sides: number;
     repeat: number;
 };
 
-export type CundyRollettGroupFactor = {
-    kind: "group";
-    factors: CundyRollettFactor[];
-    repeat: number;
+export type CundyRollettVertex = {
+    factors: CundyRollettPolygonFactor[];
+    multiplicity: number;
 };
-
-export type CundyRollettFactor = CundyRollettPolygonFactor | CundyRollettGroupFactor;
 
 export type CundyRollettNotation = {
     notation: "Cundy-Rollett";
     canonical: string;
-    vertices: CundyRollettFactor[][];
+    vertices: CundyRollettVertex[];
     variant?: number;
     regularVertex?: {
         polygonSides: number;
@@ -50,16 +46,17 @@ export function parseCundyRollettNotation(raw: string): CundyRollettNotation {
         throw syntaxError("Square brackets must wrap the complete Cundy-Rollett expression.");
     }
 
-    const vertexSources = splitTopLevel(source, ";");
+    const vertexSources = splitVertices(source);
     if (vertexSources.length === 0 || vertexSources.some(value => value.length === 0)) {
         throw syntaxError("Cundy-Rollett notation must contain at least one vertex configuration.");
     }
 
-    const vertices = vertexSources.map(value => new FactorParser(value).parse());
-    const canonicalBody = vertices.map(serializeFactors).join(";");
+    const parsedVertices = vertexSources.map(parseVertex);
+    const vertices = combineAdjacentEquivalentVertices(parsedVertices);
+    const canonicalBody = vertices.map(serializeVertex).join(";");
     const canonical = variant == null ? canonicalBody : `[${canonicalBody}]^${variant}`;
-    const regularVertex = variant == null && vertices.length === 1
-        ? deriveRegularVertex(vertices[0])
+    const regularVertex = variant == null && vertices.length === 1 && vertices[0].multiplicity === 1
+        ? deriveRegularVertex(vertices[0].factors)
         : undefined;
 
     return {
@@ -81,88 +78,7 @@ function normalizeInput(raw: string): string {
         .replace(/\s+/g, "");
 }
 
-class FactorParser {
-    private index = 0;
-
-    constructor(private readonly source: string) {}
-
-    parse(): CundyRollettFactor[] {
-        if (!this.source) throw syntaxError("A vertex configuration can not be empty.");
-        const factors = this.parseSequence(undefined);
-        if (this.index !== this.source.length) {
-            throw syntaxError(`Unexpected token '${this.source[this.index]}' in Cundy-Rollett notation.`);
-        }
-        return normalizeAdjacentPolygons(factors);
-    }
-
-    private parseSequence(stop: string | undefined): CundyRollettFactor[] {
-        const factors: CundyRollettFactor[] = [];
-        let expectFactor = true;
-
-        while (this.index < this.source.length) {
-            const character = this.source[this.index];
-            if (stop != null && character === stop) break;
-
-            if (expectFactor) {
-                if (character === ".") throw syntaxError("Cundy-Rollett notation can not contain an empty polygon position.");
-                factors.push(this.parseFactor());
-                expectFactor = false;
-                continue;
-            }
-
-            if (character !== ".") {
-                throw syntaxError(`Expected '.' between Cundy-Rollett polygon factors at position ${this.index + 1}.`);
-            }
-            this.index += 1;
-            expectFactor = true;
-        }
-
-        if (expectFactor && factors.length > 0) {
-            throw syntaxError("Cundy-Rollett notation can not end a sequence with '.'.");
-        }
-        return normalizeAdjacentPolygons(factors);
-    }
-
-    private parseFactor(): CundyRollettFactor {
-        const character = this.source[this.index];
-        if (character === "(") {
-            this.index += 1;
-            const factors = this.parseSequence(")");
-            if (this.source[this.index] !== ")") {
-                throw syntaxError("Cundy-Rollett notation contains an unclosed parenthesized group.");
-            }
-            this.index += 1;
-            if (factors.length === 0) throw syntaxError("Cundy-Rollett groups can not be empty.");
-            return { kind: "group", factors, repeat: this.parseOptionalExponent() };
-        }
-
-        if (!isDigit(character)) {
-            throw syntaxError(`Expected a polygon side count at position ${this.index + 1}.`);
-        }
-        const sides = this.parseInteger();
-        if (sides < 3) throw syntaxError("Regular polygons in Cundy-Rollett notation must have at least 3 sides.");
-        return { kind: "polygon", sides, repeat: this.parseOptionalExponent() };
-    }
-
-    private parseOptionalExponent(): number {
-        if (this.source[this.index] !== "^") return 1;
-        this.index += 1;
-        if (!isDigit(this.source[this.index])) {
-            throw syntaxError("A Cundy-Rollett exponent must contain a positive integer.");
-        }
-        return parsePositiveInteger(String(this.parseInteger()), "exponent");
-    }
-
-    private parseInteger(): number {
-        const start = this.index;
-        while (this.index < this.source.length && isDigit(this.source[this.index])) this.index += 1;
-        const value = Number(this.source.slice(start, this.index));
-        if (!Number.isSafeInteger(value)) throw syntaxError("Cundy-Rollett integers must be safe integers.");
-        return value;
-    }
-}
-
-function splitTopLevel(source: string, separator: string): string[] {
+function splitVertices(source: string): string[] {
     const values: string[] = [];
     let depth = 0;
     let start = 0;
@@ -173,60 +89,106 @@ function splitTopLevel(source: string, separator: string): string[] {
         else if (character === ")") {
             depth -= 1;
             if (depth < 0) throw syntaxError("Cundy-Rollett notation contains an unmatched ')'.");
-        } else if (character === separator && depth === 0) {
+        } else if (character === ";" && depth === 0) {
             values.push(source.slice(start, index));
             start = index + 1;
         }
     }
 
-    if (depth !== 0) throw syntaxError("Cundy-Rollett notation contains an unclosed parenthesized group.");
+    if (depth !== 0) throw syntaxError("Cundy-Rollett notation contains an unclosed parenthesized vertex configuration.");
     values.push(source.slice(start));
     return values;
 }
 
-function normalizeAdjacentPolygons(factors: CundyRollettFactor[]): CundyRollettFactor[] {
-    const normalized: CundyRollettFactor[] = [];
+function parseVertex(source: string): CundyRollettVertex {
+    if (!source) throw syntaxError("A Cundy-Rollett vertex configuration can not be empty.");
+
+    let factorSource = source;
+    let multiplicity = 1;
+    if (source.startsWith("(")) {
+        const match = /^\((.*)\)\^([1-9][0-9]*)$/.exec(source);
+        if (!match) {
+            throw syntaxError("A parenthesized Cundy-Rollett vertex configuration must be followed by a positive multiplicity exponent.");
+        }
+        factorSource = match[1];
+        multiplicity = parsePositiveInteger(match[2], "vertex multiplicity");
+    } else if (source.includes("(") || source.includes(")")) {
+        throw syntaxError("Parentheses may only wrap a complete repeated vertex configuration.");
+    }
+
+    return {
+        factors: parsePolygonFactors(factorSource),
+        multiplicity
+    };
+}
+
+function parsePolygonFactors(source: string): CundyRollettPolygonFactor[] {
+    if (!source) throw syntaxError("A Cundy-Rollett vertex configuration can not be empty.");
+    const rawFactors = source.split(".");
+    if (rawFactors.some(value => value.length === 0)) {
+        throw syntaxError("Cundy-Rollett notation can not contain an empty polygon position.");
+    }
+
+    const factors = rawFactors.map(parsePolygonFactor);
+    const normalized: CundyRollettPolygonFactor[] = [];
     for (const factor of factors) {
         const previous = normalized.at(-1);
-        if (factor.kind === "polygon" && previous?.kind === "polygon" && previous.sides === factor.sides) {
-            previous.repeat += factor.repeat;
+        if (previous?.sides === factor.sides) previous.repeat += factor.repeat;
+        else normalized.push({ ...factor });
+    }
+    return normalized;
+}
+
+function parsePolygonFactor(source: string): CundyRollettPolygonFactor {
+    const match = /^([0-9]+)(?:\^([1-9][0-9]*))?$/.exec(source);
+    if (!match) {
+        throw syntaxError(`Invalid Cundy-Rollett polygon factor '${source}'.`);
+    }
+
+    const sides = Number(match[1]);
+    if (!Number.isSafeInteger(sides) || sides < 3) {
+        throw syntaxError("Regular polygons in Cundy-Rollett notation must have at least 3 sides.");
+    }
+    const repeat = match[2] == null ? 1 : parsePositiveInteger(match[2], "polygon exponent");
+    return { sides, repeat };
+}
+
+function combineAdjacentEquivalentVertices(vertices: CundyRollettVertex[]): CundyRollettVertex[] {
+    const normalized: CundyRollettVertex[] = [];
+    for (const vertex of vertices) {
+        const previous = normalized.at(-1);
+        if (previous != null && sameFactors(previous.factors, vertex.factors)) {
+            previous.multiplicity += vertex.multiplicity;
         } else {
-            normalized.push(factor);
+            normalized.push({
+                factors: vertex.factors.map(factor => ({ ...factor })),
+                multiplicity: vertex.multiplicity
+            });
         }
     }
     return normalized;
 }
 
-function serializeFactors(factors: CundyRollettFactor[]): string {
-    return factors.map(factor => {
-        if (factor.kind === "polygon") {
-            return factor.repeat === 1 ? String(factor.sides) : `${factor.sides}^${factor.repeat}`;
-        }
-        const group = `(${serializeFactors(factor.factors)})`;
-        return factor.repeat === 1 ? group : `${group}^${factor.repeat}`;
-    }).join(".");
+function sameFactors(left: CundyRollettPolygonFactor[], right: CundyRollettPolygonFactor[]): boolean {
+    return left.length === right.length
+        && left.every((factor, index) => factor.sides === right[index].sides && factor.repeat === right[index].repeat);
 }
 
-function deriveRegularVertex(factors: CundyRollettFactor[]): CundyRollettNotation["regularVertex"] {
-    const polygons: number[] = [];
-    if (!flattenFactors(factors, polygons, 128) || polygons.length === 0) return undefined;
-    const polygonSides = polygons[0];
-    if (polygons.some(value => value !== polygonSides)) return undefined;
+function serializeVertex(vertex: CundyRollettVertex): string {
+    const factors = serializeFactors(vertex.factors);
+    return vertex.multiplicity === 1 ? factors : `(${factors})^${vertex.multiplicity}`;
+}
 
+function serializeFactors(factors: CundyRollettPolygonFactor[]): string {
+    return factors.map(factor => factor.repeat === 1 ? String(factor.sides) : `${factor.sides}^${factor.repeat}`).join(".");
+}
+
+function deriveRegularVertex(factors: CundyRollettPolygonFactor[]): CundyRollettNotation["regularVertex"] {
+    if (factors.length !== 1) return undefined;
+    const { sides: polygonSides, repeat: polygonsAtVertex } = factors[0];
     const interiorAngle = 180 * (polygonSides - 2) / polygonSides;
-    if (Math.abs(interiorAngle * polygons.length - 360) > 1e-9) return undefined;
-    return { polygonSides, polygonsAtVertex: polygons.length };
-}
-
-function flattenFactors(factors: CundyRollettFactor[], output: number[], limit: number): boolean {
-    for (const factor of factors) {
-        for (let repetition = 0; repetition < factor.repeat; repetition += 1) {
-            if (factor.kind === "polygon") output.push(factor.sides);
-            else if (!flattenFactors(factor.factors, output, limit)) return false;
-            if (output.length > limit) return false;
-        }
-    }
-    return true;
+    if (Math.abs(interiorAngle * polygonsAtVertex - 360) > 1e-9) return undefined;
+    return { polygonSides, polygonsAtVertex };
 }
 
 function parsePositiveInteger(raw: string, label: string): number {
@@ -235,10 +197,6 @@ function parsePositiveInteger(raw: string, label: string): number {
         throw syntaxError(`Cundy-Rollett ${label} must be a positive safe integer.`);
     }
     return value;
-}
-
-function isDigit(value: string | undefined): boolean {
-    return value != null && value >= "0" && value <= "9";
 }
 
 function syntaxError(message: string): PeriodicTilingNotationError {

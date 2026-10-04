@@ -37,7 +37,7 @@ Notation parsing is independent from the registered-tiling catalog and detector 
 
 A syntactically valid unknown notation is therefore not mislabeled as malformed, and the parser does not need a detector-specific allowlist.
 
-Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. The parser also preserves compound/grouped vertex expressions and bracketed variant indices.
+Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Repeated vertex configurations are modeled separately from polygon exponents: `3^6;3^6;3^4.6` and `(3^6)^2;3^4.6` canonicalize to the same parsed identity. Bracketed ambiguity variants are retained.
 
 GomJau-Hogg comparison ignores insignificant whitespace and case and canonicalizes placement and transformation stages. Polygon-placement phases and mirror/rotation stages are parsed structurally even when the resulting tiling has no catalog entry.
 
