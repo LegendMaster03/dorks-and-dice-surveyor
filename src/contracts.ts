@@ -2,12 +2,14 @@ import type { HexLatticeDetectionOptions, HexLatticeFit } from "./analysis/hex-g
 
 export const SurveyorApiVersion = "v1" as const;
 export const GridDetectionCapability = "map.grid.detect" as const;
-export const SupportedGridKinds = ["hex"] as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 
-export type SupportedGridKind = typeof SupportedGridKinds[number];
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
 export type GridDetectionStatus = "detected" | "inconclusive" | "gridless";
+export type GridShapeIdentity = {
+    name: string;
+    sides: number | null;
+};
 
 export type PublicHexGridDetectionOptions = Pick<
     HexLatticeDetectionOptions,
@@ -16,7 +18,10 @@ export type PublicHexGridDetectionOptions = Pick<
 export type SurveyorHexGridAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
     capability: typeof GridDetectionCapability;
-    gridKind: "hex";
+    shape: {
+        name: "hex";
+        sides: 6;
+    };
     status: GridDetectionStatus;
     reason: string;
     source: {
