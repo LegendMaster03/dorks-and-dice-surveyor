@@ -1,11 +1,11 @@
 import type { HexLatticeDetectionOptions, HexLatticeFit } from "./analysis/hex-grid/detector.js";
 
 export const SurveyorApiVersion = "v1" as const;
-export const GridDetectionCapability = "map.grid.detect" as const;
+export const PeriodicTilingDetectionCapability = "map.periodic-tiling.detect" as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
-export type GridDetectionStatus = "detected" | "inconclusive" | "gridless";
+export type PeriodicTilingDetectionStatus = "detected" | "inconclusive" | "gridless";
 export type GridShapeIdentity = {
     name: string;
     sides: number | null;
@@ -17,12 +17,15 @@ export type PublicHexGridDetectionOptions = Pick<
 
 export type SurveyorHexGridAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
-    capability: typeof GridDetectionCapability;
-    shape: {
-        name: "hex";
-        sides: 6;
+    capability: typeof PeriodicTilingDetectionCapability;
+    tiling: {
+        type: "regular";
+        shape: {
+            name: "hex";
+            sides: 6;
+        };
     };
-    status: GridDetectionStatus;
+    status: PeriodicTilingDetectionStatus;
     reason: string;
     source: {
         width: number;
@@ -50,7 +53,7 @@ export type SurveyorTiming = {
 
 export type SurveyorErrorResponse = {
     apiVersion: typeof SurveyorApiVersion;
-    capability: typeof GridDetectionCapability;
+    capability: typeof PeriodicTilingDetectionCapability;
     error: {
         code: string;
         message: string;
