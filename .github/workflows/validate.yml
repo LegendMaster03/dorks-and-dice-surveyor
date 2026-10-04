@@ -1,0 +1,41 @@
+name: Validate Surveyor
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: validate-surveyor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Build and test
+        run: npm test
+      - name: Build container
+        run: docker build -t dorks-and-dice-surveyor:test .
+      - name: Container health smoke
+        run: |
+          set -euo pipefail
+          docker run -d --name surveyor-smoke -p 127.0.0.1:18094:8080 dorks-and-dice-surveyor:test >/dev/null
+          trap 'docker rm -f surveyor-smoke >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:18094/health/live >/dev/null \
+              && curl -fsS http://127.0.0.1:18094/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs surveyor-smoke || true
+          exit 1
