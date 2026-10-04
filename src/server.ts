@@ -2,7 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { performance } from "node:perf_hooks";
 import type { SurveyorConfig } from "./config.js";
-import { GridDetectionCapability, SurveyorApiVersion, type PublicHexGridDetectionOptions, type SurveyorErrorResponse, type SurveyorHexGridAnalysis } from "./contracts.js";
+import { PeriodicTilingDetectionCapability, SurveyorApiVersion, type PublicHexGridDetectionOptions, type SurveyorErrorResponse, type SurveyorHexGridAnalysis } from "./contracts.js";
 import { WorkerJobCancelledError, WorkerJobTimeoutError, WorkerPoolOverloadedError, SurveyorRequestError } from "./errors.js";
 import { prepareRaster } from "./image/preprocess.js";
 import { log } from "./logging.js";
@@ -15,17 +15,20 @@ export type SurveyorDependencies = {
     pool: BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>;
 };
 
-type GridShapeSelection = {
-    name: "hex";
-    sides: 6;
+type RegularTilingSelection = {
+    tilingType: "regular";
+    shape: {
+        name: "hex";
+        sides: 6;
+    };
 };
 
-type KnownGridShape = {
+type KnownRegularShape = {
     sides: number | null;
     implemented: boolean;
 };
 
-const knownGridShapes = new Map<string, KnownGridShape>([
+const knownRegularShapes = new Map<string, KnownRegularShape>([
     ["triangle", { sides: 3, implemented: false }],
     ["square", { sides: 4, implemented: false }],
     ["hex", { sides: 6, implemented: true }]
@@ -33,7 +36,7 @@ const knownGridShapes = new Map<string, KnownGridShape>([
 
 // Side count is shorthand, not identity. Multiple named shapes may share a side count.
 // This table selects the default shape only when a caller supplies sides without shape.
-const defaultShapeBySideCount = new Map<number, string>([
+const defaultRegularShapeBySideCount = new Map<number, string>([
     [3, "triangle"],
     [4, "square"],
     [6, "hex"]
@@ -71,52 +74,72 @@ async function route(request: IncomingMessage, response: ServerResponse, depende
             service: "Dorks & Dice Surveyor",
             apiVersion: SurveyorApiVersion,
             capabilities: [{
-                id: GridDetectionCapability,
-                implementedShapes: [{ name: "hex", sides: 6 }],
-                selectors: ["shape", "sides"]
+                id: PeriodicTilingDetectionCapability,
+                tilingTypes: [{
+                    name: "regular",
+                    implementedShapes: [{ name: "hex", sides: 6 }],
+                    selectors: ["shape", "sides"]
+                }]
             }]
         });
     }
-    if (request.method === "POST" && url.pathname === "/v1/grid/detect") {
+    if (request.method === "POST" && url.pathname === "/v1/periodic-tiling/detect") {
         requireServiceToken(request, dependencies.config.serviceToken);
-        const shape = selectGridShape(url.searchParams);
-        return detectHexGrid(request, response, url, dependencies, shape);
+        const tiling = selectPeriodicTiling(url.searchParams);
+        return detectRegularHexTiling(request, response, url, dependencies, tiling);
     }
     writeJson(response, 404, { error: "not_found" });
 }
 
-function selectGridShape(parameters: URLSearchParams): GridShapeSelection {
+function selectPeriodicTiling(parameters: URLSearchParams): RegularTilingSelection {
+    const tilingType = parameters.get("tilingType")?.trim().toLowerCase() ?? "";
+    if (!tilingType) {
+        throw new SurveyorRequestError(
+            400,
+            "tiling_type_required",
+            "tilingType is required for periodic-tiling detection.");
+    }
+    if (tilingType !== "regular") {
+        throw new SurveyorRequestError(
+            501,
+            "tiling_type_not_implemented",
+            `Periodic tiling type '${tilingType}' is not implemented by this Surveyor deployment.`);
+    }
+    return selectRegularTiling(parameters);
+}
+
+function selectRegularTiling(parameters: URLSearchParams): RegularTilingSelection {
     const rawName = parameters.get("shape")?.trim().toLowerCase() ?? "";
     const rawSides = parameters.get("sides")?.trim() ?? "";
     if (!rawName && !rawSides) {
         throw new SurveyorRequestError(
             400,
-            "grid_shape_required",
-            "Specify the grid shape with shape=<canonical name> or sides=<regular polygon side count>.");
+            "regular_shape_required",
+            "Regular periodic tilings require shape=<canonical name> or sides=<polygon side count>.");
     }
 
     let requestedSides: number | null = null;
     if (rawSides) {
         const parsed = Number(rawSides);
         if (!Number.isInteger(parsed) || parsed < 3 || parsed > 1000) {
-            throw new SurveyorRequestError(400, "invalid_grid_sides", "sides must be an integer between 3 and 1000.");
+            throw new SurveyorRequestError(400, "invalid_regular_shape_sides", "sides must be an integer between 3 and 1000.");
         }
         requestedSides = parsed;
     }
 
-    const canonicalName = rawName || (requestedSides == null ? "" : defaultShapeBySideCount.get(requestedSides) ?? "");
+    const canonicalName = rawName || (requestedSides == null ? "" : defaultRegularShapeBySideCount.get(requestedSides) ?? "");
     if (!canonicalName) {
         throw new SurveyorRequestError(
             501,
-            "grid_shape_not_implemented",
-            `No default grid shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
+            "regular_shape_not_implemented",
+            `No default regular tiling shape is implemented for sides=${requestedSides}. Supply a canonical shape name when this tiling is supported.`);
     }
 
-    const known = knownGridShapes.get(canonicalName);
+    const known = knownRegularShapes.get(canonicalName);
     if (rawName && known?.sides != null && requestedSides != null && known.sides !== requestedSides) {
         throw new SurveyorRequestError(
             400,
-            "grid_shape_selector_conflict",
+            "regular_shape_selector_conflict",
             `shape=${canonicalName} has ${known.sides} sides, which conflicts with sides=${requestedSides}.`);
     }
 
@@ -124,20 +147,25 @@ function selectGridShape(parameters: URLSearchParams): GridShapeSelection {
         const sideDetail = requestedSides ?? known?.sides;
         throw new SurveyorRequestError(
             501,
-            "grid_shape_not_implemented",
-            `Grid shape '${canonicalName}'${sideDetail == null ? "" : ` (${sideDetail} sides)`} is not implemented by this Surveyor deployment.`);
+            "regular_shape_not_implemented",
+            `Regular tiling shape '${canonicalName}'${sideDetail == null ? "" : ` (${sideDetail} sides)`} is not implemented by this Surveyor deployment.`);
     }
 
-    if (canonicalName === "hex") return { name: "hex", sides: 6 };
-    throw new SurveyorRequestError(501, "grid_shape_not_implemented", `Grid shape '${canonicalName}' is not implemented.`);
+    if (canonicalName === "hex") {
+        return {
+            tilingType: "regular",
+            shape: { name: "hex", sides: 6 }
+        };
+    }
+    throw new SurveyorRequestError(501, "regular_shape_not_implemented", `Regular tiling shape '${canonicalName}' is not implemented.`);
 }
 
-async function detectHexGrid(
+async function detectRegularHexTiling(
     request: IncomingMessage,
     response: ServerResponse,
     url: URL,
     dependencies: SurveyorDependencies,
-    shape: GridShapeSelection): Promise<void> {
+    tiling: RegularTilingSelection): Promise<void> {
     const totalStarted = performance.now();
     const correlationId = correlationIdentifier(request.headers["x-correlation-id"]);
     response.setHeader("x-correlation-id", correlationId);
@@ -169,8 +197,11 @@ async function detectHexGrid(
         const detectorMs = Math.max(0, workerResult.detectorTotalMs - edgeFieldMs);
         const result: SurveyorHexGridAnalysis = {
             apiVersion: SurveyorApiVersion,
-            capability: GridDetectionCapability,
-            shape,
+            capability: PeriodicTilingDetectionCapability,
+            tiling: {
+                type: tiling.tilingType,
+                shape: tiling.shape
+            },
             status: mapped.status,
             reason: mapped.reason,
             source: {
@@ -197,9 +228,10 @@ async function detectHexGrid(
         response.setHeader("server-timing", serverTiming(result));
         log("info", "surveyor.analysis.completed", {
             correlationId,
-            capability: GridDetectionCapability,
-            gridShape: shape.name,
-            gridSides: shape.sides,
+            capability: PeriodicTilingDetectionCapability,
+            tilingType: tiling.tilingType,
+            gridShape: tiling.shape.name,
+            gridSides: tiling.shape.sides,
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -214,9 +246,10 @@ async function detectHexGrid(
     } catch (error) {
         log("error", "surveyor.analysis.failed", {
             correlationId,
-            capability: GridDetectionCapability,
-            gridShape: shape.name,
-            gridSides: shape.sides,
+            capability: PeriodicTilingDetectionCapability,
+            tilingType: tiling.tilingType,
+            gridShape: tiling.shape.name,
+            gridSides: tiling.shape.sides,
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });
@@ -348,7 +381,7 @@ function writeError(response: ServerResponse, error: unknown): void {
     if (status === 401) response.setHeader("www-authenticate", "Bearer");
     const body: SurveyorErrorResponse = {
         apiVersion: SurveyorApiVersion,
-        capability: GridDetectionCapability,
+        capability: PeriodicTilingDetectionCapability,
         error: { code, message }
     };
     writeJson(response, status, body);
