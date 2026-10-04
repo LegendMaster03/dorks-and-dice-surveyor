@@ -35,33 +35,23 @@ test("service identity advertises capability-specific periodic-tiling selectors"
         assert.equal(regular.implemented, true);
         assert.deepEqual(regular.arguments, [
             {
-                name: "cundyRollettNotation",
+                name: "crNotation",
                 kind: "notation",
                 notation: "Cundy-Rollett",
                 required: false,
                 preferred: true
             },
             {
-                name: "gomJauHoggNotation",
+                name: "gjhNotation",
                 kind: "notation",
                 notation: "GomJau-Hogg",
                 required: false,
                 preferred: false
-            },
-            {
-                name: "shape",
-                kind: "shape",
-                ordered: true,
-                minimumCount: 1,
-                maximumCount: 1,
-                formats: ["canonical-name", "side-count"],
-                convenience: true
             }
         ]);
         assert.deepEqual(regular.implementedTilings, [{
-            cundyRollettNotation: "6^3",
-            gomJauHoggNotation: "6/m30/r(h1)",
-            shapes: [{ name: "hex", sides: 6 }]
+            crNotation: "6^3",
+            gjhNotation: "6/m30/r(h1)"
         }]);
 
         assert.deepEqual(value.capabilities[0].periodicTilingTypes.slice(1), [
