@@ -19,7 +19,7 @@ export type SurveyorHexGridAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
     capability: typeof PeriodicTilingDetectionCapability;
     tiling: {
-        type: "regular";
+        periodicTilingType: "Regular";
         shape: {
             name: "hex";
             sides: 6;
