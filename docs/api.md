@@ -1,46 +1,63 @@
 # Surveyor API v1
 
-## Capability boundaries
+## Resource discovery
 
-Surveyor is one service with separate APIs for distinct computer-vision operations. Phase 13 implements only known periodic-tiling detection:
+Surveyor hosts multiple headless resources behind one service. `GET /` returns the API version, registered resource identifiers, and capability descriptors. Each capability keeps its own route and request contract rather than being multiplexed through a generic analysis endpoint.
+
+The first registered resource is `periodic-tiling`.
+
+## Periodic-tiling detection
 
 `POST /v1/periodic-tiling/detect`
 
 Capability: `map.periodic-tiling.detect`
 
-A future operation that attempts to recognize an unknown tiling should use a separate capability such as `/v1/periodic-tiling/recognize`. Unrelated computer-vision operations likewise receive their own routes. The detection endpoint does not become a generic catch-all API.
-
-## Periodic-tiling detection
-
 The request body is the encoded raster itself. `Content-Type` must be `image/png`, `image/jpeg`, or `image/webp`. The caller authenticates with `Authorization: Bearer <service token>`.
 
-The requested tiling is identified by standard notation. The notation itself carries the tiling identity, so callers do not separately send `periodicTilingType`, shape names, or polygon side counts. Surveyor derives `periodicTilingType` from the resolved notation and returns it as normalized response metadata.
+The requested tiling is identified by standard notation. The notation carries tiling identity, so callers do not separately send `periodicTilingType`, shape names, or polygon side counts. Surveyor derives `periodicTilingType` from a resolved catalog identity and returns it as normalized response metadata.
 
 Supported notation selectors:
 
-- `crNotation` — Cundy-Rollett (C&R) notation. This is the preferred selector.
-- `gjhNotation` — GomJau-Hogg (GJ-H) notation.
+- `crNotation` — Cundy-Rollett notation. This is the preferred selector.
+- `gjhNotation` — GomJau-Hogg notation.
 
-At least one notation selector is required. Both may be supplied only when they resolve to the same tiling. If a notation can not uniquely identify one known tiling, Surveyor must report ambiguity or require the more specific notation rather than asking the caller to provide a separate tiling-family discriminator.
+At least one notation selector is required. Both may be supplied only when Surveyor can resolve both to the same cataloged tiling.
 
-Phase 13 implements only the Regular hexagonal tiling. These requests are equivalent:
+### Parser and catalog behavior
 
-- `crNotation=6^3`
-- `gjhNotation=6/m30/r(h1)`
+Notation parsing is independent from the registered-tiling catalog and detector implementations. This produces distinct API outcomes:
 
-C&R normalization accepts the plain form `6^3`, braced exponent form `6^{3}`, and Unicode superscript form `6³`. GJ-H comparison ignores insignificant whitespace and letter case; the response always returns the canonical stored form.
+| Condition | Status | Error code |
+| --- | ---: | --- |
+| malformed Cundy-Rollett syntax | 400 | `invalid_cr_notation` |
+| malformed GomJau-Hogg syntax | 400 | `invalid_gjh_notation` |
+| valid notation with no registered identity | 501 | `tiling_identity_unregistered` |
+| registered identity with no detector | 501 | `tiling_not_implemented` |
+| two registered selectors identify different tilings | 400 | `tiling_selector_conflict` |
 
-For reference, the three Regular Euclidean tilings are recognized as:
+A syntactically valid unknown notation is therefore not mislabeled as malformed, and the parser does not need a detector-specific allowlist.
 
-| C&R | GJ-H | Derived type | Phase 13 detector |
+Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. The parser also preserves compound/grouped vertex expressions and bracketed variant indices.
+
+GomJau-Hogg comparison ignores insignificant whitespace and case and canonicalizes placement and transformation stages. Polygon-placement phases and mirror/rotation stages are parsed structurally even when the resulting tiling has no catalog entry.
+
+### Regular tilings
+
+The Regular family is the first initialized periodic-tiling family:
+
+| Cundy-Rollett | GomJau-Hogg | Derived type | Detector |
 | --- | --- | --- | --- |
 | `3^6` | `3/m30/r(h2)` | `Regular` | not implemented |
 | `4^4` | `4/m45/r(h1)` | `Regular` | not implemented |
-| `6^3` | `6/m30/r(h1)` | `Regular` | implemented |
+| `6^3` | `6/m30/r(h1)` | `Regular` | `regular.hexagonal` |
 
-Known periodic-tiling families retained as derived classification vocabulary include `Regular`, `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains the classification vocabulary `Archimedean` and `uniform`. These values are not request selectors.
+For the currently implemented hexagonal detector, these requests are equivalent:
 
-The response returns normalized notation identity plus the derived periodic-tiling classification:
+- `crNotation=6^3`
+- `gjhNotation=6/m30/r(h1)`
+- both selectors together, when they resolve to that same identity.
+
+The response returns canonical notation identity plus the derived periodic-tiling classification:
 
 ```json
 {
@@ -53,19 +70,22 @@ The response returns normalized notation identity plus the derived periodic-tili
 }
 ```
 
-The full response also reports source dimensions/media type, bounded analysis dimensions/scale, whether analysis ran at source resolution, classification (`detected`, `inconclusive`, or `gridless`), and an optional fit. Fit spacing, anchor, and residual are always in original source-image pixel coordinates.
+The full response also reports source dimensions/media type, bounded analysis dimensions/scale, whether analysis ran at source resolution, classification (`detected`, `inconclusive`, or `gridless`), detector fit, and timing. For the current hexagonal detector, fit spacing, anchor, and residual are in original source-image pixel coordinates.
 
-Optional detector parameters for the current Regular-hex implementation:
+Optional detector parameters for the current `regular.hexagonal` implementation:
 
 - `minimumSpacingPixels`
 - `maximumSpacingPixels`
 - `maximumEdgeSamples`
 - `minimumConfidence`
 
-The service returns a versioned error object for missing/conflicting notation selectors, obsolete identity selectors, recognized but unimplemented tilings, malformed requests, unsupported images, authentication failures, overload, timeout, and internal failure. Transport/service failure is never reported as `gridless`.
+These are detector options, not tiling identity selectors. A future detector does not have to use the same options if they are not meaningful for that geometry.
 
-## Health and capability discovery
+## Classification vocabulary
 
-- `GET /` returns the API version, notation-selector metadata, derived identity fields, implemented tilings, and recognized tiling-family classifications.
+Derived periodic-tiling classification vocabulary currently includes `Regular`, `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These values are not request selectors.
+
+## Health
+
 - `GET /health/live` verifies only that the process can answer HTTP.
-- `GET /health/ready` reports whether the bounded worker pool can currently accept work without running computer vision.
+- `GET /health/ready` reports whether the current bounded analysis worker pool can accept work.

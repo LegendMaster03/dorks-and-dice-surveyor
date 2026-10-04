@@ -1,26 +1,47 @@
 # Dorks & Dice Surveyor
 
-Surveyor is the shared headless map-analysis and image-processing service for Dorks & Dice tools.
+Surveyor is a stateless collection of headless map-analysis and image-processing resources for Dorks & Dice tools.
 
-> Surveyor observes map imagery and returns analysis results. Consuming tools own accepted domain state.
+> Surveyor observes input and returns analysis results. Consuming tools own accepted domain state.
 
-Surveyor is intentionally stateless. It does not own maps, grids, campaigns, routes, terrain, locations, Battle Map scenes, Bastion state, or any other consumer domain state.
+Surveyor does not own maps, grids, campaigns, routes, terrain, locations, Battle Map scenes, Bastion state, or other consumer domain state.
 
-## Capability model
+## Resource model
 
-Surveyor is one service with separate APIs for separate computer-vision operations. Phase 13 implements only known periodic-tiling detection through the versioned `POST /v1/periodic-tiling/detect` API. Future operations such as recognizing an unknown tiling or performing unrelated computer vision belong on separate capability endpoints rather than being folded into this route.
+The process hosts multiple independent headless resources behind one service boundary. Each resource owns its API routes, discovery metadata, domain-specific parsing and identity logic, and analysis dispatch. Shared HTTP/authentication, bounded image preparation, logging, configuration, and worker infrastructure remain service-level concerns.
 
-Periodic tilings are selected with standard notation. The notation already carries the tiling identity, so callers do not separately provide `periodicTilingType`, shape names, or polygon side counts.
+The first resource is `periodic-tiling`, exposed through:
 
-The preferred workflow uses Cundy-Rollett notation, for example `crNotation=6^3` for the regular hexagonal tiling. GomJau-Hogg (GJ-H) notation is also a first-class selector, for example `gjhNotation=6/m30/r(h1)`. Surveyor resolves either notation to the same known tiling, derives its periodic-tiling classification, and returns both normalized notations plus the derived `periodicTilingType` in the response.
+`POST /v1/periodic-tiling/detect`
 
-Phase 13 implements only the Regular hexagonal tiling. Triangle and square Regular tilings are recognized by notation but intentionally return not implemented until detectors exist.
+Capability: `map.periodic-tiling.detect`
 
-The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform`. These are derived classification values rather than request selectors.
+Future resources can be registered beside it without adding their domain logic to the root HTTP server.
 
-The service accepts PNG, JPEG, and WebP bytes, performs bounded decode/downsampling and grayscale conversion, executes the extracted Hex Crawl lattice detector in a bounded worker pool, and returns source-image pixel-space observations.
+## Euclidean periodic tilings
 
-No arbitrary URL fetching, terrain recognition, road recognition, OCR, semantic feature classification, general tiling recognition, or machine-learning inference is implemented in Phase 13.
+Periodic tilings are selected with standard notation rather than caller-supplied family, shape, or polygon-side discriminators.
+
+- `crNotation` accepts Cundy-Rollett notation and is the preferred selector.
+- `gjhNotation` accepts GomJau-Hogg notation as an equivalent first-class selector.
+
+The notation parsers are independent from the detector catalog. They parse and canonicalize structurally valid notation even when Surveyor does not yet have a catalog identity or detector for that tiling. This separates three outcomes:
+
+1. malformed notation: request error;
+2. valid notation whose identity is not yet registered: recognized syntax, unavailable catalog identity;
+3. registered tiling with no detector yet: known identity, detector not implemented.
+
+The Regular Euclidean family is the first initialized tiling family. Its three canonical tilings are registered:
+
+| Cundy-Rollett | GomJau-Hogg | Detector |
+| --- | --- | --- |
+| `3^6` | `3/m30/r(h2)` | not implemented |
+| `4^4` | `4/m45/r(h1)` | not implemented |
+| `6^3` | `6/m30/r(h1)` | implemented |
+
+The existing extracted hexagonal-lattice code is registered as the `regular.hexagonal` detector. Square and triangular Regular detectors can be added behind the same resource without changing notation parsing or the public selector contract.
+
+The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These are derived values, not request selectors.
 
 ## Local development
 

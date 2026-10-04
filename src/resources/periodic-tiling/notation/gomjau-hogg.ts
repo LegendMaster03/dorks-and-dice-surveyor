@@ -89,13 +89,9 @@ function serializePlacement(phases: GomJauHoggPlacementPhase[]): string {
 }
 
 function serializeTransform(transform: GomJauHoggTransform): string {
-    const angle = transform.angleDegrees == null ? "" : formatNumber(transform.angleDegrees);
+    const angle = transform.angleDegrees == null ? "" : String(transform.angleDegrees);
     const origin = transform.origin == null ? "" : `(${transform.origin.kind}${transform.origin.index})`;
     return `${transform.operation}${angle}${origin}`;
-}
-
-function formatNumber(value: number): string {
-    return Number.isInteger(value) ? String(value) : String(value).replace(/(?:\.0+|(?<=\.[0-9]*?)0+)$/, "");
 }
 
 function syntaxError(message: string): PeriodicTilingNotationError {
