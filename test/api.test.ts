@@ -44,6 +44,11 @@ async function plainPng(size = 96): Promise<Buffer> {
     return sharp({ create: { width: size, height: size, channels: 3, background: "white" } }).png().toBuffer();
 }
 
+function bodyOf(buffer: Buffer): ArrayBuffer {
+    const copy = Uint8Array.from(buffer);
+    return copy.buffer;
+}
+
 test("health endpoints do not require analysis authentication", async () => {
     await withServer(async baseUrl => {
         assert.equal((await fetch(`${baseUrl}/health/live`)).status, 200);
@@ -53,7 +58,7 @@ test("health endpoints do not require analysis authentication", async () => {
 
 test("analysis requires bearer authentication", async () => {
     await withServer(async baseUrl => {
-        const body = await plainPng();
+        const body = bodyOf(await plainPng());
         assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { "content-type": "image/png" }, body })).status, 401);
         assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { "content-type": "image/png", authorization: "Bearer wrong" }, body })).status, 401);
     });
@@ -61,7 +66,7 @@ test("analysis requires bearer authentication", async () => {
 
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
-        const body = await plainPng();
+        const body = bodyOf(await plainPng());
         const response = await fetch(`${baseUrl}/v1/hex-grid/detect?minimumConfidence=0.54`, {
             method: "POST",
             headers: {
@@ -86,17 +91,17 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
 
 test("invalid options, unsupported media, malformed image, and upload limit are distinct", async () => {
     await withServer(async baseUrl => {
-        const body = await plainPng();
+        const body = bodyOf(await plainPng());
         const headers = { authorization: `Bearer ${token}` };
         assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect?minimumConfidence=NaN`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body })).status, 400);
         assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { ...headers, "content-type": "image/gif" }, body })).status, 415);
-        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: Buffer.from("bad") })).status, 422);
+        assert.equal((await fetch(`${baseUrl}/v1/hex-grid/detect`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: bodyOf(Buffer.from("bad")) })).status, 422);
     });
     await withServer(async baseUrl => {
         const response = await fetch(`${baseUrl}/v1/hex-grid/detect`, {
             method: "POST",
             headers: { authorization: `Bearer ${token}`, "content-type": "image/png" },
-            body: Buffer.alloc(129)
+            body: bodyOf(Buffer.alloc(129))
         });
         assert.equal(response.status, 413);
     }, { maxUploadBytes: 128 });
