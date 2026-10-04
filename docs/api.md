@@ -29,15 +29,15 @@ Notation parsing is independent from the registered-tiling catalog and detector 
 
 | Condition | Status | Error code |
 | --- | ---: | --- |
-| malformed Cundy-Rollett syntax | 400 | `invalid_cr_notation` |
+| malformed or non-Euclidean Cundy-Rollett vertex syntax | 400 | `invalid_cr_notation` |
 | malformed GomJau-Hogg syntax | 400 | `invalid_gjh_notation` |
 | valid notation with no registered identity | 501 | `tiling_identity_unregistered` |
 | registered identity with no detector | 501 | `tiling_not_implemented` |
 | two registered selectors identify different tilings | 400 | `tiling_selector_conflict` |
 
-A syntactically valid unknown notation is therefore not mislabeled as malformed, and the parser does not need a detector-specific allowlist.
+A structurally valid unknown tiling is therefore not mislabeled as a missing detector, and the parser does not use a detector-specific allowlist.
 
-Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Repeated vertex configurations are modeled separately from polygon exponents: `3^6;3^6;3^4.6` and `(3^6)^2;3^4.6` canonicalize to the same parsed identity. Bracketed ambiguity variants are retained.
+Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Vertex configurations are cyclic, so alternate starting points and reflected readings canonicalize together. Parenthesized repetition is interpreted from Euclidean angle closure: `(3.6)^2` is the single vertex configuration `3.6.3.6`, while `(3^6)^2` denotes two complete `3^6` vertices. Reordered semicolon-separated vertex types and expanded duplicate vertices canonicalize to one stable identity. Bracketed ambiguity variants are retained.
 
 GomJau-Hogg comparison ignores insignificant whitespace and case and canonicalizes placement and transformation stages. Polygon-placement phases and mirror/rotation stages are parsed structurally even when the resulting tiling has no catalog entry.
 

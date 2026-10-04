@@ -14,21 +14,38 @@ test("Cundy-Rollett parser canonicalizes equivalent regular notation without cat
     }
 });
 
-test("Cundy-Rollett parser models repeated vertex configurations rather than polygon repetition", () => {
+test("Cundy-Rollett parser distinguishes repeated polygon sequences from repeated vertex configurations", () => {
+    const alternating = parseCundyRollettNotation("(3.6)^2");
+    assert.equal(alternating.canonical, "3.6.3.6");
+    assert.deepEqual(alternating.vertices, [{
+        factors: [
+            { sides: 3, repeat: 1 },
+            { sides: 6, repeat: 1 },
+            { sides: 3, repeat: 1 },
+            { sides: 6, repeat: 1 }
+        ],
+        multiplicity: 1
+    }]);
+
     const expanded = parseCundyRollettNotation("3^6; 3^6; 3^4.6");
     const compact = parseCundyRollettNotation("(3^6)^2; 3^4.6");
-
     assert.equal(expanded.canonical, "(3^6)^2;3^4.6");
     assert.equal(compact.canonical, expanded.canonical);
     assert.deepEqual(compact.vertices[0], {
         factors: [{ sides: 3, repeat: 6 }],
         multiplicity: 2
     });
-    assert.equal(compact.regularVertex, undefined);
 });
 
-test("Cundy-Rollett parser preserves ambiguity variants", () => {
-    const first = parseCundyRollettNotation("[3^6; 3^4.6]^1");
+test("Cundy-Rollett vertex configurations canonicalize cyclic starting point and reflection", () => {
+    const canonical = parseCundyRollettNotation("3.4.6.4").canonical;
+    assert.equal(canonical, "3.4.6.4");
+    assert.equal(parseCundyRollettNotation("4.6.4.3").canonical, canonical);
+    assert.equal(parseCundyRollettNotation("4.3.4.6").canonical, canonical);
+});
+
+test("Cundy-Rollett parser preserves ambiguity variants and canonicalizes vertex ordering", () => {
+    const first = parseCundyRollettNotation("[3^4.6; 3^6]^1");
     const second = parseCundyRollettNotation("[3^6; 3^4.6]^2");
     assert.equal(first.canonical, "[3^6;3^4.6]^1");
     assert.equal(second.canonical, "[3^6;3^4.6]^2");
@@ -36,8 +53,8 @@ test("Cundy-Rollett parser preserves ambiguity variants", () => {
     assert.equal(second.variant, 2);
 });
 
-test("Cundy-Rollett parser rejects malformed syntax rather than treating it as unsupported catalog data", () => {
-    for (const value of ["", "6^", "2^4", "6..6", "(3^6)", "(3.6", "[3^6;3^4.6"]) {
+test("Cundy-Rollett parser rejects malformed or non-Euclidean vertex syntax rather than treating it as unsupported catalog data", () => {
+    for (const value of ["", "6^", "2^4", "6..6", "(3^6)", "(3.6", "[3^6;3^4.6", "3.4.6.5"]) {
         assert.throws(
             () => parseCundyRollettNotation(value),
             error => error instanceof PeriodicTilingNotationError && error.notation === "Cundy-Rollett",

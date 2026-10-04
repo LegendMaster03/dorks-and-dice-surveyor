@@ -35,7 +35,7 @@ These layers have deliberately different responsibilities.
 
 The parsers validate notation structure and return canonical parsed representations. They do not ask whether Surveyor currently knows or implements the represented tiling. Therefore adding a new catalog entry or detector does not require editing the parser merely to accept that notation's structure.
 
-Cundy-Rollett parsing handles polygon side counts and exponents, semicolon-separated vertex configurations, repeated vertex configurations such as `(3^6)^2`, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. Equivalent adjacent repeated vertex configurations are canonicalized to a vertex multiplicity rather than being interpreted as additional polygons around one vertex. It also derives a Regular single-vertex signature when one non-repeated vertex configuration is composed entirely of one regular polygon and exactly closes 360 degrees.
+Cundy-Rollett parsing handles polygon side counts and exponents, cyclic vertex configurations, semicolon-separated vertices, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. Cyclic rotations and reflected readings of one vertex configuration canonicalize to the same form. The overloaded parenthesized repetition is resolved using Euclidean vertex angle closure: `(3.6)^2` expands one local polygon sequence because `3.6.3.6` closes 360 degrees, while `(3^6)^2` represents two complete `3^6` vertices because `3^6` already closes 360 degrees. Repeated equivalent vertices are canonicalized to a vertex multiplicity.
 
 GomJau-Hogg parsing handles the polygon-placement stage, hyphen-separated placement phases, comma-separated polygon placements including `0` side skips, and generic mirror/rotation transformation stages with optional angles and `c`, `v`, or `h` indexed origins.
 
@@ -57,7 +57,8 @@ The public tiling identity boundary remains notation-only. A caller supplies `cr
 
 Resolution distinguishes:
 
-- malformed notation -> `400 invalid_cr_notation` or `400 invalid_gjh_notation`;
+- malformed or geometrically impossible Euclidean Cundy-Rollett notation -> `400 invalid_cr_notation`;
+- malformed GomJau-Hogg notation -> `400 invalid_gjh_notation`;
 - syntactically valid but uncataloged identity -> `501 tiling_identity_unregistered`;
 - registered but detectorless tiling -> `501 tiling_not_implemented`;
 - two registered notations resolving to different identities -> `400 tiling_selector_conflict`;
