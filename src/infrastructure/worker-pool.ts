@@ -17,6 +17,7 @@ type PendingJob<TRequest, TResponse> = {
 type WorkerSlot<TRequest, TResponse> = {
     worker: Worker;
     current: PendingJob<TRequest, TResponse> | null;
+    replacing: boolean;
 };
 
 export class BoundedWorkerPool<TRequest, TResponse> {
@@ -35,13 +36,13 @@ export class BoundedWorkerPool<TRequest, TResponse> {
     }
 
     public get canAccept(): boolean {
-        return !this.closed && (this.slots.some(slot => slot.current === null) || this.queue.length < this.queueLimit);
+        return !this.closed && (this.slots.some(slot => this.isIdle(slot)) || this.queue.length < this.queueLimit);
     }
 
     public snapshot(): { workers: number; busy: number; queued: number; queueLimit: number } {
         return {
             workers: this.slots.length,
-            busy: this.slots.filter(slot => slot.current !== null).length,
+            busy: this.slots.filter(slot => slot.current !== null || slot.replacing).length,
             queued: this.queue.length,
             queueLimit: this.queueLimit
         };
@@ -50,7 +51,7 @@ export class BoundedWorkerPool<TRequest, TResponse> {
     public run(payload: TRequest, options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<TResponse> {
         if (this.closed) return Promise.reject(new WorkerJobCancelledError());
         if (options.signal?.aborted) return Promise.reject(new WorkerJobCancelledError());
-        const idle = this.slots.find(slot => slot.current === null);
+        const idle = this.slots.find(slot => this.isIdle(slot));
         if (!idle && this.queue.length >= this.queueLimit) return Promise.reject(new WorkerPoolOverloadedError());
 
         return new Promise<TResponse>((resolve, reject) => {
@@ -78,21 +79,33 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         await Promise.all(this.slots.map(async slot => {
             if (slot.current) this.finish(slot.current, new WorkerJobCancelledError());
             slot.current = null;
+            slot.replacing = true;
             await slot.worker.terminate();
         }));
     }
 
     private createSlot(): WorkerSlot<TRequest, TResponse> {
-        const slot = { worker: new Worker(this.workerUrl), current: null } as WorkerSlot<TRequest, TResponse>;
-        slot.worker.on("message", (message: WorkerResponseEnvelope<TResponse>) => this.onMessage(slot, message));
-        slot.worker.on("error", error => this.onWorkerFailure(slot, error));
-        slot.worker.on("exit", code => {
-            if (!this.closed && code !== 0 && slot.current) this.onWorkerFailure(slot, new Error(`Analysis worker exited with code ${code}.`));
-        });
+        const slot = { worker: new Worker(this.workerUrl), current: null, replacing: false } as WorkerSlot<TRequest, TResponse>;
+        this.attachWorkerListeners(slot);
         return slot;
     }
 
+    private attachWorkerListeners(slot: WorkerSlot<TRequest, TResponse>): void {
+        slot.worker.on("message", (message: WorkerResponseEnvelope<TResponse>) => this.onMessage(slot, message));
+        slot.worker.on("error", error => this.onWorkerFailure(slot, error));
+        slot.worker.on("exit", code => {
+            if (!this.closed && !slot.replacing && code !== 0) {
+                this.onWorkerFailure(slot, new Error(`Analysis worker exited with code ${code}.`));
+            }
+        });
+    }
+
+    private isIdle(slot: WorkerSlot<TRequest, TResponse>): boolean {
+        return slot.current === null && !slot.replacing;
+    }
+
     private start(slot: WorkerSlot<TRequest, TResponse>, job: PendingJob<TRequest, TResponse>): void {
+        if (!this.isIdle(slot)) throw new Error("Attempted to start work on a non-idle Surveyor worker slot.");
         if (job.signal?.aborted) {
             this.finish(job, new WorkerJobCancelledError());
             this.dispatch();
@@ -129,15 +142,18 @@ export class BoundedWorkerPool<TRequest, TResponse> {
     }
 
     private onWorkerFailure(slot: WorkerSlot<TRequest, TResponse>, error: Error): void {
+        if (slot.replacing) return;
         const job = slot.current;
         slot.current = null;
+        slot.replacing = true;
         if (job) this.finish(job, error);
         void this.replaceWorker(slot).then(() => this.dispatch());
     }
 
     private cancelRunning(slot: WorkerSlot<TRequest, TResponse>, job: PendingJob<TRequest, TResponse>, error: Error): void {
-        if (slot.current !== job) return;
+        if (slot.current !== job || slot.replacing) return;
         slot.current = null;
+        slot.replacing = true;
         this.finish(job, error);
         void this.replaceWorker(slot).then(() => this.dispatch());
     }
@@ -147,15 +163,15 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         old.removeAllListeners();
         await old.terminate();
         if (this.closed) return;
-        const replacement = this.createSlot();
-        const index = this.slots.indexOf(slot);
-        if (index >= 0) this.slots[index] = replacement;
+        slot.worker = new Worker(this.workerUrl);
+        slot.replacing = false;
+        this.attachWorkerListeners(slot);
     }
 
     private dispatch(): void {
         if (this.closed) return;
         while (this.queue.length > 0) {
-            const slot = this.slots.find(candidate => candidate.current === null);
+            const slot = this.slots.find(candidate => this.isIdle(candidate));
             if (!slot) return;
             const job = this.queue.shift()!;
             if (job.abortListener && job.signal) {
