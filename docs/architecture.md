@@ -8,7 +8,7 @@ The dependency direction is consumer -> Surveyor. Surveyor has no dependency on 
 
 `src/main.ts` is the composition root. It constructs resource-specific dependencies, registers the headless resources hosted by this deployment, and hands only generic resource/readiness interfaces to the HTTP server.
 
-`src/server.ts` is intentionally a domain-neutral service router. It owns only service-level health/discovery routes and dispatches requests to the supplied resource registry. It does not import the periodic-tiling resource, the hex detector, or detector-specific worker contracts.
+`src/server.ts` is intentionally a domain-neutral service router. It owns only service-level health/discovery routes and dispatches requests to the supplied resource registry. It does not import the periodic-tiling resource or detector-specific contracts.
 
 A resource implements the `SurveyorResource` boundary in `src/resources/resource.ts`:
 
@@ -19,7 +19,7 @@ A resource implements the `SurveyorResource` boundary in `src/resources/resource
 
 Domain-specific parsing, catalogs, analysis orchestration, and dispatch belong inside the resource rather than the root server. Shared HTTP/authentication/error helpers live outside resources. Shared bounded image preparation and worker infrastructure can likewise be reused by multiple resources without coupling their domain models.
 
-The generic bounded worker pool imports only a service-level worker-envelope contract from `src/infrastructure/worker-contract.ts`. Detector-specific worker payloads remain owned by their detector/resource. Additional headless resources can therefore register their own worker implementations without depending on the hex-grid contract.
+The generic bounded worker pool imports only a service-level worker-envelope contract from `src/infrastructure/worker-contract.ts`. Detector-specific worker payloads remain owned by their detector/resource.
 
 The current composition root registers `periodic-tiling`. Additional headless resources should be added as siblings under `src/resources/` and registered in the composition root rather than expanding `server.ts` into a catch-all controller.
 
@@ -29,7 +29,7 @@ The periodic-tiling resource exposes `map.periodic-tiling.detect` at `POST /v1/p
 
 Its internal dependency direction is:
 
-`HTTP selector -> notation parser -> tiling catalog -> detector registration -> detector implementation`
+`HTTP selector -> notation parser -> tiling catalog -> detector registration -> detector geometry -> detector implementation`
 
 These layers have deliberately different responsibilities.
 
@@ -39,7 +39,7 @@ These layers have deliberately different responsibilities.
 
 The parsers validate notation structure and return canonical parsed representations. They do not ask whether Surveyor currently knows or implements the represented tiling. Therefore adding a new catalog entry or detector does not require editing the parser merely to accept that notation's structure.
 
-Cundy-Rollett parsing handles polygon side counts and exponents, cyclic vertex configurations, semicolon-separated vertices, ambiguity/variant brackets, insignificant whitespace, braced exponents, and Unicode superscripts. Cyclic rotations and reflected readings of one vertex configuration canonicalize to the same form. The overloaded parenthesized repetition is resolved using Euclidean vertex angle closure: `(3.6)^2` expands one local polygon sequence because `3.6.3.6` closes 360 degrees, while `(3^6)^2` represents two complete `3^6` vertices because `3^6` already closes 360 degrees. Repeated equivalent vertices are canonicalized to a vertex multiplicity.
+Cundy-Rollett parsing handles polygon side counts and exponents, cyclic vertex configurations, semicolon-separated vertices, ambiguity/variant brackets, insignificant whitespace, braced exponents, Unicode superscripts, and redundant grouping. Cyclic rotations and reflected readings of one vertex configuration canonicalize to the same form. The overloaded parenthesized repetition is resolved using Euclidean vertex angle closure: `(3.6)^2` expands one local polygon sequence because `3.6.3.6` closes 360 degrees, while `(3^6)^2` represents two complete `3^6` vertices because `3^6` already closes 360 degrees. Repeated equivalent vertices are canonicalized to a vertex multiplicity.
 
 GomJau-Hogg parsing follows the published construction grammar: the seed phase is exactly one polygon with `3`, `4`, `6`, `8`, or `12` sides; later shape-placement phases are hyphen-separated and can contain comma-separated polygon placements or `0` side skips; and at least two mirror/rotation transformation stages follow, with optional angles and `c`, `v`, or `h` indexed origins.
 
@@ -49,13 +49,13 @@ GomJau-Hogg parsing follows the published construction grammar: the seed phase i
 
 Cundy-Rollett is intentionally indexed to a candidate set rather than a single definition because the notation is not unique for every tiling. GomJau-Hogg is indexed as a unique identity. If a future Cundy-Rollett entry maps to multiple registered definitions, C&R alone reports an ambiguous selector instead of silently choosing one; supplying GJ-H allows the catalog to intersect the candidates and resolve an exact identity.
 
-The first cataloged family is `Regular`:
+The first cataloged and implemented family is `Regular`:
 
 - `regular.triangular`: `3^6` / `3/m30/r(h2)`;
 - `regular.square`: `4^4` / `4/m45/r(h1)`;
 - `regular.hexagonal`: `6^3` / `6/m30/r(h1)`.
 
-Catalog membership and detector availability are separate. The first detector registration is `regular.hexagonal`, which points to the existing extracted hex-lattice analysis path. The triangular and square identities are cataloged but intentionally have no detector registration yet.
+All three identities register the `regular-lattice` detector with a geometry-specific profile. Catalog identity remains separate from detector implementation so future families can use different detector models without changing notation resolution.
 
 ### Request resolution
 
@@ -73,23 +73,59 @@ Resolution distinguishes:
 
 When both notation systems are supplied, Surveyor only claims equivalence when the catalog can prove that the GJ-H identity is a member of the C&R candidate set. It does not infer identity merely because both strings parse.
 
-## Current Regular hexagonal detector
+## Generalized Regular-lattice detector
 
-The existing `Regular` `6^3` / `6/m30/r(h1)` detector performs:
+`src/analysis/regular-tiling/detector.ts` is a small generalization around the existing proven hex detector rather than a replacement for it.
 
-1. bounded PNG/JPEG/WebP decode;
-2. bounded-resolution raster preparation;
-3. browser-parity grayscale conversion using `0.2126 R + 0.7152 G + 0.0722 B`;
-4. the extracted deterministic hex-lattice detector;
-5. normalization of spacing, anchor, and residual back into source-image pixels.
+### Hexagonal `6^3`
 
-The public contract is now named for periodic tilings rather than hex grids. Transitional TypeScript aliases retain source compatibility for the extracted hex implementation while future detector-specific fit contracts are designed.
+`regular.hexagonal` delegates directly to the existing extracted `detectHexLattice` implementation. The existing three-family Hough/autocorrelation pipeline, continuous spacing refinement, phase fitting, canonical-spacing candidates, multi-region checking, and distant rigid-lattice residual logic remain unchanged. The generalized layer maps the legacy result into the geometry-neutral Regular fit.
 
-## Future detector geometry
+This preserves the behavior that prevents a strong local near-period fit from incrementally pulling the final solution away from the one rigid lattice supported by the original raster across distant regions.
 
-The current response `fit` is still the hex-lattice fit because hexagonal Regular tiling is the only implemented detector. A square or triangular detector should not overload `PointyTop`/`FlatTop` or other hex-specific semantics. Before those detectors are added, the periodic-tiling fit contract should become a geometry-neutral common envelope or a discriminated union of detector-specific fits.
+### Triangular `3^6`
 
-That contract change is deliberately separate from this resource/parser cleanup.
+A triangular grid exposes the same three edge-normal families separated by 60 degrees as the hexagonal grid. The triangular profile therefore reuses the proven three-family detector and converts between its natural hex-center spacing and triangular edge length. This avoids duplicating the most mature detector path.
+
+### Square `4^4`
+
+The square profile uses two perpendicular edge-normal families. It retains the same overall strategy:
+
+1. build a broad Sobel edge field from the original raster;
+2. search for a pair of perpendicular orientation families;
+3. project each family and score shared periodicity through autocorrelation and harmonics;
+4. estimate one common phase/origin;
+5. validate the candidate against distant image regions;
+6. report detected, inconclusive, or gridless conservatively.
+
+The square implementation does not port the calibration-grid paper's projective two-pencil algorithm wholesale. Surveyor is fitting a rigid Euclidean raster lattice, so it uses the existing periodic-raster assumptions while preserving the paper's useful global line-family principle.
+
+### Fit contract
+
+`RegularLatticeFit` exposes geometry-independent fields:
+
+- `geometryId`;
+- `rotationDegrees`;
+- `edgeLengthPixels`;
+- `anchorPixel`;
+- confidence, residual, support, translation, periodicity, and phase metrics.
+
+Hexagonal results additionally retain `orientation` (`PointyTop` or `FlatTop`) and `centerSpacingPixels` for compatibility with the original detector and existing consumers.
+
+`minimumSpacingPixels` and `maximumSpacingPixels` remain compatible with the pre-generalization API. For square and triangular profiles they represent polygon edge length. For the hexagonal profile they retain the existing center-spacing interpretation; changing that legacy meaning would be a separate API-versioning decision.
+
+## Global-fit constraint and future motifs
+
+Refinement must remain grounded in the original prepared raster and edge evidence. Surveyor should compare alternative complete hypotheses against that unchanged evidence rather than repeatedly correcting an already-corrected synthetic result. The current hex detector's multi-region and distant-residual checks are retained specifically because repeated local corrections can otherwise accumulate visible drift.
+
+For the three Regular tilings, each edge family has one uniform spacing. More complex periodic tilings may contain multiple polygon types, alternating offsets, or a larger asymmetric repeating motif. The likely extension is therefore not a detector per tiling, but a generalized periodic motif with:
+
+- a translation basis;
+- one or more edge orientations;
+- potentially multiple offsets within each periodic edge family;
+- motif edge geometry used for global verification.
+
+That future work should preserve the same rule: all motif components act as simultaneous evidence for one common lattice rather than being aligned sequentially.
 
 ## Notation scope beyond edge-to-edge tilings
 
@@ -99,7 +135,7 @@ The published GomJau-Hogg system is a construction notation for edge-to-edge reg
 
 CPU-heavy lattice detection runs in a fixed worker-thread pool. Worker count and queued work are bounded. A full queue produces explicit overload rather than spawning unbounded workers. Cancellation or timeout terminates the affected worker and replaces it, preventing abandoned CPU-heavy analysis from continuing indefinitely.
 
-The current deployment uses a dedicated pool for the `regular.hexagonal` detector. Future CPU-heavy resources can own separate pools or share a generalized worker dispatcher without changing the HTTP server contract.
+The current periodic-tiling resource uses one worker contract carrying the selected Regular geometry profile. Future CPU-heavy resources can own separate pools or share a generalized worker dispatcher without changing the HTTP server contract.
 
 ## Security boundary
 

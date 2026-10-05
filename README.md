@@ -25,21 +25,19 @@ Periodic tilings are selected with standard notation rather than caller-supplied
 - `crNotation` accepts Cundy-Rollett notation and is the preferred selector.
 - `gjhNotation` accepts GomJau-Hogg notation as an equivalent first-class selector.
 
-The notation parsers are independent from the detector catalog. They parse and canonicalize structurally valid notation even when Surveyor does not yet have a catalog identity or detector for that tiling. This separates three outcomes:
+The notation parsers are independent from the detector catalog. They parse and canonicalize structurally valid notation even when Surveyor does not yet have a catalog identity or detector for that tiling. This separates malformed notation, valid but uncataloged identity, and cataloged detector support.
 
-1. malformed notation: request error;
-2. valid notation whose identity is not yet registered: recognized syntax, unavailable catalog identity;
-3. registered tiling with no detector yet: known identity, detector not implemented.
+The Regular Euclidean family is the first implemented tiling family. All three Regular tilings use the generalized `regular-lattice` detector:
 
-The Regular Euclidean family is the first initialized tiling family. Its three canonical tilings are registered:
-
-| Cundy-Rollett | GomJau-Hogg | Detector |
+| Cundy-Rollett | GomJau-Hogg | Geometry |
 | --- | --- | --- |
-| `3^6` | `3/m30/r(h2)` | not implemented |
-| `4^4` | `4/m45/r(h1)` | not implemented |
-| `6^3` | `6/m30/r(h1)` | implemented |
+| `3^6` | `3/m30/r(h2)` | triangular |
+| `4^4` | `4/m45/r(h1)` | square |
+| `6^3` | `6/m30/r(h1)` | hexagonal |
 
-The existing extracted hexagonal-lattice code is registered as the `regular.hexagonal` detector. Square and triangular Regular detectors can be added behind the same resource without changing notation parsing or the public selector contract.
+The existing extracted hexagonal detector remains the proven three-family implementation and is not rewritten. The generalized detector delegates `6^3` to it directly. `3^6` uses the same three 60-degree line-family analysis with triangular spacing/output semantics. `4^4` uses a two-family perpendicular profile with the same global gradient, periodicity, phase, and distant-region consistency principles.
+
+The detector returns a geometry-neutral Regular fit with `geometryId`, `rotationDegrees`, `edgeLengthPixels`, anchor, confidence, residual, support, and periodicity metrics. Hexagonal results additionally retain the legacy `PointyTop`/`FlatTop` orientation and `centerSpacingPixels` fields for compatibility.
 
 The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These are derived values, not request selectors.
 
