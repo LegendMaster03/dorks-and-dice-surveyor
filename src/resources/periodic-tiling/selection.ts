@@ -76,10 +76,9 @@ export function selectPeriodicTiling(parameters: URLSearchParams): ImplementedPe
             "tiling_not_implemented",
             `${selected.periodicTilingType} tiling '${selected.crNotation}' is recognized but not implemented by this Surveyor deployment.`);
     }
-    if (selected.detectorGeometry == null) {
-        throw new Error(`Implemented periodic tiling '${selected.id}' does not declare detector geometry.`);
-    }
 
+    // PeriodicTilingDefinition makes detector id and geometry an all-or-none pair, so
+    // detectorId narrows this definition to an implemented registration.
     return selected as ImplementedPeriodicTilingDefinition;
 }
 
