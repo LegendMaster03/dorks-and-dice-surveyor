@@ -1,3 +1,4 @@
+import type { HexLatticeFit } from "./analysis/hex-grid/detector.js";
 import type {
     RegularLatticeDetectionOptions,
     RegularLatticeFit
@@ -61,6 +62,14 @@ export type SurveyorErrorResponse = {
 };
 
 // Transitional aliases preserve source compatibility for callers that still use the
-// pre-resource naming while the public API itself is periodic-tiling based.
+// pre-resource hex-grid names. The legacy analysis alias deliberately keeps the old
+// exact hex identity and HexLatticeFit rather than widening to the generalized fit.
 export type PublicHexGridDetectionOptions = PublicPeriodicTilingDetectionOptions;
-export type SurveyorHexGridAnalysis = SurveyorPeriodicTilingAnalysis;
+export type SurveyorHexGridAnalysis = Omit<SurveyorPeriodicTilingAnalysis, "tiling" | "fit"> & {
+    tiling: {
+        periodicTilingType: "Regular";
+        crNotation: "6^3";
+        gjhNotation: "6/m30/r(h1)";
+    };
+    fit: HexLatticeFit | null;
+};

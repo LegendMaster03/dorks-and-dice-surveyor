@@ -11,14 +11,24 @@ export type PeriodicTilingType =
 
 export type PeriodicTilingDetectorId = "regular-lattice";
 
-export type PeriodicTilingDefinition = {
+type PeriodicTilingIdentityDefinition = {
     id: string;
     periodicTilingType: PeriodicTilingType;
     crNotation: string;
     gjhNotation: string;
-    detectorId?: PeriodicTilingDetectorId;
-    detectorGeometry?: RegularTilingGeometryId;
 };
+
+type PeriodicTilingDetectorRegistration =
+    | {
+        detectorId: PeriodicTilingDetectorId;
+        detectorGeometry: RegularTilingGeometryId;
+    }
+    | {
+        detectorId?: undefined;
+        detectorGeometry?: undefined;
+    };
+
+export type PeriodicTilingDefinition = PeriodicTilingIdentityDefinition & PeriodicTilingDetectorRegistration;
 
 export class PeriodicTilingNotationError extends Error {
     constructor(
