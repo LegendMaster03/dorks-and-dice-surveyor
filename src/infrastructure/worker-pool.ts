@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Worker } from "node:worker_threads";
 import { WorkerJobCancelledError, WorkerJobTimeoutError, WorkerPoolOverloadedError } from "../errors.js";
-import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../analysis/hex-grid/worker-contract.js";
+import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "./worker-contract.js";
 
 type PendingJob<TRequest, TResponse> = {
     id: string;

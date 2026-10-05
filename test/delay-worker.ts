@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../src/analysis/hex-grid/worker-contract.js";
+import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../src/infrastructure/worker-contract.js";
 
 type Request = { delayMs: number; value: number };
 if (!parentPort) throw new Error("delay worker requires parent port");

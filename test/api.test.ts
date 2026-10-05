@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import sharp from "sharp";
+import type {
+    RegularTilingWorkerRequest,
+    RegularTilingWorkerResult
+} from "../src/analysis/regular-tiling/worker-contract.js";
 import type { SurveyorConfig } from "../src/config.js";
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "../src/analysis/hex-grid/worker-contract.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
+import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
@@ -22,12 +26,13 @@ async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Pa
         analysisMaximumDimension: 2048,
         ...overrides
     };
-    const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
+    const pool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
         new URL("../src/analysis/worker.js", import.meta.url),
         config.workerCount,
         config.queueLimit,
         config.analysisTimeoutMs);
-    const server = createSurveyorServer({ config, pool });
+    const resources = [createPeriodicTilingResource({ config, pool })];
+    const server = createSurveyorServer({ resources, readiness: pool });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address();
@@ -57,11 +62,11 @@ function bodyOf(buffer: Buffer): ArrayBuffer {
     return copy.buffer;
 }
 
-function expectedRegularHexIdentity(): Record<string, unknown> {
+function regularIdentity(crNotation: string, gjhNotation: string): Record<string, unknown> {
     return {
         periodicTilingType: "Regular",
-        crNotation: "6^3",
-        gjhNotation: "6/m30/r(h1)"
+        crNotation,
+        gjhNotation
     };
 }
 
@@ -81,7 +86,7 @@ test("analysis requires bearer authentication", async () => {
     });
 });
 
-test("notation selects the tiling and derives periodic tiling type", async () => {
+test("notation selects all three implemented Regular tilings and derives periodic tiling type", async () => {
     await withServer(async baseUrl => {
         const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
         const encoded = await plainPng();
@@ -93,21 +98,28 @@ test("notation selects the tiling and derives periodic tiling type", async () =>
         assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 400);
 
         const selectors = [
-            "crNotation=6%5E3",
-            "crNotation=6%5E%7B3%7D",
-            `crNotation=${encodeURIComponent("6³")}`,
-            `gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
-            `crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`
+            { query: "crNotation=3%5E6", identity: regularIdentity("3^6", "3/m30/r(h2)") },
+            { query: `gjhNotation=${encodeURIComponent("3/m30/r(h2)")}`, identity: regularIdentity("3^6", "3/m30/r(h2)") },
+            { query: "crNotation=4%5E4", identity: regularIdentity("4^4", "4/m45/r(h1)") },
+            { query: `gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`, identity: regularIdentity("4^4", "4/m45/r(h1)") },
+            { query: "crNotation=6%5E3", identity: regularIdentity("6^3", "6/m30/r(h1)") },
+            { query: "crNotation=6%5E%7B3%7D", identity: regularIdentity("6^3", "6/m30/r(h1)") },
+            { query: `crNotation=${encodeURIComponent("6³")}`, identity: regularIdentity("6^3", "6/m30/r(h1)") },
+            { query: `gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`, identity: regularIdentity("6^3", "6/m30/r(h1)") },
+            {
+                query: `crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
+                identity: regularIdentity("6^3", "6/m30/r(h1)")
+            }
         ];
         for (const selector of selectors) {
-            const response = await send(selector);
-            assert.equal(response.status, 200, selector);
+            const response = await send(selector.query);
+            assert.equal(response.status, 200, selector.query);
             const value = await response.json() as Record<string, any>;
-            assert.deepEqual(value.tiling, expectedRegularHexIdentity(), selector);
+            assert.deepEqual(value.tiling, selector.identity, selector.query);
         }
 
-        assert.equal((await send("crNotation=4%5E4")).status, 501);
-        assert.equal((await send(`gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 501);
+        assert.equal((await send(`crNotation=${encodeURIComponent("3.4.6.4")}`)).status, 501);
+        assert.equal((await send(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`)).status, 501);
         assert.equal((await send("shape=hex")).status, 400);
         assert.equal((await send("sides=6")).status, 400);
         assert.equal((await send(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);
@@ -133,10 +145,11 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         const value = await response.json() as Record<string, any>;
         assert.equal(value.apiVersion, "v1");
         assert.equal(value.capability, "map.periodic-tiling.detect");
-        assert.deepEqual(value.tiling, expectedRegularHexIdentity());
+        assert.deepEqual(value.tiling, regularIdentity("6^3", "6/m30/r(h1)"));
         assert.ok(["detected", "inconclusive", "gridless"].includes(value.status));
         assert.deepEqual(value.source, { width: 96, height: 96, mediaType: "image/png" });
         assert.equal(value.analysis.sourceResolutionVerified, true);
+        assert.ok(value.fit === null || value.fit.geometryId === "regular.hexagonal");
         assert.ok(value.fit === null || ["PointyTop", "FlatTop"].includes(value.fit.orientation));
     });
 });

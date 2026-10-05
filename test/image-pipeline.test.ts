@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "sharp";
 import { prepareRaster } from "../src/image/preprocess.js";
-import { mapDetectionToSourceImage } from "../src/analysis/hex-grid/result-mapper.js";
+import { mapRegularDetectionToSourceImage } from "../src/analysis/regular-tiling/result-mapper.js";
 
 for (const fixture of [
     { mediaType: "image/png", format: "png" },
@@ -38,13 +38,15 @@ test("bounded resize reports explicit scale and dimensions", async () => {
     assert.equal(prepared.raster.height, Math.round(1000 * 2048 / 3000));
 });
 
-test("source-coordinate mapping preserves legacy sample-center semantics", () => {
-    const result = mapDetectionToSourceImage({
+test("regular source-coordinate mapping scales fit fields and pixel measurements in reasons", () => {
+    const result = mapRegularDetectionToSourceImage({
         status: "detected",
-        reason: "fixture",
+        reason: "Detected a flat-top hex lattice with 40.00 px center spacing.",
         fit: {
+            geometryId: "regular.hexagonal",
             orientation: "FlatTop",
             rotationDegrees: 3,
+            edgeLengthPixels: 20,
             centerSpacingPixels: 40,
             anchorPixel: { x: 9.5, y: 19.5 },
             confidence: 0.9,
@@ -57,9 +59,63 @@ test("source-coordinate mapping preserves legacy sample-center semantics", () =>
             phaseScore: 0.4
         }
     }, 0.5);
+    assert.equal(result.fit?.edgeLengthPixels, 40);
     assert.equal(result.fit?.centerSpacingPixels, 80);
     assert.deepEqual(result.fit?.anchorPixel, { x: 20, y: 40 });
     assert.equal(result.fit?.residualPixels, 2);
+    assert.equal(result.reason, "Detected a flat-top hex lattice with 80.00 px center spacing.");
+});
+
+test("regular source-coordinate mapping does not invent hex-only fit fields", () => {
+    const result = mapRegularDetectionToSourceImage({
+        status: "inconclusive",
+        reason: "A repeated square lattice was found, but the final rigid overlay misses at least one distant region by 0.75 px.",
+        fit: {
+            geometryId: "regular.square",
+            rotationDegrees: -4,
+            edgeLengthPixels: 32,
+            anchorPixel: { x: 4.5, y: 7.5 },
+            confidence: 0.8,
+            residualPixels: 0.75,
+            supportCoverage: 0.6,
+            orientationSupport: 0.7,
+            translationScore: 0.75,
+            competingTranslationScore: 0.2,
+            linePeriodicityScore: 0.8,
+            phaseScore: 0.7
+        }
+    }, 0.25);
+    assert.equal(result.fit?.edgeLengthPixels, 128);
+    assert.deepEqual(result.fit?.anchorPixel, { x: 20, y: 32 });
+    assert.equal(result.fit?.residualPixels, 3);
+    assert.equal(result.fit && "centerSpacingPixels" in result.fit, false);
+    assert.equal(result.fit && "orientation" in result.fit, false);
+    assert.equal(
+        result.reason,
+        "A repeated square lattice was found, but the final rigid overlay misses at least one distant region by 3.00 px.");
+});
+
+test("source-coordinate mapping preserves reasons unchanged at full analysis scale", () => {
+    const reason = "Detected a square lattice with 32.00 px edge length.";
+    const result = mapRegularDetectionToSourceImage({
+        status: "detected",
+        reason,
+        fit: {
+            geometryId: "regular.square",
+            rotationDegrees: 0,
+            edgeLengthPixels: 32,
+            anchorPixel: { x: 8, y: 8 },
+            confidence: 0.8,
+            residualPixels: 1,
+            supportCoverage: 0.6,
+            orientationSupport: 0.7,
+            translationScore: 0.7,
+            competingTranslationScore: 0.1,
+            linePeriodicityScore: 0.8,
+            phaseScore: 0.7
+        }
+    }, 1);
+    assert.equal(result.reason, reason);
 });
 
 test("malformed image and declared/decoded mismatch are rejected", async () => {
