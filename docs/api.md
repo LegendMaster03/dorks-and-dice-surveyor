@@ -60,6 +60,8 @@ All three use the `regular-lattice` detector registration. Either notation may s
 - `crNotation=4^4` or `gjhNotation=4/m45/r(h1)`;
 - `crNotation=6^3` or `gjhNotation=6/m30/r(h1)`.
 
+The detector does not treat a shared line-family fit as sufficient proof of the requested profile. In particular, `3^6` and `6^3` both expose three edge directions separated by 60 degrees, so Surveyor also checks whether the original raster has the continuous edge occupancy expected from the triangular tiling or the segmented honeycomb occupancy expected from the hexagonal tiling. A strong lattice fit that conflicts with the requested profile is returned as `inconclusive` rather than as a detected tiling.
+
 The response returns canonical notation identity plus the derived periodic-tiling classification:
 
 ```json
