@@ -8,7 +8,7 @@ import type {
 export type RegularTilingWorkerRequest = {
     raster: GrayscaleRaster;
     geometryId: RegularTilingGeometryId;
-    options: RegularLatticeDetectionOptions;
+    options: Omit<RegularLatticeDetectionOptions, "timingSink">;
 };
 
 export type RegularTilingWorkerResult = {

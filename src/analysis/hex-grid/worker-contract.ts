@@ -2,7 +2,7 @@ import type { GrayscaleRaster, HexLatticeDetection, HexLatticeDetectionOptions }
 
 export type HexGridWorkerRequest = {
     raster: GrayscaleRaster;
-    options: HexLatticeDetectionOptions;
+    options: Omit<HexLatticeDetectionOptions, "timingSink">;
 };
 
 export type HexGridWorkerResult = {

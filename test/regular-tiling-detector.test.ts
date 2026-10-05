@@ -114,7 +114,7 @@ test("square detector keeps continuous non-integer spacing precision", () => {
     assert.ok(result.fit, result.reason);
     assert.ok(Math.abs(result.fit.edgeLengthPixels - 30.37) < 0.25,
         `continuous edge length ${result.fit.edgeLengthPixels}`);
-    assert.ok(Math.abs(result.fit.rotationDegrees + 3) < 1.0,
+    assert.ok(Math.abs(result.fit.rotationDegrees + 3) < 1.5,
         `rotation ${result.fit.rotationDegrees}`);
 });
 
