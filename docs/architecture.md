@@ -79,17 +79,26 @@ When both notation systems are supplied, Surveyor only claims equivalence when t
 
 ## Generalized Regular-lattice detector
 
-`src/analysis/regular-tiling/detector.ts` is a small generalization around the existing proven hex detector rather than a replacement for it.
+The Regular detector is deliberately layered so the proven lattice-fitting behavior stays separate from profile verification:
+
+- `src/analysis/regular-tiling/detector-core.ts` contains the generalized lattice-fitting core and the unchanged adapter around the original hex detector;
+- `src/analysis/regular-tiling/detector.ts` is the public boundary. It rejects unknown runtime geometry IDs and performs geometry-specific verification after a candidate lattice has been detected.
+
+This keeps hypothesis generation and global refinement stable while allowing the selected tiling profile to reject a geometrically plausible but topologically wrong result.
 
 ### Hexagonal `6^3`
 
-`regular.hexagonal` delegates directly to the existing extracted `detectHexLattice` implementation. The existing three-family Hough/autocorrelation pipeline, continuous spacing refinement, phase fitting, canonical-spacing candidates, multi-region checking, and distant rigid-lattice residual logic remain unchanged. The generalized layer maps the legacy result into the common Regular fit.
+The core `regular.hexagonal` path delegates to the existing extracted `detectHexLattice` implementation. The existing three-family Hough/autocorrelation pipeline, continuous spacing refinement, phase fitting, canonical-spacing candidates, multi-region checking, and distant rigid-lattice residual logic remain unchanged. The generalized layer maps the legacy result into the common Regular fit.
 
 This preserves the behavior that prevents a strong local near-period fit from incrementally pulling the final solution away from the one rigid lattice supported by the original raster across distant regions.
+
+A three-family period is not by itself sufficient to distinguish a hexagonal honeycomb from a triangular tiling. Both expose three edge-normal families separated by 60 degrees. After the lattice fit succeeds, the public detector therefore verifies edge occupancy against the original raster: honeycomb edges must be present on the expected finite edge segments and should fall away along the collinear continuation beyond each hex edge. Strong continuous carrier evidence downgrades the requested hexagonal result to `inconclusive` instead of misclassifying a triangular grid as `6^3`.
 
 ### Triangular `3^6`
 
 A triangular grid exposes the same three edge-normal families separated by 60 degrees as the hexagonal grid. The triangular profile therefore reuses the proven three-family detector and converts between its natural hex-center spacing and triangular edge length. This avoids duplicating the most mature detector path.
+
+The same occupancy verification is applied in the opposite direction. Triangular edges continue through vertices along their carrier lines, so a strongly segmented honeycomb pattern is not accepted merely because its directions and period also satisfy the three-family model. The verification is intentionally based on the unchanged source raster and oriented edge evidence rather than a repeatedly corrected intermediate image.
 
 ### Square `4^4`
 
@@ -102,7 +111,9 @@ The square profile uses two perpendicular edge-normal families. It retains the s
 5. validate the candidate against distant image regions;
 6. report detected, inconclusive, or gridless conservatively.
 
-Regression coverage explicitly checks clean detection, continuous non-integer spacing, resistance to a stronger local near-period distractor, and rejection of incompatible periods across distant halves. These tests preserve the global-fit behavior that motivated the original multi-instance correction work.
+Square period search is bounded for predictable CPU use, but the lag ceiling is not also divided in half when choosing candidate spacing. Higher harmonics contribute only when they actually lie inside the sampled autocorrelation range. This keeps large valid grid periods eligible instead of silently excluding them or penalizing them because an unavailable harmonic was treated as zero evidence.
+
+Regression coverage explicitly checks clean detection, hard-raster orientation, continuous non-integer spacing, a large `190 px` period, resistance to a stronger local near-period distractor, and rejection of incompatible periods across distant halves. These tests preserve the global-fit behavior that motivated the original multi-instance correction work.
 
 The square implementation does not port the calibration-grid paper's projective two-pencil algorithm wholesale. Surveyor is fitting a rigid Euclidean raster lattice, so it uses the existing periodic-raster assumptions while preserving the paper's useful global line-family principle.
 
