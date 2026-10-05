@@ -33,18 +33,6 @@ const superscriptDigits: Record<string, string> = {
     "⁸": "8",
     "⁹": "9"
 };
-const subscriptDigits: Record<string, string> = {
-    "₀": "0",
-    "₁": "1",
-    "₂": "2",
-    "₃": "3",
-    "₄": "4",
-    "₅": "5",
-    "₆": "6",
-    "₇": "7",
-    "₈": "8",
-    "₉": "9"
-};
 const maximumNotationLength = 4096;
 const maximumNestingDepth = 16;
 const angleTolerance = 1e-7;
@@ -53,15 +41,12 @@ export function parseCundyRollettNotation(raw: string): CundyRollettNotation {
     let source = normalizeInput(raw);
     let variant: number | undefined;
 
-    // Published Cundy-Rollett tables distinguish otherwise non-unique tilings with
-    // a subscript on the complete bracketed vertex list, for example
-    // [3^6;3^4.6]_1 and [3^6;3^4.6]_2. This is not a polygon/vertex exponent.
-    const bracketed = /^\[(.*)\](?:_([1-9][0-9]*))?$/.exec(source);
+    const bracketed = /^\[(.*)\](?:\^([1-9][0-9]*))?$/.exec(source);
     if (bracketed) {
         source = bracketed[1];
         variant = bracketed[2] == null ? undefined : parsePositiveInteger(bracketed[2], "variant");
     } else if (source.includes("[") || source.includes("]")) {
-        throw syntaxError("Square brackets must wrap the complete Cundy-Rollett expression, with an optional subscript variant.");
+        throw syntaxError("Square brackets must wrap the complete Cundy-Rollett expression.");
     }
 
     const vertexSources = splitVertices(source);
@@ -71,7 +56,7 @@ export function parseCundyRollettNotation(raw: string): CundyRollettNotation {
 
     const vertices = canonicalizeVertices(vertexSources.map(parseVertex));
     const canonicalBody = vertices.map(serializeVertex).join(";");
-    const canonical = variant == null ? canonicalBody : `[${canonicalBody}]_${variant}`;
+    const canonical = variant == null ? canonicalBody : `[${canonicalBody}]^${variant}`;
     const regularVertex = variant == null && vertices.length === 1 && vertices[0].multiplicity === 1
         ? deriveRegularVertex(vertices[0].factors)
         : undefined;
@@ -94,9 +79,7 @@ function normalizeInput(raw: string): string {
 
     return trimmed
         .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, value => `^${[...value].map(character => superscriptDigits[character]).join("")}`)
-        .replace(/[₀₁₂₃₄₅₆₇₈₉]+/g, value => `_${[...value].map(character => subscriptDigits[character]).join("")}`)
         .replace(/\^\{([0-9]+)\}/g, "^$1")
-        .replace(/_\{([0-9]+)\}/g, "_$1")
         .replace(/\s+/g, "");
 }
 
@@ -249,9 +232,6 @@ function unwrapWholeRepeatedGroup(source: string): { body: string; repeat: numbe
             depth -= 1;
             if (depth === 0) {
                 const suffix = source.slice(index + 1);
-                if (suffix === "") {
-                    return { body: source.slice(1, index), repeat: 1 };
-                }
                 const exponent = /^\^([1-9][0-9]*)$/.exec(suffix);
                 if (!exponent) return undefined;
                 return {

@@ -76,19 +76,26 @@ async function route(
 }
 
 function assertUniqueResourceRegistration(resources: readonly SurveyorResource[]): void {
-    const ids = new Set<string>();
-    const routes = new Set<string>();
+    const resourceIds = new Set<string>();
+    const capabilityIds = new Set<string>();
+    const capabilityPaths = new Set<string>();
 
     for (const resource of resources) {
-        if (ids.has(resource.id)) throw new Error(`Duplicate Surveyor resource id '${resource.id}'.`);
-        ids.add(resource.id);
+        if (resourceIds.has(resource.id)) {
+            throw new Error(`Duplicate Surveyor resource id '${resource.id}'.`);
+        }
+        resourceIds.add(resource.id);
 
         for (const capability of resource.capabilities) {
-            const route = `${capability.id}:${capability.path}`;
-            if (routes.has(route)) {
-                throw new Error(`Duplicate Surveyor capability registration '${route}'.`);
+            if (capabilityIds.has(capability.id)) {
+                throw new Error(`Duplicate Surveyor capability id '${capability.id}'.`);
             }
-            routes.add(route);
+            capabilityIds.add(capability.id);
+
+            if (capabilityPaths.has(capability.path)) {
+                throw new Error(`Duplicate Surveyor capability path '${capability.path}'.`);
+            }
+            capabilityPaths.add(capability.path);
         }
     }
 }

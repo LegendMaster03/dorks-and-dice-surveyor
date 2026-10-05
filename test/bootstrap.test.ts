@@ -77,7 +77,7 @@ test("service identity advertises registered resources and periodic-tiling capab
     }
 });
 
-test("server registration is resource-generic and rejects duplicate resource ids", () => {
+test("server registration rejects duplicate resource ids, capability ids, and capability paths", () => {
     const readiness = {
         canAccept: true,
         snapshot: () => ({ workers: 0, busy: 0, queued: 0, queueLimit: 0 })
@@ -91,4 +91,22 @@ test("server registration is resource-generic and rejects duplicate resource ids
     assert.throws(
         () => createSurveyorServer({ resources: [resource, resource], readiness }),
         /Duplicate Surveyor resource id/);
+
+    const duplicateCapabilityId = {
+        ...resource,
+        id: "other-id",
+        capabilities: [{ id: "example.capability", path: "/v1/other" }]
+    };
+    assert.throws(
+        () => createSurveyorServer({ resources: [resource, duplicateCapabilityId], readiness }),
+        /Duplicate Surveyor capability id/);
+
+    const duplicateCapabilityPath = {
+        ...resource,
+        id: "other-path",
+        capabilities: [{ id: "other.capability", path: "/v1/example" }]
+    };
+    assert.throws(
+        () => createSurveyorServer({ resources: [resource, duplicateCapabilityPath], readiness }),
+        /Duplicate Surveyor capability path/);
 });

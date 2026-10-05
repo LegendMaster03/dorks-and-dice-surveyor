@@ -75,14 +75,19 @@ function parseTransform(source: string): GomJauHoggTransform {
         throw syntaxError(`Invalid GomJau-Hogg transformation stage '${source}'.`);
     }
 
-    const angleDegrees = match[2] == null ? undefined : Number(match[2]);
+    const origin = match[3] == null
+        ? undefined
+        : { kind: match[3] as "c" | "v" | "h", index: Number(match[4]) };
+    let angleDegrees = match[2] == null ? undefined : Number(match[2]);
     if (angleDegrees != null && (!Number.isFinite(angleDegrees) || angleDegrees < 0 || angleDegrees > 360)) {
         throw syntaxError("GomJau-Hogg transformation angles must be between 0 and 360 degrees.");
     }
 
-    const origin = match[3] == null
-        ? undefined
-        : { kind: match[3] as "c" | "v" | "h", index: Number(match[4]) };
+    // The published grammar defaults an omitted angle to 180 degrees only for a
+    // centered transform. Eccentric transforms such as r(h1) infer their angle from
+    // the selected centroid, vertex, or edge midpoint and must retain the omission.
+    if (angleDegrees == null && origin == null) angleDegrees = 180;
+
     return {
         operation: match[1] as "m" | "r",
         ...(angleDegrees == null ? {} : { angleDegrees }),
