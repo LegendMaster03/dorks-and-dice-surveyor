@@ -6,20 +6,25 @@ const definitions: readonly PeriodicTilingDefinition[] = [
         id: "regular.triangular",
         periodicTilingType: "Regular",
         crNotation: "3^6",
-        gjhNotation: "3/m30/r(h2)"
+        gjhNotation: "3/m30/r(h2)",
+        detectorId: "regular-lattice",
+        detectorGeometry: "regular.triangular"
     },
     {
         id: "regular.square",
         periodicTilingType: "Regular",
         crNotation: "4^4",
-        gjhNotation: "4/m45/r(h1)"
+        gjhNotation: "4/m45/r(h1)",
+        detectorId: "regular-lattice",
+        detectorGeometry: "regular.square"
     },
     {
         id: "regular.hexagonal",
         periodicTilingType: "Regular",
         crNotation: "6^3",
         gjhNotation: "6/m30/r(h1)",
-        detectorId: "regular.hexagonal"
+        detectorId: "regular-lattice",
+        detectorGeometry: "regular.hexagonal"
     }
 ] as const;
 

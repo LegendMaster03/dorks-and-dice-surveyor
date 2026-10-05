@@ -1,3 +1,5 @@
+import type { RegularTilingGeometryId } from "../../analysis/regular-tiling/detector.js";
+
 export type PeriodicTilingType =
     | "Regular"
     | "semiregular"
@@ -7,7 +9,7 @@ export type PeriodicTilingType =
     | "Fractalizing"
     | "non-edge-to-edge";
 
-export type PeriodicTilingDetectorId = "regular.hexagonal";
+export type PeriodicTilingDetectorId = "regular-lattice";
 
 export type PeriodicTilingDefinition = {
     id: string;
@@ -15,6 +17,7 @@ export type PeriodicTilingDefinition = {
     crNotation: string;
     gjhNotation: string;
     detectorId?: PeriodicTilingDetectorId;
+    detectorGeometry?: RegularTilingGeometryId;
 };
 
 export class PeriodicTilingNotationError extends Error {

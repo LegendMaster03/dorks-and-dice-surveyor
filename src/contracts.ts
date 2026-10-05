@@ -1,4 +1,7 @@
-import type { HexLatticeDetectionOptions, HexLatticeFit } from "./analysis/hex-grid/detector.js";
+import type {
+    RegularLatticeDetectionOptions,
+    RegularLatticeFit
+} from "./analysis/regular-tiling/detector.js";
 import type { PeriodicTilingType } from "./resources/periodic-tiling/types.js";
 
 export const SurveyorApiVersion = "v1" as const;
@@ -9,7 +12,7 @@ export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
 export type PeriodicTilingDetectionStatus = "detected" | "inconclusive" | "gridless";
 
 export type PublicPeriodicTilingDetectionOptions = Pick<
-    HexLatticeDetectionOptions,
+    RegularLatticeDetectionOptions,
     "minimumSpacingPixels" | "maximumSpacingPixels" | "maximumEdgeSamples" | "minimumConfidence">;
 
 export type PeriodicTilingIdentity = {
@@ -35,7 +38,7 @@ export type SurveyorPeriodicTilingAnalysis = {
         scale: number;
         sourceResolutionVerified: boolean;
     };
-    fit: HexLatticeFit | null;
+    fit: RegularLatticeFit | null;
     timing: SurveyorTiming;
 };
 
@@ -57,7 +60,7 @@ export type SurveyorErrorResponse = {
     };
 };
 
-// Transitional source aliases for the extracted hex detector. Public periodic-tiling
-// contracts no longer encode the current detector geometry in their type names.
+// Transitional aliases preserve source compatibility for callers that still use the
+// pre-resource naming while the public API itself is periodic-tiling based.
 export type PublicHexGridDetectionOptions = PublicPeriodicTilingDetectionOptions;
 export type SurveyorHexGridAnalysis = SurveyorPeriodicTilingAnalysis;

@@ -1,12 +1,12 @@
 import { parentPort } from "node:worker_threads";
 import { performance } from "node:perf_hooks";
-import { detectHexLattice } from "./hex-grid/detector.js";
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "./hex-grid/worker-contract.js";
+import { detectRegularLattice } from "./regular-tiling/detector.js";
+import type { RegularTilingWorkerRequest, RegularTilingWorkerResult } from "./regular-tiling/worker-contract.js";
 import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../infrastructure/worker-contract.js";
 
 if (!parentPort) throw new Error("Surveyor analysis worker requires a worker-thread parent port.");
 
-parentPort.on("message", (message: WorkerRequestEnvelope<HexGridWorkerRequest>) => {
+parentPort.on("message", (message: WorkerRequestEnvelope<RegularTilingWorkerRequest>) => {
     const started = performance.now();
     let edgeFieldMs = 0;
     try {
@@ -16,8 +16,11 @@ parentPort.on("message", (message: WorkerRequestEnvelope<HexGridWorkerRequest>) 
                 if (stage === "edge-field") edgeFieldMs = durationMs;
             }
         };
-        const detection = detectHexLattice(message.payload.raster, options);
-        const response: WorkerResponseEnvelope<HexGridWorkerResult> = {
+        const detection = detectRegularLattice(
+            message.payload.raster,
+            message.payload.geometryId,
+            options);
+        const response: WorkerResponseEnvelope<RegularTilingWorkerResult> = {
             jobId: message.jobId,
             ok: true,
             result: {
@@ -28,7 +31,7 @@ parentPort.on("message", (message: WorkerRequestEnvelope<HexGridWorkerRequest>) 
         };
         parentPort!.postMessage(response);
     } catch (error) {
-        const response: WorkerResponseEnvelope<HexGridWorkerResult> = {
+        const response: WorkerResponseEnvelope<RegularTilingWorkerResult> = {
             jobId: message.jobId,
             ok: false,
             error: error instanceof Error ? error.message : "Unknown detector failure."

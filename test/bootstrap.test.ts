@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "../src/analysis/hex-grid/worker-contract.js";
+import type {
+    RegularTilingWorkerRequest,
+    RegularTilingWorkerResult
+} from "../src/analysis/regular-tiling/worker-contract.js";
 import type { SurveyorConfig } from "../src/config.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
@@ -19,7 +22,7 @@ const config: SurveyorConfig = {
 };
 
 test("service identity advertises registered resources and periodic-tiling capability metadata", async () => {
-    const pool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
+    const pool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
         new URL("../src/analysis/worker.js", import.meta.url),
         1,
         1,
@@ -53,11 +56,11 @@ test("service identity advertises registered resources and periodic-tiling capab
             }
         ]);
         assert.deepEqual(value.capabilities[0].derivedIdentity, ["periodicTilingType", "crNotation", "gjhNotation"]);
-        assert.deepEqual(value.capabilities[0].implementedTilings, [{
-            periodicTilingType: "Regular",
-            crNotation: "6^3",
-            gjhNotation: "6/m30/r(h1)"
-        }]);
+        assert.deepEqual(value.capabilities[0].implementedTilings, [
+            { periodicTilingType: "Regular", crNotation: "3^6", gjhNotation: "3/m30/r(h2)" },
+            { periodicTilingType: "Regular", crNotation: "4^4", gjhNotation: "4/m45/r(h1)" },
+            { periodicTilingType: "Regular", crNotation: "6^3", gjhNotation: "6/m30/r(h1)" }
+        ]);
         assert.deepEqual(value.capabilities[0].recognizedTilingFamilies, [
             { name: "Regular", implemented: true },
             { name: "semiregular", implemented: false, subtypes: ["Archimedean", "uniform"] },

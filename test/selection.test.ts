@@ -25,18 +25,22 @@ test("catalog resolution is separate from notation parsing", () => {
         requestError(400, "invalid_gjh_notation"));
 });
 
-test("Regular catalog distinguishes known detectorless tilings from the implemented hexagonal tiling", () => {
-    assert.throws(selection("crNotation=3%5E6"), requestError(501, "tiling_not_implemented"));
-    assert.throws(selection("crNotation=4%5E4"), requestError(501, "tiling_not_implemented"));
-
-    const resolved = selectPeriodicTiling(new URLSearchParams("crNotation=6.6.6"));
-    assert.deepEqual(resolved, {
-        id: "regular.hexagonal",
-        periodicTilingType: "Regular",
-        crNotation: "6^3",
-        gjhNotation: "6/m30/r(h1)",
-        detectorId: "regular.hexagonal"
-    });
+test("all three Regular tilings resolve to the generalized detector with geometry-specific profiles", () => {
+    for (const fixture of [
+        { notation: "3%5E6", id: "regular.triangular", cr: "3^6", gjh: "3/m30/r(h2)" },
+        { notation: "4%5E4", id: "regular.square", cr: "4^4", gjh: "4/m45/r(h1)" },
+        { notation: "6.6.6", id: "regular.hexagonal", cr: "6^3", gjh: "6/m30/r(h1)" }
+    ]) {
+        const resolved = selectPeriodicTiling(new URLSearchParams(`crNotation=${fixture.notation}`));
+        assert.deepEqual(resolved, {
+            id: fixture.id,
+            periodicTilingType: "Regular",
+            crNotation: fixture.cr,
+            gjhNotation: fixture.gjh,
+            detectorId: "regular-lattice",
+            detectorGeometry: fixture.id
+        });
+    }
 });
 
 test("two notation systems must resolve to the same catalog identity", () => {

@@ -19,15 +19,18 @@ import {
 import { prepareRaster } from "../../image/preprocess.js";
 import type { BoundedWorkerPool } from "../../infrastructure/worker-pool.js";
 import { log } from "../../logging.js";
-import { mapDetectionToSourceImage } from "../../analysis/hex-grid/result-mapper.js";
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "../../analysis/hex-grid/worker-contract.js";
+import { mapRegularDetectionToSourceImage } from "../../analysis/regular-tiling/result-mapper.js";
+import type {
+    RegularTilingWorkerRequest,
+    RegularTilingWorkerResult
+} from "../../analysis/regular-tiling/worker-contract.js";
 import type { SurveyorResource } from "../resource.js";
 import { periodicTilingDefinitions } from "./catalog.js";
 import { selectPeriodicTiling, type ImplementedPeriodicTilingDefinition } from "./selection.js";
 
 export type PeriodicTilingResourceDependencies = {
     config: SurveyorConfig;
-    pool: BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>;
+    pool: BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>;
 };
 
 const capabilityDescriptor = {
@@ -103,7 +106,7 @@ async function detectPeriodicTiling(
     url: URL,
     dependencies: PeriodicTilingResourceDependencies,
     tiling: ImplementedPeriodicTilingDefinition): Promise<void> {
-    if (tiling.detectorId !== "regular.hexagonal") {
+    if (tiling.detectorId !== "regular-lattice") {
         throw new SurveyorRequestError(500, "tiling_dispatch_failure", "The implemented periodic tiling could not be dispatched.");
     }
 
@@ -128,11 +131,15 @@ async function detectPeriodicTiling(
             dependencies.config.maxPixels,
             dependencies.config.analysisMaximumDimension);
         const detectorOptions = mapOptionsToAnalysisSpace(sourceOptions, prepared.analysisScale);
-        const workerResult = await dependencies.pool.run({ raster: prepared.raster, options: detectorOptions }, {
+        const workerResult = await dependencies.pool.run({
+            raster: prepared.raster,
+            geometryId: tiling.detectorGeometry,
+            options: detectorOptions
+        }, {
             signal: controller.signal,
             timeoutMs: dependencies.config.analysisTimeoutMs
         });
-        const mapped = mapDetectionToSourceImage(workerResult.detection, prepared.analysisScale);
+        const mapped = mapRegularDetectionToSourceImage(workerResult.detection, prepared.analysisScale);
         const totalMs = performance.now() - totalStarted;
         const edgeFieldMs = workerResult.edgeFieldMs;
         const detectorMs = Math.max(0, workerResult.detectorTotalMs - edgeFieldMs);
@@ -175,6 +182,7 @@ async function detectPeriodicTiling(
             crNotation: tiling.crNotation,
             gjhNotation: tiling.gjhNotation,
             detectorId: tiling.detectorId,
+            detectorGeometry: tiling.detectorGeometry,
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -194,6 +202,7 @@ async function detectPeriodicTiling(
             crNotation: tiling.crNotation,
             gjhNotation: tiling.gjhNotation,
             detectorId: tiling.detectorId,
+            detectorGeometry: tiling.detectorGeometry,
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });

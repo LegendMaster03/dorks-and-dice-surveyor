@@ -1,4 +1,4 @@
-import type { HexGridWorkerRequest, HexGridWorkerResult } from "./analysis/hex-grid/worker-contract.js";
+import type { RegularTilingWorkerRequest, RegularTilingWorkerResult } from "./analysis/regular-tiling/worker-contract.js";
 import { loadConfig } from "./config.js";
 import { BoundedWorkerPool } from "./infrastructure/worker-pool.js";
 import { log } from "./logging.js";
@@ -6,7 +6,7 @@ import { createPeriodicTilingResource } from "./resources/periodic-tiling/resour
 import { createSurveyorServer } from "./server.js";
 
 const config = loadConfig();
-const periodicTilingPool = new BoundedWorkerPool<HexGridWorkerRequest, HexGridWorkerResult>(
+const periodicTilingPool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
     new URL("./analysis/worker.js", import.meta.url),
     config.workerCount,
     config.queueLimit,
