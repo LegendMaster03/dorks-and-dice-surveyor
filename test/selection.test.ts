@@ -16,6 +16,9 @@ function requestError(statusCode: number, code: string) {
 test("catalog resolution is separate from notation parsing", () => {
     assert.throws(selection("crNotation=3.4.6.4"), requestError(501, "tiling_identity_unregistered"));
     assert.throws(
+        selection(`crNotation=${encodeURIComponent("[3^6;3^4.6]_1")}`),
+        requestError(501, "tiling_identity_unregistered"));
+    assert.throws(
         selection(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`),
         requestError(501, "tiling_identity_unregistered"));
 

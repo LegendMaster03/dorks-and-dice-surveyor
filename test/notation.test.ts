@@ -44,17 +44,27 @@ test("Cundy-Rollett vertex configurations canonicalize cyclic starting point and
     assert.equal(parseCundyRollettNotation("4.3.4.6").canonical, canonical);
 });
 
-test("Cundy-Rollett parser preserves ambiguity variants and canonicalizes vertex ordering", () => {
-    const first = parseCundyRollettNotation("[3^4.6; 3^6]^1");
-    const second = parseCundyRollettNotation("[3^6; 3^4.6]^2");
-    assert.equal(first.canonical, "[3^6;3^4.6]^1");
-    assert.equal(second.canonical, "[3^6;3^4.6]^2");
+test("Cundy-Rollett parser preserves published subscript ambiguity variants and canonicalizes vertex ordering", () => {
+    const first = parseCundyRollettNotation("[3^4.6; 3^6]_1");
+    const second = parseCundyRollettNotation("[3^6; 3^4.6]_{2}");
+    const unicode = parseCundyRollettNotation("[3^6; 3^4.6]₂");
+    assert.equal(first.canonical, "[3^6;3^4.6]_1");
+    assert.equal(second.canonical, "[3^6;3^4.6]_2");
+    assert.equal(unicode.canonical, second.canonical);
     assert.equal(first.variant, 1);
     assert.equal(second.variant, 2);
+    assert.equal(unicode.variant, 2);
+});
+
+test("Cundy-Rollett parser handles a published 2-uniform ambiguity example", () => {
+    const parsed = parseCundyRollettNotation("[3^3.4^2; 3^2.4.3.4]_2");
+    assert.equal(parsed.canonical, "[3^3.4^2;3^2.4.3.4]_2");
+    assert.equal(parsed.variant, 2);
+    assert.equal(parsed.vertices.length, 2);
 });
 
 test("Cundy-Rollett parser rejects malformed or non-Euclidean vertex syntax rather than treating it as unsupported catalog data", () => {
-    for (const value of ["", "6^", "2^4", "6..6", "(3.6", "[3^6;3^4.6", "3.4.6.5"]) {
+    for (const value of ["", "6^", "2^4", "6..6", "(3.6", "[3^6;3^4.6", "[3^6;3^4.6]^2", "3.4.6.5"]) {
         assert.throws(
             () => parseCundyRollettNotation(value),
             error => error instanceof PeriodicTilingNotationError && error.notation === "Cundy-Rollett",
