@@ -136,7 +136,7 @@ test("hard-edged square raster retains its geometric orientation", () => {
         `hard-raster orientation drifted to ${result.fit.rotationDegrees}`);
 });
 
-test("triangular and hexagonal profiles do not accept each other's edge occupancy", () => {
+test("triangular and hexagonal profiles require their own edge occupancy", () => {
     const triangular = raster(420, 320);
     const edgeLength = 30;
     renderSmoothPeriodicLines(
@@ -145,21 +145,35 @@ test("triangular and hexagonal profiles do not accept each other's edge occupanc
         edgeLength * Math.sqrt(3) / 2,
         -4,
         52);
-    const asHex = detectRegularLattice(
+
+    const asTriangular = detectRegularLattice(
+        triangular,
+        "regular.triangular",
+        { minimumConfidence: 0.18 });
+    assert.equal(asTriangular.status, "detected", asTriangular.reason);
+
+    const triangularAsHex = detectRegularLattice(
         triangular,
         "regular.hexagonal",
         { minimumConfidence: 0.18 });
-    assert.notEqual(asHex.status, "detected",
-        `triangular grid was accepted as hexagonal: ${asHex.reason}`);
+    assert.notEqual(triangularAsHex.status, "detected",
+        `triangular grid was accepted as hexagonal: ${triangularAsHex.reason}`);
 
     const hexagonal = raster(420, 320);
     renderHexGrid(hexagonal, edgeLength * Math.sqrt(3), -4);
-    const asTriangular = detectRegularLattice(
+
+    const asHexagonal = detectRegularLattice(
+        hexagonal,
+        "regular.hexagonal",
+        { minimumConfidence: 0.18 });
+    assert.equal(asHexagonal.status, "detected", asHexagonal.reason);
+
+    const hexagonalAsTriangular = detectRegularLattice(
         hexagonal,
         "regular.triangular",
         { minimumConfidence: 0.18 });
-    assert.notEqual(asTriangular.status, "detected",
-        `hexagonal grid was accepted as triangular: ${asTriangular.reason}`);
+    assert.notEqual(hexagonalAsTriangular.status, "detected",
+        `hexagonal grid was accepted as triangular: ${hexagonalAsTriangular.reason}`);
 });
 
 test("unsupported runtime geometry is rejected instead of falling through to square", () => {
