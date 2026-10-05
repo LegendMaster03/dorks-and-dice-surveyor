@@ -9,6 +9,7 @@ export function mapRegularDetectionToSourceImage(
     if (!detection.fit) return detection;
     return {
         ...detection,
+        reason: mapPixelMeasurementsToSourceImage(detection.reason, analysisScale),
         fit: {
             ...detection.fit,
             edgeLengthPixels: detection.fit.edgeLengthPixels / analysisScale,
@@ -22,4 +23,12 @@ export function mapRegularDetectionToSourceImage(
             residualPixels: detection.fit.residualPixels / analysisScale
         }
     };
+}
+
+function mapPixelMeasurementsToSourceImage(reason: string, analysisScale: number): string {
+    if (Math.abs(analysisScale - 1) <= Number.EPSILON) return reason;
+    return reason.replace(/(-?[0-9]+(?:\.[0-9]+)?) px\b/g, (_match, raw: string) => {
+        const value = Number(raw);
+        return Number.isFinite(value) ? `${(value / analysisScale).toFixed(2)} px` : _match;
+    });
 }

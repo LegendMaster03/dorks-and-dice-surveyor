@@ -38,10 +38,10 @@ test("bounded resize reports explicit scale and dimensions", async () => {
     assert.equal(prepared.raster.height, Math.round(1000 * 2048 / 3000));
 });
 
-test("regular source-coordinate mapping scales geometry-neutral and legacy hex distances", () => {
+test("regular source-coordinate mapping scales fit fields and pixel measurements in reasons", () => {
     const result = mapRegularDetectionToSourceImage({
         status: "detected",
-        reason: "fixture",
+        reason: "Detected a flat-top hex lattice with 40.00 px center spacing.",
         fit: {
             geometryId: "regular.hexagonal",
             orientation: "FlatTop",
@@ -63,12 +63,13 @@ test("regular source-coordinate mapping scales geometry-neutral and legacy hex d
     assert.equal(result.fit?.centerSpacingPixels, 80);
     assert.deepEqual(result.fit?.anchorPixel, { x: 20, y: 40 });
     assert.equal(result.fit?.residualPixels, 2);
+    assert.equal(result.reason, "Detected a flat-top hex lattice with 80.00 px center spacing.");
 });
 
 test("regular source-coordinate mapping does not invent hex-only fit fields", () => {
     const result = mapRegularDetectionToSourceImage({
-        status: "detected",
-        reason: "fixture",
+        status: "inconclusive",
+        reason: "A repeated square lattice was found, but the final rigid overlay misses at least one distant region by 0.75 px.",
         fit: {
             geometryId: "regular.square",
             rotationDegrees: -4,
@@ -89,6 +90,32 @@ test("regular source-coordinate mapping does not invent hex-only fit fields", ()
     assert.equal(result.fit?.residualPixels, 3);
     assert.equal(result.fit && "centerSpacingPixels" in result.fit, false);
     assert.equal(result.fit && "orientation" in result.fit, false);
+    assert.equal(
+        result.reason,
+        "A repeated square lattice was found, but the final rigid overlay misses at least one distant region by 3.00 px.");
+});
+
+test("source-coordinate mapping preserves reasons unchanged at full analysis scale", () => {
+    const reason = "Detected a square lattice with 32.00 px edge length.";
+    const result = mapRegularDetectionToSourceImage({
+        status: "detected",
+        reason,
+        fit: {
+            geometryId: "regular.square",
+            rotationDegrees: 0,
+            edgeLengthPixels: 32,
+            anchorPixel: { x: 8, y: 8 },
+            confidence: 0.8,
+            residualPixels: 1,
+            supportCoverage: 0.6,
+            orientationSupport: 0.7,
+            translationScore: 0.7,
+            competingTranslationScore: 0.1,
+            linePeriodicityScore: 0.8,
+            phaseScore: 0.7
+        }
+    }, 1);
+    assert.equal(result.reason, reason);
 });
 
 test("malformed image and declared/decoded mismatch are rejected", async () => {
