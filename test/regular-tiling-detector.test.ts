@@ -19,18 +19,19 @@ function renderPeriodicLines(
     lineValue = 48): void {
     for (let y = 0; y < image.height; y++) {
         for (let x = 0; x < image.width; x++) {
-            let onLine = false;
+            let nearest = Number.POSITIVE_INFINITY;
             for (const offset of normalDegrees) {
                 const normal = (offset + rotationDegrees) * DEG;
                 const rho = x * Math.cos(normal) + y * Math.sin(normal);
                 const phase = ((rho % pitch) + pitch) % pitch;
-                const distance = Math.min(phase, pitch - phase);
-                if (distance <= 1.15) {
-                    onLine = true;
-                    break;
-                }
+                nearest = Math.min(nearest, phase, pitch - phase);
             }
-            if (onLine) image.pixels[y * image.width + x] = lineValue;
+            if (nearest <= 2) {
+                const weight = Math.max(0, 1 - nearest / 2);
+                const value = Math.round(224 - (224 - lineValue) * weight);
+                const index = y * image.width + x;
+                image.pixels[index] = Math.min(image.pixels[index], value);
+            }
         }
     }
 }

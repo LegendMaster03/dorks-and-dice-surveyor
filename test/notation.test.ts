@@ -54,12 +54,16 @@ test("Cundy-Rollett parser preserves ambiguity variants and canonicalizes vertex
 });
 
 test("Cundy-Rollett parser rejects malformed or non-Euclidean vertex syntax rather than treating it as unsupported catalog data", () => {
-    for (const value of ["", "6^", "2^4", "6..6", "(3^6)", "(3.6", "[3^6;3^4.6", "3.4.6.5"]) {
+    for (const value of ["", "6^", "2^4", "6..6", "(3.6", "[3^6;3^4.6", "3.4.6.5"]) {
         assert.throws(
             () => parseCundyRollettNotation(value),
             error => error instanceof PeriodicTilingNotationError && error.notation === "Cundy-Rollett",
             value);
     }
+});
+
+test("Cundy-Rollett parser accepts redundant grouping without changing canonical identity", () => {
+    assert.equal(parseCundyRollettNotation("(3^6)").canonical, "3^6");
 });
 
 test("GomJau-Hogg parser handles published placement phases and generic transform stages", () => {
