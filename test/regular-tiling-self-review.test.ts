@@ -125,6 +125,19 @@ function renderHexGrid(
     }
 }
 
+function addMapNoise(image: GrayscaleRaster): void {
+    for (let y = 0; y < image.height; y++) {
+        for (let x = 0; x < image.width; x++) {
+            const index = y * image.width + x;
+            const variation = ((x * 17 + y * 29 + ((x * y) % 31)) % 29) - 14;
+            image.pixels[index] = Math.max(0, Math.min(255, image.pixels[index] + variation));
+        }
+    }
+    drawLine(image, { x: 8, y: 13 }, { x: image.width - 18, y: image.height - 29 }, 58, 2);
+    drawLine(image, { x: image.width * 0.72, y: 0 }, { x: image.width * 0.42, y: image.height }, 70, 2);
+    drawLine(image, { x: 0, y: image.height * 0.63 }, { x: image.width, y: image.height * 0.56 }, 84, 1);
+}
+
 test("hard-edged square raster retains its geometric orientation", () => {
     const image = raster(360, 280);
     renderHardPeriodicLines(image, [0, 90], 32, 7);
@@ -174,6 +187,20 @@ test("triangular and hexagonal profiles require their own edge occupancy", () =>
         { minimumConfidence: 0.18 });
     assert.notEqual(hexagonalAsTriangular.status, "detected",
         `hexagonal grid was accepted as triangular: ${hexagonalAsTriangular.reason}`);
+});
+
+test("hexagonal occupancy verification tolerates unrelated map artwork", () => {
+    const image = raster(420, 320, 218);
+    renderHexGrid(image, 42, 3, { x: 13, y: 9 });
+    addMapNoise(image);
+
+    const result = detectRegularLattice(
+        image,
+        "regular.hexagonal",
+        { minimumConfidence: 0.20 });
+    assert.equal(result.status, "detected", result.reason);
+    assert.ok(result.fit, result.reason);
+    assert.equal(result.fit.geometryId, "regular.hexagonal");
 });
 
 test("unsupported runtime geometry is rejected instead of falling through to square", () => {
