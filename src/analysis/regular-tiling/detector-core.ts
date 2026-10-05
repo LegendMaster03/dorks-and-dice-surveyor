@@ -74,7 +74,7 @@ const PI = Math.PI;
 const DEG = PI / 180;
 const SQRT3 = Math.sqrt(3);
 const ORIENTATION_TOLERANCE = 7 * DEG;
-const MAX_LAG = 320;
+const MAX_LAG = 640;
 const DISTANT_TILES = 3;
 
 export function detectRegularLattice(
@@ -367,7 +367,7 @@ function fitSquarePeriod(
     maximumSpacing: number): PeriodCandidate | null {
     const maxLag = Math.min(MAX_LAG, Math.floor(Math.min(field.width, field.height) / 2));
     const minimumPitch = Math.max(4, minimumSpacing);
-    const maximumPitch = Math.min(maximumSpacing, Math.floor(maxLag / 2));
+    const maximumPitch = Math.min(maximumSpacing, Math.max(0, maxLag - 2));
     if (maximumPitch <= minimumPitch + 1) return null;
     const correlations = orientation.familySamples.map((samples, family) =>
         projectionAutocorrelation(samples, (orientation.degrees * DEG) + family * PI / 2, maxLag)) as [Float64Array, Float64Array];
@@ -434,6 +434,7 @@ function harmonicScore(curve: Float64Array, pitch: number): number {
     for (let harmonic = 1; harmonic <= 3; harmonic++) {
         const weight = 1 / harmonic;
         const center = pitch * harmonic;
+        if (center >= curve.length) continue;
         let value = 0;
         for (let offset = -1; offset <= 1; offset++) {
             const index = center + offset;
