@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import sharp from "sharp";
-import type { GrayscaleRaster } from "../analysis/hex-grid/detector.js";
+import type { GrayscaleRaster } from "./raster.js";
 import { SupportedRasterMediaTypes, type SupportedRasterMediaType } from "../contracts.js";
 import { SurveyorRequestError } from "../errors.js";
 

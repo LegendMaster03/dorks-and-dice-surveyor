@@ -1,5 +1,5 @@
+import type { GrayscaleRaster } from "../../image/raster.js";
 import type {
-    GrayscaleRaster,
     RegularLatticeDetection,
     RegularLatticeDetectionOptions,
     RegularTilingGeometryId

@@ -1,4 +1,5 @@
-import type { GrayscaleRaster, HexLatticeDetection, HexLatticeDetectionOptions } from "./detector.js";
+import type { GrayscaleRaster } from "../../image/raster.js";
+import type { HexLatticeDetection, HexLatticeDetectionOptions } from "./detector.js";
 
 export type HexGridWorkerRequest = {
     raster: GrayscaleRaster;

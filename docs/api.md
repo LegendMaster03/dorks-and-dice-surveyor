@@ -38,9 +38,11 @@ Notation parsing is independent from the registered-tiling catalog and detector 
 
 A structurally valid unknown tiling is therefore not mislabeled as a missing detector, and the parser does not use a detector-specific allowlist. The tests use the published uniform `12-3/m30/r(h3)` as a valid GJ-H notation that is intentionally not yet in Surveyor's Regular-only catalog.
 
-Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Vertex configurations are cyclic, so alternate starting points and reflected readings canonicalize together. Redundant grouping such as `(3^6)` does not change identity. Parenthesized repetition is interpreted from Euclidean angle closure: `(3.6)^2` is the single vertex configuration `3.6.3.6`, while `(3^6)^2` denotes two complete `3^6` vertices. Reordered semicolon-separated vertex types and expanded duplicate vertices canonicalize to one stable identity. Bracketed ambiguity variants are retained.
+Cundy-Rollett canonicalization accepts forms such as `6^3`, `6^{3}`, `6³`, and `6.6.6` and returns `6^3`. Vertex configurations are cyclic, so alternate starting points and reflected readings canonicalize together. Redundant grouping such as `(3^6)` does not change identity. Parenthesized repetition is interpreted from Euclidean angle closure: `(3.6)^2` is the single vertex configuration `3.6.3.6`, while `(3^6)^2` denotes two complete `3^6` vertices. Reordered semicolon-separated vertex types and expanded duplicate vertices canonicalize to one stable identity. Published ambiguity discriminators on a bracketed configuration are superscripts, for example `[3^6;3^4.6]^1`; ASCII, braced, and Unicode superscript forms canonicalize to the ASCII `^N` form.
 
-GomJau-Hogg parsing follows the published seed grammar (`3`, `4`, `6`, `8`, or `12`), shape-placement phases, `0` side skips, and mirror/rotation transformations. Comparison ignores insignificant whitespace and case.
+GomJau-Hogg parsing follows the published seed grammar (`3`, `4`, `6`, `8`, or `12`), shape-placement phases, `0` side skips, and mirror/rotation transformations. Comparison ignores insignificant whitespace and case. A centered transformation with an omitted angle canonicalizes to the published 180-degree default, while an eccentric transformation such as `r(h1)` retains the omitted angle because its geometry is determined from the selected indexed origin.
+
+Catalog entries are required to store already-canonical notation. This keeps discovery and response identity stable even when callers use an equivalent alternate spelling.
 
 ### Regular tilings
 
@@ -75,12 +77,12 @@ The full response also reports source dimensions/media type, bounded analysis di
 
 ### Regular fit
 
-When a fit is available, the geometry-neutral fields include:
+When a fit is available, the common fields include:
 
 - `geometryId` — `regular.triangular`, `regular.square`, or `regular.hexagonal`;
-- `rotationDegrees`;
+- `rotationDegrees` — orientation within that geometry profile's symmetry period;
 - `edgeLengthPixels`;
-- `anchorPixel`;
+- `anchorPixel` — the fitted phase reference for that geometry profile;
 - `confidence`;
 - `residualPixels`;
 - `supportCoverage`;
@@ -90,9 +92,11 @@ When a fit is available, the geometry-neutral fields include:
 - `linePeriodicityScore`;
 - `phaseScore`.
 
+`rotationDegrees` and `anchorPixel` are common transport fields, but their geometric interpretation is profile-specific. Callers should use `geometryId` when interpreting them rather than assuming one universal polygon-center convention.
+
 Hexagonal fits additionally expose the legacy `orientation` (`PointyTop` or `FlatTop`) and `centerSpacingPixels` fields so existing consumers can migrate without losing the original detector semantics.
 
-Fit distances and anchors are mapped back into original source-image pixel coordinates before they are returned.
+Fit distances, anchors, and pixel measurements included in detector reason text are mapped back into original source-image pixel coordinates before they are returned.
 
 ### Detector options
 

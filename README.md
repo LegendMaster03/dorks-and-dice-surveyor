@@ -8,7 +8,7 @@ Surveyor does not own maps, grids, campaigns, routes, terrain, locations, Battle
 
 ## Resource model
 
-The process hosts multiple independent headless resources behind one service boundary. Each resource owns its API routes, discovery metadata, domain-specific parsing and identity logic, and analysis dispatch. Shared HTTP/authentication, bounded image preparation, logging, configuration, and worker infrastructure remain service-level concerns.
+The process hosts multiple independent headless resources behind one service boundary. Each resource owns its API routes, discovery metadata, domain-specific parsing and identity logic, and analysis dispatch. Shared HTTP/authentication, bounded image preparation, logging, configuration, raster transport types, and worker infrastructure remain service-level concerns.
 
 The first resource is `periodic-tiling`, exposed through:
 
@@ -37,7 +37,7 @@ The Regular Euclidean family is the first implemented tiling family. All three R
 
 The existing extracted hexagonal detector remains the proven three-family implementation and is not rewritten. The generalized detector delegates `6^3` to it directly. `3^6` uses the same three 60-degree line-family analysis with triangular spacing/output semantics. `4^4` uses a two-family perpendicular profile with the same global gradient, periodicity, phase, and distant-region consistency principles.
 
-The detector returns a geometry-neutral Regular fit with `geometryId`, `rotationDegrees`, `edgeLengthPixels`, anchor, confidence, residual, support, and periodicity metrics. Hexagonal results additionally retain the legacy `PointyTop`/`FlatTop` orientation and `centerSpacingPixels` fields for compatibility.
+The detector returns a common Regular fit with `geometryId`, `rotationDegrees`, `edgeLengthPixels`, anchor, confidence, residual, support, and periodicity metrics. `rotationDegrees` and `anchorPixel` describe the selected geometry profile's lattice orientation and phase; they are not defined as one universal polygon-centroid convention across all three geometries. Hexagonal results additionally retain the legacy `PointyTop`/`FlatTop` orientation and `centerSpacingPixels` fields for compatibility.
 
 The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These are derived values, not request selectors.
 

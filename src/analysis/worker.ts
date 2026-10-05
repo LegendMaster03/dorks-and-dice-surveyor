@@ -10,6 +10,12 @@ parentPort.on("message", (message: WorkerRequestEnvelope<RegularTilingWorkerRequ
     const started = performance.now();
     let edgeFieldMs = 0;
     try {
+        const geometryId = message.payload.geometryId;
+        if (geometryId !== "regular.triangular"
+            && geometryId !== "regular.square"
+            && geometryId !== "regular.hexagonal") {
+            throw new Error(`Unsupported Regular tiling detector geometry '${String(geometryId)}'.`);
+        }
         const options = {
             ...message.payload.options,
             timingSink: (stage: string, durationMs: number) => {
@@ -18,7 +24,7 @@ parentPort.on("message", (message: WorkerRequestEnvelope<RegularTilingWorkerRequ
         };
         const detection = detectRegularLattice(
             message.payload.raster,
-            message.payload.geometryId,
+            geometryId,
             options);
         const response: WorkerResponseEnvelope<RegularTilingWorkerResult> = {
             jobId: message.jobId,
