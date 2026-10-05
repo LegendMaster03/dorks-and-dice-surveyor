@@ -107,7 +107,16 @@ test("GomJau-Hogg parser validates published grammar independently from the tili
     const knownNotationWithoutCatalogEntry = parseGomJauHoggNotation("12-3/m30/r(h3)");
     assert.equal(knownNotationWithoutCatalogEntry.canonical, "12-3/m30/r(h3)");
 
-    for (const value of ["", "6/m30", "6//r(h1)", "2/m30/r(h1)", "5-3/r45/m(v2)", "6/x30/r(h1)", "6/m361/r(h1)"]) {
+    for (const value of [
+        "",
+        "6/m30",
+        "6//r(h1)",
+        "2/m30/r(h1)",
+        "5-3/r45/m(v2)",
+        "6/x30/r(h1)",
+        "6/m361/r(h1)",
+        "6/m30/r(h9007199254740992)"
+    ]) {
         assert.throws(
             () => parseGomJauHoggNotation(value),
             error => error instanceof PeriodicTilingNotationError && error.notation === "GomJau-Hogg",

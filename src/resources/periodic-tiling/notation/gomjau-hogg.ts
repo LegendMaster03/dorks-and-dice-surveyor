@@ -75,9 +75,13 @@ function parseTransform(source: string): GomJauHoggTransform {
         throw syntaxError(`Invalid GomJau-Hogg transformation stage '${source}'.`);
     }
 
+    const originIndex = match[4] == null ? undefined : Number(match[4]);
+    if (originIndex != null && !Number.isSafeInteger(originIndex)) {
+        throw syntaxError("GomJau-Hogg transformation-origin indices must be safe integers.");
+    }
     const origin = match[3] == null
         ? undefined
-        : { kind: match[3] as "c" | "v" | "h", index: Number(match[4]) };
+        : { kind: match[3] as "c" | "v" | "h", index: originIndex! };
     let angleDegrees = match[2] == null ? undefined : Number(match[2]);
     if (angleDegrees != null && (!Number.isFinite(angleDegrees) || angleDegrees < 0 || angleDegrees > 360)) {
         throw syntaxError("GomJau-Hogg transformation angles must be between 0 and 360 degrees.");
