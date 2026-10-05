@@ -46,13 +46,37 @@ function addDeterministicNoise(image: GrayscaleRaster): void {
     }
 }
 
+function overlayRectangle(
+    target: GrayscaleRaster,
+    source: GrayscaleRaster,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number): void {
+    for (let y = Math.max(0, y0); y < Math.min(target.height, y1); y++) {
+        for (let x = Math.max(0, x0); x < Math.min(target.width, x1); x++) {
+            const index = y * target.width + x;
+            target.pixels[index] = Math.min(target.pixels[index], source.pixels[index]);
+        }
+    }
+}
+
+function replaceRightHalf(target: GrayscaleRaster, source: GrayscaleRaster): void {
+    const split = Math.floor(target.width / 2);
+    for (let y = 0; y < target.height; y++) {
+        for (let x = split; x < target.width; x++) {
+            target.pixels[y * target.width + x] = source.pixels[y * source.width + x];
+        }
+    }
+}
+
 test("detects the Regular square tiling with the generalized two-family model", () => {
     const image = raster(360, 280);
     renderPeriodicLines(image, [0, 90], 32, 7);
     addDeterministicNoise(image);
 
     const result = detectRegularLattice(image, "regular.square", { minimumConfidence: 0.30 });
-    assert.notEqual(result.status, "gridless", result.reason);
+    assert.equal(result.status, "detected", result.reason);
     assert.ok(result.fit, result.reason);
     assert.equal(result.fit.geometryId, "regular.square");
     assert.ok(Math.abs(result.fit.edgeLengthPixels - 32) < 1.0,
@@ -63,6 +87,52 @@ test("detects the Regular square tiling with the generalized two-family model", 
         `distant residual ${result.fit.residualPixels}`);
 });
 
+test("square fit remains on the globally repeated period instead of a stronger local near-period", () => {
+    const image = raster(480, 360);
+    renderPeriodicLines(image, [0, 90], 32, 2, 150);
+    addDeterministicNoise(image);
+
+    const local = raster(image.width, image.height, 255);
+    renderPeriodicLines(local, [0, 90], 32.22, 2.2, 30);
+    overlayRectangle(image, local, 125, 80, 375, 300);
+
+    const result = detectRegularLattice(image, "regular.square", { minimumConfidence: 0.24 });
+    assert.notEqual(result.status, "gridless", result.reason);
+    assert.ok(result.fit, result.reason);
+    assert.ok(Math.abs(result.fit.edgeLengthPixels - 32) < 0.35,
+        `local distractor pulled edge length to ${result.fit.edgeLengthPixels}`);
+    assert.ok(Math.abs(result.fit.rotationDegrees - 2) < 1.0,
+        `local distractor pulled rotation to ${result.fit.rotationDegrees}`);
+});
+
+test("square detector keeps continuous non-integer spacing precision", () => {
+    const image = raster(520, 400);
+    renderPeriodicLines(image, [0, 90], 30.37, -3, 60);
+
+    const result = detectRegularLattice(image, "regular.square", { minimumConfidence: 0.22 });
+    assert.notEqual(result.status, "gridless", result.reason);
+    assert.ok(result.fit, result.reason);
+    assert.ok(Math.abs(result.fit.edgeLengthPixels - 30.37) < 0.25,
+        `continuous edge length ${result.fit.edgeLengthPixels}`);
+    assert.ok(Math.abs(result.fit.rotationDegrees + 3) < 1.0,
+        `rotation ${result.fit.rotationDegrees}`);
+});
+
+test("square detector rejects a center-plausible period that drifts between distant halves", () => {
+    const left = raster(480, 360);
+    const right = raster(480, 360);
+    renderPeriodicLines(left, [0, 90], 32, 0, 70);
+    renderPeriodicLines(right, [0, 90], 33.2, 0, 70);
+    addDeterministicNoise(left);
+    addDeterministicNoise(right);
+    replaceRightHalf(left, right);
+
+    const result = detectRegularLattice(left, "regular.square", { minimumConfidence: 0.22 });
+    assert.equal(result.status, "inconclusive", result.reason);
+    assert.ok(result.fit, result.reason);
+    assert.match(result.reason, /distant|rigid/i);
+});
+
 test("detects the Regular triangular tiling through the proven three-family detector", () => {
     const edgeLength = 30;
     const carrierPitch = edgeLength * Math.sqrt(3) / 2;
@@ -71,7 +141,7 @@ test("detects the Regular triangular tiling through the proven three-family dete
     addDeterministicNoise(image);
 
     const result = detectRegularLattice(image, "regular.triangular", { minimumConfidence: 0.22 });
-    assert.notEqual(result.status, "gridless", result.reason);
+    assert.equal(result.status, "detected", result.reason);
     assert.ok(result.fit, result.reason);
     assert.equal(result.fit.geometryId, "regular.triangular");
     assert.ok(Math.abs(result.fit.edgeLengthPixels - edgeLength) < 2.0,

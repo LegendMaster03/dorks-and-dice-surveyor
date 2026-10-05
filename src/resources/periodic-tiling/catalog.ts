@@ -37,11 +37,19 @@ for (const definition of definitions) {
     ids.add(definition.id);
 
     const crCanonical = parseCundyRollettNotation(definition.crNotation).canonical;
+    if (crCanonical !== definition.crNotation) {
+        throw new Error(
+            `Periodic-tiling '${definition.id}' must store canonical Cundy-Rollett notation '${crCanonical}'.`);
+    }
     const crCandidates = byCundyRollett.get(crCanonical) ?? [];
     crCandidates.push(definition);
     byCundyRollett.set(crCanonical, crCandidates);
 
     const gjhCanonical = parseGomJauHoggNotation(definition.gjhNotation).canonical;
+    if (gjhCanonical !== definition.gjhNotation) {
+        throw new Error(
+            `Periodic-tiling '${definition.id}' must store canonical GomJau-Hogg notation '${gjhCanonical}'.`);
+    }
     if (byGomJauHogg.has(gjhCanonical)) {
         throw new Error(`Duplicate GomJau-Hogg periodic-tiling identity '${gjhCanonical}'.`);
     }
