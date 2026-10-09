@@ -106,6 +106,18 @@ export type SurveyorPeriodicMotifInvestigation = {
         originalRasterEdgeSupport: number;
         maximumRigidVertexResidualSourcePixels: number;
         translationRefinementResidualSourcePixels: number | null;
+        /** Independently fitted polygon evidence; never an accepted world geometry. */
+        metricRegistration?: {
+            status: "registered" | "inconclusive" | "unsupported";
+            reason: string | null;
+            maximumContourResidualSourcePixels: number | null;
+            rmsContourResidualSourcePixels: number | null;
+            originalRasterEdgeSupport: number | null;
+            /** Mathematical symmetry alone never implies original-image evidence. */
+            mathematicalMetricSymmetries: number | null;
+            rasterSymmetriesChecked: number;
+            rasterSymmetriesSupported: number;
+        };
     };
     source: {
         width: number;
