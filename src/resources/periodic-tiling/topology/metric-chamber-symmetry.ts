@@ -190,12 +190,16 @@ export function verifyMetricChamberSymmetry(
                 const next=maps[k][f];
                 const sourceShift=k===2?flags[f].shift:[0,0];
                 const targetShift=k===2?flags[map[f]].shift:[0,0];
-                const mappedShift=[
-                    M[0]*sourceShift[0]+M[2]*sourceShift[1],
-                    M[1]*sourceShift[0]+M[3]*sourceShift[1]
-                ];
-                if(offsets[next][0]+mappedShift[0]!==offsets[f][0]+targetShift[0]
-                    ||offsets[next][1]+mappedShift[1]!==offsets[f][1]+targetShift[1]){
+                // A source offset is an exact JSON integer, but a lattice
+                // basis automorphism can amplify it beyond Number.MAX_SAFE_INTEGER.
+                // Prove the voltage equation over integers, not rounded floats.
+                const targetU=BigInt(targetShift[0]),targetV=BigInt(targetShift[1]);
+                const nextU=BigInt(offsets[next][0]),nextV=BigInt(offsets[next][1]);
+                const originU=BigInt(offsets[f][0]),originV=BigInt(offsets[f][1]);
+                if(nextU+BigInt(M[0])*BigInt(sourceShift[0])
+                       +BigInt(M[2])*BigInt(sourceShift[1])!==originU+targetU
+                    ||nextV+BigInt(M[1])*BigInt(sourceShift[0])
+                       +BigInt(M[3])*BigInt(sourceShift[1])!==originV+targetV){
                     works=false;break;
                 }
             }
