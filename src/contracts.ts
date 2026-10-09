@@ -117,6 +117,15 @@ export type SurveyorPeriodicMotifInvestigation = {
             mathematicalMetricSymmetries: number | null;
             rasterSymmetriesChecked: number;
             rasterSymmetriesSupported: number;
+            /** Held-out whole-image projected geometry, separate from contour fitting. */
+            sourceProjection?: {
+                status: "supported" | "inconclusive" | "unsupported";
+                reason: string | null;
+                edgeSupport: number | null;
+                interiorSupport: number | null;
+                checkedRegions: number | null;
+                supportedRegions: number | null;
+            };
         };
     };
     source: {
