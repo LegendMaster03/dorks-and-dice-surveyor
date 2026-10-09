@@ -85,6 +85,18 @@ export type SurveyorPeriodicMotifInvestigation = {
         translationBasisSourcePixels: [
             { x: number; y: number }, { x: number; y: number }
         ];
+        /** Provisional observations, not canonical cells or trusted world IDs. */
+        motifCells: {
+            provisionalId: string;
+            polygonSourcePixels: { x: number; y: number }[];
+            boundaries: {
+                sideIndex: number;
+                targetProvisionalId: string;
+                targetSideIndex: number;
+                translation: { u: number; v: number };
+                supportingObservations: number;
+            }[];
+        }[];
     };
     evidence: null | {
         matchedHypotheses: number;

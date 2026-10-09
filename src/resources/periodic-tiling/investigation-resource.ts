@@ -16,6 +16,7 @@ import { log } from "../../logging.js";
 import type { BoundedWorkerPool } from "../../infrastructure/worker-pool.js";
 import type { AnalysisWorkerRequest, AnalysisWorkerResult } from "../../analysis/periodic-tiling/worker-contract.js";
 import type { SurveyorResource } from "../resource.js";
+import { mapExperimentalMotifToSource } from "./source-candidate.js";
 
 const path = "/v3/periodic-tiling/investigate";
 const capability = {
@@ -72,24 +73,11 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                 if (!("mode" in workerResult) || workerResult.mode !== "periodic-motif-investigation")
                     throw new Error("Unexpected regular detection result for motif investigation.");
                 const observation = workerResult.observation;
-                const candidate = observation.status === "consistent-candidate" ? {
-                    dsSymbol: observation.candidateDsSymbol,
-                    translationBasisSourcePixels: observation.basis.map(v => ({
-                        x: v.x / prepared.analysisScale, y: v.y / prepared.analysisScale
-                    })) as [{ x: number; y: number }, { x: number; y: number }]
-                } : null;
-                const evidence = observation.status === "consistent-candidate" ? {
-                    matchedHypotheses: observation.matchedHypotheses,
-                    checkedHypotheses: observation.checkedHypotheses,
-                    rejectedHypotheses: observation.rejectedHypotheses,
-                    minimumEdgeObservations: observation.minimumEdgeObservations,
-                    originalRasterEdgeSupport: observation.originalRasterEdgeSupport,
-                    maximumRigidVertexResidualSourcePixels:
-                        observation.maximumRigidVertexResidualPixels / prepared.analysisScale,
-                    translationRefinementResidualSourcePixels:
-                        observation.translationRefinementResidualPixels == null ? null
-                            : observation.translationRefinementResidualPixels / prepared.analysisScale
-                } : null;
+                const mapped = observation.status === "consistent-candidate"
+                    ? mapExperimentalMotifToSource(observation, prepared.analysisScale)
+                    : null;
+                const candidate = mapped?.candidate ?? null;
+                const evidence = mapped?.evidence ?? null;
                 const totalMs = performance.now() - started;
                 const result: SurveyorPeriodicMotifInvestigation = {
                     apiVersion: PeriodicMotifInvestigationApiVersion,

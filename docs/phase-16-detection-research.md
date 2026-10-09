@@ -80,3 +80,12 @@ was used; `sourceResolutionVerified` explicitly records whether full-size
 pixels were examined. v3 error envelopes advertise v3; all v2 envelopes remain
 unchanged. This is a compatibility seam for later calibration and integration,
 not the final generalized detector acceptance gate.
+
+
+Candidate geometry exposure: the experimental v3 investigation also carries
+provisional motif-cell IDs, measured source-pixel contour polygons, reciprocal
+side/neighbor interfaces with integer translation offsets, and the per-edge
+observation count. IDs and polygon coordinates are **observations**, not
+persistent Tile Crawl cells or a certified non-overlapping geometric witness.
+These values cannot replace full mathematical realization validation or the
+remaining held-out image-detection acceptance suite.

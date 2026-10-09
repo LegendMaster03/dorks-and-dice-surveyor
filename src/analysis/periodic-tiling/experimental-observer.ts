@@ -3,7 +3,8 @@ import { inspectDSymbol } from "../../resources/periodic-tiling/topology/d-symbo
 import { projectChambers } from "../../resources/periodic-tiling/topology/equivalence.js";
 import { evaluateOriginalRasterTranslations } from "./original-edge-candidates.js";
 import { observeMotifInteriors, type InteriorOptions } from "./motif-interiors.js";
-import { deriveObservedTopology, type ObservedTopologyOptions } from "./observed-topology.js";
+import { deriveObservedTopology, type ObservedTopologyOptions, type ObservedBoundary } from "./observed-topology.js";
+import type { ObservedPoint } from "./motif-interiors.js";
 import { verifyRigidMotifFit, type RigidFitOptions } from "./global-motif-fit.js";
 import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigid-basis-refinement.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
@@ -15,11 +16,20 @@ import type { TranslationOptions, TranslationHypothesis } from "./translations.j
  * canonical symmetry reduction, calibrated global pixel residual, and general
  * raster support have not been established.
  */
+export type ExperimentalMotifCell = {
+    classId: number;
+    /** Sampled white-region polygon; uncertain geometry in analysis-image pixels. */
+    polygonAnalysisPixels: readonly ObservedPoint[];
+    /** Derived reciprocal periodic neighbor interfaces; untrusted until acceptance. */
+    boundaries: readonly ObservedBoundary[];
+};
+
 export type ExperimentalMotifResult =
     | {
         status: "consistent-candidate";
         candidateDsSymbol: string;
         basis: TranslationHypothesis["basis"];
+        motifCells: readonly ExperimentalMotifCell[];
         matchedHypotheses: number;
         checkedHypotheses: number;
         rejectedHypotheses: number;
@@ -52,6 +62,7 @@ export function investigatePeriodicMotif(
         rasterSupport: number;
         rigidResidual: number;
         refinementResidual: number | null;
+        motifCells: readonly ExperimentalMotifCell[];
     }[] = [];
     for (const hypothesis of translations.hypotheses) {
         const interior = observeMotifInteriors(raster, hypothesis.basis, options.interiors);
@@ -64,7 +75,12 @@ export function investigatePeriodicMotif(
         if (topology.status !== "derived") continue;
         const globalFit = verifyRigidMotifFit(raster, interior, chosenBasis, options.globalFit);
         if (globalFit.status !== "supported") continue;
-        verified.push({ symbol: topology.dsSymbol, basis: chosenBasis,
+        const motifCells: ExperimentalMotifCell[] = topology.cells.map(cell => ({
+            classId: cell.classId,
+            polygonAnalysisPixels: interior.interiors.find(example => example.motifClass === cell.classId)!.polygon,
+            boundaries: cell.boundaries
+        }));
+        verified.push({ symbol: topology.dsSymbol, basis: chosenBasis, motifCells,
             minimum: topology.minimumEdgeObservations,
             rasterSupport: globalFit.originalRasterEdgeSupport,
             rigidResidual: globalFit.maxVertexResidualPixels,
@@ -98,6 +114,7 @@ export function investigatePeriodicMotif(
         status: "consistent-candidate",
         candidateDsSymbol: preferred.symbol,
         basis: preferred.basis,
+        motifCells: preferred.motifCells,
         matchedHypotheses: verified.length,
         checkedHypotheses: checked,
         rejectedHypotheses: checked - verified.length,
