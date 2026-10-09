@@ -125,7 +125,17 @@ export function realizeUniformEuclideanQuotient(
             : unresolved(topology.reason);
     if (topology.primitiveCells.length > 24)
         return unresolved("This quotient exceeds the bounded 24-cell metric witness limit");
-    const seedResult = realizeOneChamberReflectionSymbol(topology.baseReflectionSymbol, constraints);
+    const { edgeLengthWorldUnits, units, rotationDegrees = 0 } = constraints;
+    if (!Number.isFinite(edgeLengthWorldUnits) || edgeLengthWorldUnits <= 1e-6
+        || edgeLengthWorldUnits > 1e6 || !units?.trim()
+        || !Number.isFinite(rotationDegrees) || Math.abs(rotationDegrees) > 3600)
+        return unresolved("A finite positive polygon edge length, unit and rotation are required");
+    // Construct and check combinatorial geometry at unit scale. As in the
+    // one-chamber reflector, a global similarity then preserves all proven
+    // incidences without exposing the validator's absolute EPS to extreme
+    // user-supplied scales and transcendental rotation rounding.
+    const seedResult = realizeOneChamberReflectionSymbol(topology.baseReflectionSymbol,
+        { edgeLengthWorldUnits: 1, units: "abstract" });
     if (seedResult.status !== "realized") return unresolved(seedResult.reason);
     const seedCover = seedResult.cover, seed = inspectDSymbol(seedCover.translationSymbol, 1024);
     const expanded = inspectDSymbol(topology.translationDsSymbol, chamberLimit);
@@ -183,12 +193,8 @@ export function realizeUniformEuclideanQuotient(
             const seedEdge = seedCover.cells[seedFace].boundary[raw.edgeIndex[rawFlag]];
             const inferredTarget = which[expanded.symbol.involutions[2][flag]];
             const edge = motif.boundary[i];
-            if (seedFace !== faceToSeed[face] || inferredTarget !== edge.targetCell
-                || seedCover.cells[faceToSeed[edge.targetCell]]?.id === "") {
-                // faceToSeed for other faces is resolved after this loop.
-                if (seedFace !== faceToSeed[face] || inferredTarget !== edge.targetCell)
-                    return unresolved("An expanded boundary does not project onto the stated seed edge");
-            }
+            if (seedFace !== faceToSeed[face] || inferredTarget !== edge.targetCell)
+                return unresolved("An expanded boundary does not project onto the stated seed edge");
             edges.push({
                 target: edge.targetCell,
                 seedShift: [seedEdge.target.lattice[0], seedEdge.target.lattice[1]],
@@ -200,15 +206,6 @@ export function realizeUniformEuclideanQuotient(
             return unresolved("An unfolded regular face has inconsistent polygon side order");
         sides.push(edges);
     }
-    for (let c = 0; c < sides.length; c++) for (const edge of sides[c]) {
-        if (seedCover.cells[faceToSeed[edge.target]].id !==
-            seedCover.cells[faceToSeed[c]].boundary.find(b =>
-                b.target.motifCell === seedCover.cells[faceToSeed[edge.target]].id)?.target.motifCell) {
-            // Multiple edges may target the same seed face; full translated
-            // interface consistency is proved by the metric validator below.
-        }
-    }
-
     const seedPositions: Array<IntegerPoint | undefined> = new Array(sides.length);
     const abstractPositions: Array<IntegerPoint | undefined> = new Array(sides.length);
     seedPositions[0] = [0, 0]; abstractPositions[0] = [0, 0];
@@ -292,7 +289,7 @@ export function realizeUniformEuclideanQuotient(
     });
     const witness = {
         basis: [physical(a), physical(b)] as readonly [Point2, Point2],
-        units: constraints.units,
+        units: "abstract",
         cells
     };
     try {
@@ -315,7 +312,25 @@ export function realizeUniformEuclideanQuotient(
                 }))
             }))
         });
-        return { status: "realized", cover, method: "verified-fiber-product-geometric-lift" };
+        const angle = rotationDegrees * Math.PI / 180;
+        const transform = (v: Point2): Point2 => ({
+            x: (v.x * Math.cos(angle) - v.y * Math.sin(angle)) * edgeLengthWorldUnits,
+            y: (v.x * Math.sin(angle) + v.y * Math.cos(angle)) * edgeLengthWorldUnits
+        });
+        const transformed: OperationalCover = {
+            ...cover,
+            units,
+            basis: [transform(cover.basis[0]), transform(cover.basis[1])],
+            cells: cover.cells.map(cell => ({
+                ...cell,
+                polygon: cell.polygon.map(transform),
+                boundary: cell.boundary.map(edge => ({
+                    ...edge,
+                    segment: [transform(edge.segment[0]), transform(edge.segment[1])] as const
+                }))
+            }))
+        };
+        return { status: "realized", cover: transformed, method: "verified-fiber-product-geometric-lift" };
     } catch (error) {
         return unresolved(`The projected polygon motif failed independent geometry verification: ${error instanceof Error ? error.message : String(error)}`);
     }
