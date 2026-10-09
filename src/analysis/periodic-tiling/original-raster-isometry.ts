@@ -1,5 +1,7 @@
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { ObservedPoint } from "./motif-interiors.js";
+import type { OperationalCover } from "../../resources/periodic-tiling/topology/motif.js";
+import { verifyMetricChamberSymmetry } from "../../resources/periodic-tiling/topology/metric-chamber-symmetry.js";
 
 /** A rigid plane isometry already established from independently verified geometry. */
 export type RasterIsometry = {
@@ -140,4 +142,67 @@ export function verifyOriginalRasterIsometry(
         worstRegionInkSupport:Math.min(...checked.map(i=>matchedInk[i]/ink[i])),
         inkSupport:inkFraction,backgroundSupport:brightFraction,
         evidence:"unchanged-source-raster"};
+}
+
+export type MetricRasterSymmetryEvidence =
+    | { status: "evaluated"; metricSymmetries: number;
+        checkedNontrivialSymmetries: number; supportedNontrivialSymmetries: number;
+        evidence: "non-authoritative-original-raster-cross-check";
+        results: readonly OriginalRasterIsometryCheck[] }
+    | { status: "unsupported"; reason: string };
+
+/**
+ * Crosses two independent proof paths without conflating them: exact polygon
+ * geometry proves a finite list of possible metric isometries; the UNCHANGED
+ * raster then independently checks every nontrivial proposal. This is only a
+ * research API because exact source-pixel polygon geometry is not yet inferred
+ * or certified from raw uploaded maps.
+ *
+ * Pixel registration must already be present in the supplied witness. The
+ * optional *whole* lattice translation below places each proved isometry
+ * near the center of the visible crop; it never locally warps or corrects
+ * the image or searches dark pixels for the best-looking transformation.
+ */
+export function crossCheckMetricSymmetryWithOriginalRaster(
+    raster: GrayscaleRaster,
+    verifiedPixelWitness: OperationalCover
+): MetricRasterSymmetryEvidence {
+    if(verifiedPixelWitness.units!=="pixel")
+        return {status:"unsupported",reason:"An independently registered pixel-space polygon witness is required"};
+    const metric=verifyMetricChamberSymmetry(verifiedPixelWitness);
+    if(metric.status!=="verified")
+        return {status:"unsupported",reason:"Metric polygon symmetry was not independently established"};
+    const [a,b]=verifiedPixelWitness.basis;
+    const det=a.x*b.y-a.y*b.x;
+    if(!Number.isFinite(det)||Math.abs(det)<1e-9)
+        return {status:"unsupported",reason:"Pixel-space lattice is degenerate"};
+    const center={x:(raster.width-1)/2,y:(raster.height-1)/2};
+    const results:OriginalRasterIsometryCheck[]=[];
+    for(const isometry of metric.verifiedRigidIsometries){
+        const {sourceOrigin,targetOrigin,xAxis,yAxis}=isometry;
+        const identity=Math.abs(xAxis.x-1)<1e-7&&Math.abs(xAxis.y)<1e-7
+            &&Math.abs(yAxis.x)<1e-7&&Math.abs(yAxis.y-1)<1e-7
+            &&Math.hypot(targetOrigin.x-sourceOrigin.x,
+                targetOrigin.y-sourceOrigin.y)<1e-7;
+        if(identity)continue;
+        const dx=center.x-sourceOrigin.x,dy=center.y-sourceOrigin.y;
+        const mapped={x:targetOrigin.x+xAxis.x*dx+yAxis.x*dy,
+            y:targetOrigin.y+xAxis.y*dx+yAxis.y*dy};
+        const delta={x:center.x-mapped.x,y:center.y-mapped.y};
+        const u=Math.round((delta.x*b.y-delta.y*b.x)/det);
+        const v=Math.round((a.x*delta.y-a.y*delta.x)/det);
+        if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
+            ||Math.abs(u)>2048||Math.abs(v)>2048){
+            results.push({status:"unsupported",reason:"Crop-centered lattice translation exceeds safety bound"});
+            continue;
+        }
+        const centered:RasterIsometry={sourceOrigin,
+            targetOrigin:{x:targetOrigin.x+u*a.x+v*b.x,
+                y:targetOrigin.y+u*a.y+v*b.y},xAxis,yAxis};
+        results.push(verifyOriginalRasterIsometry(raster,centered));
+    }
+    return {status:"evaluated",metricSymmetries:metric.metricAutomorphisms,
+        checkedNontrivialSymmetries:results.length,
+        supportedNontrivialSymmetries:results.filter(r=>r.status==="supported").length,
+        evidence:"non-authoritative-original-raster-cross-check",results};
 }
