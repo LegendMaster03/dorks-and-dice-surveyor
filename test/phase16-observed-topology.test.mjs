@@ -245,22 +245,24 @@ test('existing Sobel boundaries yield candidate closed-cell geometry on non-whit
  const muted={width:raster.width,height:raster.height,
    pixels:Uint8Array.from(raster.pixels,value=>value===0?92:163)};
  assert.equal(observeMotifInteriors(muted,basis).status,'inconclusive');
- const masks=deriveInteriorMasksFromOriginalEdges(muted);
- assert.equal(masks.status,'generated',masks.reason);
  const symbols=[],diagnostics=[];
+ for(const radius of [0,1]){
+ const masks=deriveInteriorMasksFromOriginalEdges(muted,{dilationRadius:radius});
+ assert.equal(masks.status,'generated',masks.reason);
  for(const mask of masks.masks){
    assert.equal(mask.provenance,'original-sobel-gradient-boundaries');
    const observed=observeMotifInteriors(mask.raster,basis);
    if(observed.status!=='observed'){
-     diagnostics.push({threshold:mask.threshold,dark:mask.darkFraction,
+     diagnostics.push({radius,threshold:mask.threshold,dark:mask.darkFraction,
        interiorStatus:observed.status,reason:observed.reason});
      continue;
    }
-   const topology=deriveObservedTopology(observed,basis);
-   diagnostics.push({threshold:mask.threshold,dark:mask.darkFraction,
+   const topology=deriveObservedTopology(observed,basis,{maxInkGapPixels:12});
+   diagnostics.push({radius,threshold:mask.threshold,dark:mask.darkFraction,
      interiors:observed.interiors.length,classes:observed.classes.length,
      topologyStatus:topology.status,reason:topology.reason});
    if(topology.status==='derived')symbols.push(topology.dsSymbol);
+ }
  }
  const expected=deriveTranslationMotif({units:'pixel',basis,
    cells:squareTriangles.map((poly,i)=>({id:'multitone-'+i,
