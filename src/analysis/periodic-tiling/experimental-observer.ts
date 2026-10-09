@@ -36,7 +36,7 @@ export type ExperimentalMetricEvidence = {
     mathematicalMetricSymmetries: number | null;
     rasterSymmetriesChecked: number;
     rasterSymmetriesSupported: number;
-    sourceProjection: SourcePolygonProjection;
+    sourceProjection?: SourcePolygonProjection;
 };
 
 /** An exact polygon witness is distinct from a noisy raster geometry observation. */
