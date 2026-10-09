@@ -29,6 +29,12 @@ Three independently constructed four-region motifs composed of unsplit quadrilat
 
 When diffuse edge noise swamps the current Sobel candidates, an additive *single strongest-gradient retry* filters the **existing original-raster edge samples**; it does not apply any new shape-specific detector or modify the source raster. Every surviving candidate must still pass the separate reciprocal topology and original-raster global rigid-fit checks. General artwork, occluded strokes, non-edge-to-edge raster junctions and final false-positive rate remain unqualified.
 
+## First image-independent D-symbol translation-cover constructor
+
+`src/resources/periodic-tiling/topology/translation-cover-from-symbol.ts` now constructs a finite, deterministic, integer-addressed and reciprocal periodic motif **from a supplied D-symbol alone**, provided that symbol is already a fully expanded, orientable, unbranched torus quotient. Face/edge/vertex orbits are recovered from the chamber involutions; a primal/dual tree-cotree decomposition derives two integer cohomology generators; closure around every vertex is checked before emitting cell interface voltages. No geometry, image, name, or catalog is consulted. Verified examples include square, two-cell checkerboard, hexagonal, triangular, rhombille, mixed triangle/quadrilateral and non-edge-to-edge T-junction witnesses; all address domains are deterministic and reciprocally traversable.
+
+**This is a strictly bounded mathematical subset**. One-chamber square, triangle and hexagonal full-symmetry D-symbols remain valid but do not directly describe an unbranched torus and are correctly reported unsupported by this constructor. Deriving a finite translational subgroup / unbranched torus cover from an arbitrary valid Euclidean symmetry quotient remains a Phase 16 acceptance blocker, as does choosing an admissible metric realization. The new algorithm is useful to verify/operate already expanded D-symbols; it must not be used to misclassify other valid symbols as mathematically invalid.
+
 ## Explicit unresolved risks
 
 - Image borders and cropping can reduce three-by-three support even for a correct lattice; validity must account for visible overlap rather than penalizing unsupported regions as false evidence.
