@@ -204,6 +204,8 @@ test('new seeded multi-orbit tilings: bounded correct identities, no confidently
     'A plausible but incorrect topology is not an acceptable research candidate');
   assert.ok(records.filter(x=>x.correct).length>=2,
     'At least two held-out multi-orbit motifs must reconstruct exactly');
+  assert.equal(records.find(x=>x.label==='mixed-5023')?.correct, true,
+    'High-contrast raster noise must not hide an otherwise complete repeated mixed motif');
 });
 test('crop and distractor stress are inconclusive or structurally correct, never confidently wrong',()=>{
   const configs=[
@@ -230,4 +232,13 @@ test('texture-only and conflicting aperiodic strokes never produce a pattern ide
     assert.equal(result.status==='consistent-candidate',false,
       'Gridless texture cannot be promoted to a geometric tiling identity');
   }
+});
+
+test('dense irregular dark strokes on a white map cannot manufacture periodic identity',()=>{
+  const noise=rasterize([],[[144,0],[0,96]],{
+    width:480,height:480,seed:72019,distractorCount:900
+  });
+  const result=inspectSample('negative-ink-72019',noise,null);
+  assert.notEqual(result.status,'consistent-candidate',
+    'One-pixel-tolerant ink evidence is not enough to claim a periodic polygon motif');
 });
