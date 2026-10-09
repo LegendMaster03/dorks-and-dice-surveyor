@@ -152,6 +152,8 @@ export async function probeIndependentPublicCase(c){
   return {
     id:c.id,source:c.source,sha1:c.sha1,medium:c.medium,morphology:c.morphology,
     raster:{width,height},status:observed.status,elapsedMs:elapsed,
+    failureReason:good?null:observed.reason,
+    checkedTranslationHypotheses:observed.checkedHypotheses,
     candidateSymbol:good?observed.candidateDsSymbol:null,
     polygonSides:good?observed.motifCells.map(x=>x.polygonAnalysisPixels.length):null,
     verifiedMetricStatus:metric?.status??null,
