@@ -181,22 +181,60 @@ export function observeMotifInteriors(
     if (normalized.status !== "split")
         return empty("inconclusive", normalized.reason, components.length);
     for (let i = 0; i < found.length; i++) found[i].polygon = normalized.polygons[i];
-    const groups:{point:Point;sides:number;examples:number}[]=[];
+    // Classify by lattice phase first, independently of side count: a cell
+    // near a crop boundary may have one locally unobservable T-junction.
+    // Never repair it by inventing a side; discard only that isolated contour
+    // when distant repetitions establish one dominant complete polygon.
+    const groups:{
+        point:Point;
+        sides:number;
+        examples:number;
+        counts:Map<number,number>;
+    }[]=[];
     for(const observation of found){
-        let which=groups.findIndex(group=>group.sides===observation.polygon.length
-            &&phaseDistance(group.point,observation.phase,basis)<Math.max(4,tolerance*2));
-        if(which<0){which=groups.length;groups.push({point:observation.phase,sides:observation.polygon.length,examples:0});}
-        groups[which].examples++;
+        let which=groups.findIndex(group=>
+            phaseDistance(group.point,observation.phase,basis)<Math.max(4,tolerance*2));
+        if(which<0){
+            which=groups.length;
+            groups.push({point:observation.phase,sides:observation.polygon.length,
+                examples:0,counts:new Map()});
+        }
+        const group=groups[which];
+        group.examples++;
+        group.counts.set(observation.polygon.length,
+            (group.counts.get(observation.polygon.length)??0)+1);
         observation.classId=which;
     }
-    const supported=groups.filter(g=>g.examples>=3);
-    if(supported.length===0||groups.some(g=>g.examples<2))
-        return empty("inconclusive","Observed cells do not establish repeatable motif classes",components.length);
+    const discarded = new Set<typeof found[number]>();
+    for(const group of groups){
+        const counts=[...group.counts.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0]);
+        if(counts.length===0)return empty("inconclusive","Unresolved repeating contour topology",components.length);
+        const [sideCount,majority]=counts[0];
+        if(counts.length>1){
+            if(majority<3 || majority/group.examples<0.70)
+                return empty("inconclusive","Repeated cell contours disagree on junction subdivision",components.length);
+            // A small number of locally incomplete contours must not become
+            // distinct geometric motifs. Their ink evidence is not enough to
+            // support the omitted side, so exclude them from topology votes.
+            group.sides=sideCount;
+            for(const observation of found)
+                if(observation.classId===groups.indexOf(group)
+                    &&observation.polygon.length!==sideCount)
+                    discarded.add(observation);
+        } else group.sides=sideCount;
+    }
+    const retained=found.filter(observation=>!discarded.has(observation));
+    const retainedCounts=groups.map((group,id)=>
+        retained.filter(observation=>observation.classId===id).length);
+    if(groups.some((group,id)=>retainedCounts[id]<3)
+        ||retained.length<6
+        ||discarded.size>Math.max(3,Math.floor(found.length*0.15)))
+        return empty("inconclusive","Insufficient complete repeated contour witnesses",components.length);
     return {
         status:"observed",reason:"Repeated closed cell interiors observed; topology and D-symbol remain unverified",
         consideredComponents:components.length,
-        classes:groups.map((g,id)=>({id,sideCount:g.sides,examples:g.examples})),
-        interiors:found.map(o=>({polygon:o.polygon,pixels:o.count,centroid:o.centroid,
-            representative:groups[o.classId].examples>=3,motifClass:o.classId}))
+        classes:groups.map((g,id)=>({id,sideCount:g.sides,examples:retainedCounts[id]})),
+        interiors:retained.map(o=>({polygon:o.polygon,pixels:o.count,centroid:o.centroid,
+            representative:true,motifClass:o.classId}))
     };
 }
