@@ -37,6 +37,8 @@ export function mapExperimentalMotifToSource(
         rejectedHypotheses: observation.rejectedHypotheses,
         minimumEdgeObservations: observation.minimumEdgeObservations,
         originalRasterEdgeSupport: observation.originalRasterEdgeSupport,
+        ...(observation.segmentationProvenance ?
+            {segmentationProvenance:observation.segmentationProvenance} : {}),
         maximumRigidVertexResidualSourcePixels:
             observation.maximumRigidVertexResidualPixels / analysisScale,
         translationRefinementResidualSourcePixels:
