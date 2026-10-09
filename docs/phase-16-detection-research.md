@@ -173,3 +173,17 @@ This remains restricted to uniform Euclidean local orders and the finite
 embedding is `unresolved-geometry`, not a fabricated tile. It is not
 yet a production world-realization API or a solution for arbitrary
 nonuniform Delaney–Dress symbols.
+
+
+### General Euclidean orientation double cover
+
+A new bounded, cross-language `constructOrientableChamberCover` /
+`DelaneyDressOrientationCover.Construct` independently builds the connected
+orientation double of **any** valid Euclidean D-symbol, including nonuniform
+mixed-cell quotients. Each involution toggles a parity bit. The construction
+removes mirror/fixed-chamber identifications, proves a D-symbol covering
+projection, preserves curvature and avoids duplicating already orientable
+covers. Its `remainingBranchedOrbits` field explicitly counts cone/rotation
+and edge branching still unresolved. **This alone is not a torsion-free
+translation torus or a geometric realization.** The orientability step is
+proved and tested, but general branched-orbifold unfolding remains outstanding.
