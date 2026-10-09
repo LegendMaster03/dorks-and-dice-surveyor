@@ -236,15 +236,32 @@ export function realizeGeneralEuclideanQuotient(
         }))
     };
     try {
+        // The witness verifier operates with absolute tolerances intended for
+        // unit-sized lattice coordinates. Rechecking very large/small rotated
+        // world coordinates directly can falsely report neighboring polygons
+        // as overlapping. Normalize the ACTUAL output through its measured
+        // inverse period basis and reprove all boundaries, polygon interiors,
+        // primitive adjacency and quotient projection in lattice coordinates.
+        const u = transformed.basis[0], v = transformed.basis[1];
+        const determinant = u.x * v.y - u.y * v.x;
+        if (!Number.isFinite(determinant) || determinant <= 1e-12)
+            return unresolved("The fitted affine translation basis is degenerate");
+        const normalized = (point: Point2): Point2 => ({
+            x: (point.x * v.y - point.y * v.x) / determinant,
+            y: (u.x * point.y - u.y * point.x) / determinant
+        });
         const affineWitness: PeriodicWitness = {
-            basis: transformed.basis, units: transformed.units,
-            cells: transformed.cells.map(cell => ({ id: cell.id, polygon: cell.polygon }))
+            basis: [{ x: 1, y: 0 }, { x: 0, y: 1 }],
+            units: "normalized-lattice",
+            cells: transformed.cells.map(cell => ({
+                id: cell.id, polygon: cell.polygon.map(normalized)
+            }))
         };
         const independentlyVerified = verifyPeriodicWitness(source, affineWitness);
         if (independentlyVerified.translationSymbol !== abstract.translationDsSymbol)
             return unresolved("Affine metric fitting changed the translational chamber graph");
     } catch (error) {
-        return unresolved(`The fitted affine polygons failed independent periodic verification: ${error instanceof Error ? error.message : String(error)}`);
+        return unresolved(`The fitted affine polygons failed independent normalized periodic verification: ${error instanceof Error ? error.message : String(error)}`);
     }
     return { status: "realized", cover: transformed, method: "periodic-harmonic-embedding-verified" };
 }
