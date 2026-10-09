@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import sharp from "sharp";
+import { deriveTranslationMotif } from "../src/resources/periodic-tiling/topology/motif.js";
 import type { AnalysisWorkerRequest, AnalysisWorkerResult } from "../src/analysis/periodic-tiling/worker-contract.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
@@ -114,5 +115,82 @@ test("preview rejects hints, unauthenticated requests, and unsupported images wi
         });
         assert.equal(badImage.status, 422);
         assert.equal((await badImage.json() as any).apiVersion, "v3");
+    });
+});
+
+/**
+ * An unregistered, mixed-cell image is generated independently of the detector.
+ * This exercises the full authenticated HTTP -> worker -> motif/geometry response
+ * instead of only testing a blank-image inconclusive result.
+ */
+test("preview reconstructs a translated mixed-cell raster and exposes provisional geometry", async () => {
+    const pattern = [0, 1, 2, 0];
+    const polys: [number, number][][] = [];
+    for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
+        const x = col * 64, y = row * 64;
+        const a: [number, number] = [x, y], b: [number, number] = [x + 64, y];
+        const c: [number, number] = [x + 64, y + 64], d: [number, number] = [x, y + 64];
+        const mode = pattern[row * 2 + col];
+        if (mode === 0) polys.push([a, b, c, d]);
+        else if (mode === 1) polys.push([a, b, c], [a, c, d]);
+        else polys.push([a, b, d], [b, c, d]);
+    }
+    const expected = deriveTranslationMotif({
+        units: "pixel", basis: [{ x: 128, y: 0 }, { x: 0, y: 128 }],
+        cells: polys.map((polygon, i) => ({
+            id: `fixture-${i}`, polygon: polygon.map(([x, y]) => ({ x, y }))
+        }))
+    });
+    const width = 640, height = 640, pixels = Buffer.alloc(width * height, 255);
+    const draw = (a: [number, number], b: [number, number]): void => {
+        const steps = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) * 2;
+        for (let i = 0; i <= steps; i++) {
+            const x = Math.round(a[0] + (b[0] - a[0]) * i / steps);
+            const y = Math.round(a[1] + (b[1] - a[1]) * i / steps);
+            for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+                const px = x + ox, py = y + oy;
+                if (px >= 0 && py >= 0 && px < width && py < height)
+                    pixels[py * width + px] = 0;
+            }
+        }
+    };
+    for (let u = -9; u <= 9; u++) for (let v = -9; v <= 9; v++)
+        for (const polygon of polys)
+            for (let i = 0; i < polygon.length; i++) {
+                const a = polygon[i], b = polygon[(i + 1) % polygon.length];
+                draw([29 + a[0] + 128 * u, 37 + a[1] + 128 * v],
+                    [29 + b[0] + 128 * u, 37 + b[1] + 128 * v]);
+            }
+    const image = await sharp(pixels, {
+        raw: { width, height, channels: 1 }
+    }).png().toBuffer();
+    await withService(async base => {
+        const result = await fetch(base + path, {
+            method: "POST",
+            headers: { authorization: "Bearer " + token, "content-type": "image/png" },
+            body: Uint8Array.from(image).buffer
+        });
+        assert.equal(result.status, 200);
+        const value = await result.json() as any;
+        assert.equal(value.status, "consistent-candidate", value.reason);
+        assert.equal(value.authoritative, false);
+        assert.equal(value.candidate.dsSymbol, expected.translationSymbol);
+        assert.ok(value.candidate.motifCells.length >= 2);
+        const byId = new Map<string, any>(value.candidate.motifCells.map((cell: any) => [cell.provisionalId, cell]));
+        for (const cell of value.candidate.motifCells) {
+            assert.ok(cell.polygonSourcePixels.length >= 3);
+            assert.equal(cell.boundaries.length, cell.polygonSourcePixels.length);
+            for (const boundary of cell.boundaries) {
+                assert.ok(Number.isInteger(boundary.translation.u));
+                assert.ok(Number.isInteger(boundary.translation.v));
+                const other = byId.get(boundary.targetProvisionalId);
+                assert.ok(other, "Every candidate interface targets another motif cell");
+                const back = other.boundaries[boundary.targetSideIndex];
+                assert.equal(back.targetProvisionalId, cell.provisionalId);
+                assert.equal(back.targetSideIndex, boundary.sideIndex);
+                assert.equal(back.translation.u, -boundary.translation.u);
+                assert.equal(back.translation.v, -boundary.translation.v);
+            }
+        }
     });
 });
