@@ -176,7 +176,7 @@ export function registerObservedMetric(
         }
     }
     if(worst>maximumResidual)
-        return inconclusive("Shared periodic polygon vertices exceed the original-image contour residual limit");
+        return inconclusive(`Shared periodic polygon vertices deviate by ${worst.toFixed(2)} px from one exact joint fit (limit ${maximumResidual.toFixed(2)} px)`);
     const witness:PeriodicWitness={units:"pixel",basis:[a,b],
         cells:kinds.map(kind=>({id:`observed-${kind.id}`,
             polygon:Array.from({length:kind.sideCount},(_,i)=>
