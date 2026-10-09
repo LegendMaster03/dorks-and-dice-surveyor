@@ -69,7 +69,8 @@ export function evaluateOriginalRasterTranslations(
     });
     if (nearInk.length < 500 || nearInk.length === field.samples.length)
         return original;
-    const ink = discoverTranslations({ ...field, samples: nearInk }, options);
+    const ink = discoverTranslations({ ...field, samples: nearInk },
+        { ...options, pixelTolerance: "nearby" });
     return ink.status === "candidates"
         ? { ...ink, reason: "Original-Sobel high-contrast ink-edge candidate; requires independent whole-motif verification" }
         : original;
