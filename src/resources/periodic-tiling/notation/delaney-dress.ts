@@ -64,11 +64,20 @@ export function parseDelaneyDressNotation(raw: string): DelaneyDressSymbol {
     if (mFields.length !== 2) throw invalid("A 2D D-symbol requires m01 and m12 orbit labels.");
     const m01 = parseOrbitLabels(mFields[0], neighbors, 0, size);
     const m12 = parseOrbitLabels(mFields[1], neighbors, 1, size);
-    let curvature = -size / 2;
+    // Exact rational curvature prevents near-zero non-Euclidean symbols from
+    // being accepted when orbit labels are large.
+    let common = 2n;
     for (let chamber = 1; chamber <= size; chamber++) {
-        curvature += 1 / m01[chamber] + 1 / m12[chamber];
+        for (const label of [m01[chamber], m12[chamber]]) {
+            const value = BigInt(label);
+            common = common / gcd(common, value) * value;
+        }
     }
-    if (Math.abs(curvature) > 1e-9) {
+    let numerator = -BigInt(size) * (common / 2n);
+    for (let chamber = 1; chamber <= size; chamber++) {
+        numerator += common / BigInt(m01[chamber]) + common / BigInt(m12[chamber]);
+    }
+    if (numerator !== 0n) {
         throw invalid("The D-symbol is not Euclidean (curvature must be zero).");
     }
 
@@ -195,6 +204,13 @@ function serializeRelabeling(
         return values.join(" ");
     }).join(",");
     return "<" + size + ":" + sText + ":" + orbitText + ">";
+}
+
+function gcd(left: bigint, right: bigint): bigint {
+    while (right !== 0n) {
+        [left, right] = [right, left % right];
+    }
+    return left;
 }
 
 function invalid(message: string): DelaneyDressNotationError {
