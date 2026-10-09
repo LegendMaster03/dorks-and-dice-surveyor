@@ -23,6 +23,12 @@ A reproducible Python-only offline probe `research/phase16_mixed_motif_spike.py`
 
 The internal research path now fits both periodic translation vectors simultaneously from centroids of repeated cells segmented on the original raster. Each motif class has its own intercept; shared vectors are estimated through class-centered least squares. Address rounding is performed only from the original candidate, and the fit is bounded to a small seed neighborhood. Failure returns an explicit inconclusive outcome and the original candidate still must pass the independent rigid source-ink/corner verification. No resampled or recursively corrected raster is used. This is additional geometric evidence, not a mathematically derived translation cover or a calibrated production detector.
 
+## Additional unfamiliar-motif validation and noise boundary
+
+Three independently constructed four-region motifs composed of unsplit quadrilaterals and two alternative triangle diagonals were rasterized as nine clean, rotated/scaled, or gray-stroke scenarios plus three deterministic additive-noise scenarios. Each expected translation-group D-symbol was derived separately from the input polygon witness and compared with the completely no-hint experimental observer. The nine clean/rotated/gray-stroke scenarios returned the expected canonical candidate; one of three moderately noisy scenarios was recovered, while the other two were inconclusive (none returned a wrong confident candidate). A texture-only negative control also remained inconclusive. These are synthetic programmatically generated cases, not a frozen external held-out benchmark; they do **not** establish production noise robustness, maximal-symmetry identity, or general artwork tolerance.
+
+When diffuse edge noise swamps the current Sobel candidates, an additive *single strongest-gradient retry* filters the **existing original-raster edge samples**; it does not apply any new shape-specific detector or modify the source raster. Every surviving candidate must still pass the separate reciprocal topology and original-raster global rigid-fit checks. General artwork, occluded strokes, non-edge-to-edge raster junctions and final false-positive rate remain unqualified.
+
 ## Explicit unresolved risks
 
 - Image borders and cropping can reduce three-by-three support even for a correct lattice; validity must account for visible overlap rather than penalizing unsupported regions as false evidence.
