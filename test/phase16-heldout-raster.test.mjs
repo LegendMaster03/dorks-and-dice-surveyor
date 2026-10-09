@@ -12,11 +12,16 @@ import { deriveTranslationMotif } from '../dist/src/resources/periodic-tiling/to
  * shapes; the detector receives only source-image pixels, never the seed,
  * generator parameters, basis, symbol, or expected cell geometry.
  *
- * Predeclared exploratory gate: among the four complete mixed-cell maps, at
- * least two must yield the EXACT polygon-witness D-symbol, with zero confident
- * wrong identities. Stress maps may be inconclusive but must not claim a wrong
- * identity. Both negative maps must be inconclusive or ambiguous.
- * This is a feasibility gate, NOT the final acceptance/calibration envelope.
+ * Phase 16 release-qualification gate for the declared narrow clean-line
+ * source raster envelope: at least THREE of four seed-independent mixed cases
+ * must recover exact independently constructed canonical translation D-symbols,
+ * including the rotated/scaled case, plus the cropped clean-line stress case.
+ * The moderate noise cases may be inconclusive, but all positives/negatives
+ * must avoid false identities. Positive evidence requires edge support >= .83,
+ * worst rigid source-alignment residual <= 5 px, and <=15 s per bounded case.
+ *
+ * This gate covers closed-line image geometry only; external artwork, arbitrary
+ * perspective, and unrestricted noisy cartography remain unqualified.
  */
 function rng(seed) {
   let value = seed >>> 0;
@@ -103,7 +108,22 @@ function inspectSample(label,raster,expected){
     edgeSupport:result.status==='consistent-candidate'
       ?Number(result.originalRasterEdgeSupport.toFixed(3)):null,
     maximumCornerDriftPixels:result.status==='consistent-candidate'
-      ?Number(result.maximumRigidVertexResidualPixels.toFixed(2)):null};
+      ?Number(result.maximumRigidVertexResidualPixels.toFixed(2)):null,
+    segmentationProvenance:result.status==='consistent-candidate'
+      ?result.segmentationProvenance:null,
+    metricStatus:result.status==='consistent-candidate'
+      ?result.metricRegistration?.status??null:null,
+    projectedStatus:result.status==='consistent-candidate'
+      ?result.metricRegistration?.sourceProjection?.status??null:null};
+  assert.ok(durationMs<=15000,`${label} exceeded bounded clean-line analysis budget: ${durationMs} ms`);
+  if(observed!==null){
+    assert.ok(result.originalRasterEdgeSupport>=0.83,
+      `${label} claimed image topology without sufficient source ink`);
+    assert.ok(result.maximumRigidVertexResidualPixels<=5,
+      `${label} claimed geometry despite accumulated distant-region drift`);
+    assert.ok(result.matchedHypotheses>=1&&result.matchedHypotheses<=result.checkedHypotheses,
+      `${label} counted a segmentation retry as an independently checked lattice hypothesis`);
+  }
   // Machine-readable diagnostic lines can be aggregated from CI output.
   process.stdout.write('PHASE16_HELDOUT '+JSON.stringify(summary)+'\n');
   if(wrong)process.stderr.write(label+' produced an incorrect D-symbol: '+
@@ -125,8 +145,10 @@ test('new seeded multi-orbit tilings: bounded correct identities, no confidently
   });
   assert.ok(records.every(x=>!x.wrong),
     'A plausible but incorrect topology is not an acceptable research candidate');
-  assert.ok(records.filter(x=>x.correct).length>=2,
-    'At least two held-out multi-orbit motifs must reconstruct exactly');
+  assert.ok(records.filter(x=>x.correct).length>=3,
+    'At least three of four distinct multi-orbit motifs must reconstruct exactly');
+  assert.equal(records.find(x=>x.label==='mixed-2911')?.correct,true,
+    'A clean rotated and scaled unfamiliar motif must reconstruct without hints');
 });
 test('crop and distractor stress are inconclusive or structurally correct, never confidently wrong',()=>{
   const configs=[
@@ -141,6 +163,8 @@ test('crop and distractor stress are inconclusive or structurally correct, never
   });
   assert.ok(records.every(x=>!x.wrong),
     'Partly obscured/cropped images must not produce incorrect authoritative-looking candidates');
+  assert.equal(records.find(x=>x.label==='stress-14011')?.correct,true,
+    'A clean cropped and rotated unfamiliar motif must remain reconstructible');
 });
 test('texture-only and conflicting aperiodic strokes never produce a pattern identity',()=>{
   for(const seed of [311,719]){
