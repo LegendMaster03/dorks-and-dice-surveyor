@@ -53,6 +53,40 @@ test('a verified polygon cover is scale- and rotation-equivariant',()=>{
  assert.ok(Math.abs(norm(transformed.cover.basis[0])/norm(base.cover.basis[0])-7)<1e-8);
 });
 
+test('anisotropic oblique period fitting preserves a verified translation topology',()=>{
+ const source='<2:1 2,1 2,2:4 4,4>';
+ const reference=realizeGeneralEuclideanQuotient(source,options);
+ const result=realizeGeneralEuclideanQuotient(source,{
+   worldUnitsPerAbstractPeriod:2,units:'km',rotationDegrees:17,
+   periodULength:4,periodVLength:3,periodAngleDegrees:65
+ });
+ assert.equal(reference.status,'realized',reference.reason);
+ assert.equal(result.status,'realized',result.reason);
+ assert.equal(result.cover.translationSymbol,reference.cover.translationSymbol);
+ const {basis,cells,units}=result.cover;
+ const norm=p=>Math.hypot(p.x,p.y);
+ assert.ok(Math.abs(norm(basis[0])-4)<1e-8);
+ assert.ok(Math.abs(norm(basis[1])-3)<1e-8);
+ const angle=Math.acos((basis[0].x*basis[1].x+basis[0].y*basis[1].y)/
+   (norm(basis[0])*norm(basis[1])))*180/Math.PI;
+ assert.ok(Math.abs(angle-65)<1e-8);
+ assert.equal(verifyPeriodicWitness(source,{basis,units,
+   cells:cells.map(c=>({id:c.id,polygon:c.polygon}))}).translationSymbol,
+   reference.cover.translationSymbol);
+});
+
+test('degenerate or unbounded requested periods never generate authoritative geometry',()=>{
+ const source='<1:1,1,1:4,4>';
+ for(const metric of [
+   {periodULength:0},{periodVLength:-1},{periodAngleDegrees:0},
+   {periodAngleDegrees:180},{periodAngleDegrees:NaN},
+   {periodULength:Infinity},{periodVLength:1e12}
+ ]){
+   const result=realizeGeneralEuclideanQuotient(source,{...options,...metric});
+   assert.notEqual(result.status,'realized',JSON.stringify(metric));
+ }
+});
+
 test('ill-posed metric and oversized quotient cannot fabricate polygons',()=>{
  for(const scale of [0, -1, NaN, Infinity, 1e12]){
   const invalid=realizeGeneralEuclideanQuotient('<1:1,1,1:4,4>',
