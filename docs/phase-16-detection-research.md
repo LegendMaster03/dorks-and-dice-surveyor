@@ -156,3 +156,20 @@ Inputs with mixed face degrees, mixed vertex valences, excessive product size,
 or no proved cover remain explicitly unsupported or inconclusive. This
 does not infer a unique geometric embedding or produce generalized mixed-cell
 orbifold unfolding, which remain Phase 16 blockers.
+
+
+### Verified geometric lift of uniform quotient covers
+
+The bounded `realizeUniformEuclideanQuotient` research constructor now
+attempts an image-independent metric realization in world units. It
+constructs actual polygon coordinates and a primitive translation basis
+by lifting the regular reflection-torus geometry through its finite-index
+fiber-product cover. An exact integer cocycle consistency check determines
+the projected sublattice; a final independent polygon-overlap, complete
+interface, primitive lattice, and D-symbol witness check controls acceptance.
+
+This remains restricted to uniform Euclidean local orders and the finite
+24-cell metric verification envelope. Failure to construct a complete
+embedding is `unresolved-geometry`, not a fabricated tile. It is not
+yet a production world-realization API or a solution for arbitrary
+nonuniform Delaney–Dress symbols.
