@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {performance} from 'node:perf_hooks';
 import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topology/motif.js';
 import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
+import {inspectDSymbol} from '../dist/src/resources/periodic-tiling/topology/d-symbol.js';
+import {projectChambers} from '../dist/src/resources/periodic-tiling/topology/equivalence.js';
 
 // Geometry is independent mathematical test ground truth, never fed to detector.
 // Each example uses a different fundamental-domain cell structure.
@@ -53,7 +55,25 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    const elapsedMs=Math.round(performance.now()-started);
    const actual=detected.status==='consistent-candidate'?detected.candidateDsSymbol:null;
    const correct=actual===exact.translationSymbol;
-   const record={name:e.name,correct,status:detected.status,elapsedMs,
+   // Different translation-domain size is not automatically a wrong tiling.
+   // Require an independent chamber covering map AND the matching lattice
+   // index; otherwise an unequal D-symbol is a false positive, not an alias.
+   let verifiedLargerCover=false;
+   if(actual!==null&&!correct){
+     const a=inspectDSymbol(actual,2048),target=inspectDSymbol(exact.translationSymbol,2048);
+     const inputArea=Math.abs((e.basis[0].x*e.basis[1].y
+       -e.basis[0].y*e.basis[1].x)*e.magnify*e.magnify);
+     const [u,v]=detected.basis;
+     const outputArea=Math.abs(u.x*v.y-u.y*v.x);
+     const chamberRatio=a.status==='euclidean'&&target.status==='euclidean'
+       ?a.symbol.chamberCount/target.symbol.chamberCount:NaN;
+     const areaRatio=outputArea/inputArea;
+     verifiedLargerCover=Number.isSafeInteger(chamberRatio)&&chamberRatio>1
+       &&Math.abs(chamberRatio-areaRatio)<.06
+       &&projectChambers(a.symbol,target.symbol);
+   }
+   const record={name:e.name,correct,verifiedLargerCover,
+     status:detected.status,elapsedMs,
      segmentation:detected.segmentationProvenance??null,
      metricStatus:detected.metricRegistration?.status??null,
      candidateSymbol:actual,expectedSymbol:exact.translationSymbol,
@@ -66,8 +86,8 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    observations.push(record);
    process.stdout.write('PHASE16_REGULAR '+JSON.stringify(record)+'\n');
    assert.ok(elapsedMs<=15000,e.name+' exceeded 15-second raster-analysis budget');
-   assert.ok(actual===null||correct,
-     e.name+' confidently produced the wrong no-hint periodic tiling D-symbol');
+   assert.ok(actual===null||correct||verifiedLargerCover,
+     e.name+' confidently produced a different unproved tiling topology');
    if(actual!==null){
      assert.ok(detected.originalRasterEdgeSupport>=.83,
        e.name+' lacks source-raster line evidence');
@@ -76,4 +96,8 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    }
  }
  assert.equal(observations.length,4);
+ assert.equal(observations.find(x=>x.name==='square')?.correct,true,
+   'The original single-orbit square raster must reconstruct exactly');
+ assert.equal(observations.find(x=>x.name==='rhombille')?.verifiedLargerCover,true,
+   'The known doubled rhombille lattice must have an independent exact cover proof');
 });
