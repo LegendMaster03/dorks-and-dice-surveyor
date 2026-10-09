@@ -39,7 +39,11 @@ export function registerObservedMetric(
 ): ObservedMetricRegistration {
     const unsupported = (reason: string): ObservedMetricRegistration => ({status:"unsupported",reason});
     const inconclusive = (reason: string): ObservedMetricRegistration => ({status:"inconclusive",reason});
-    const maximumResidual=options.maximumContourResidualPixels??5;
+    // Each contour lies on a different side of a three-pixel ink stroke.
+    // Its noisy corner can be farther from the jointly fitted ideal vertex
+    // than the independent translation-drift tolerance. Keep those two
+    // checks distinct: the original multi-region rigid fit remains 5 px.
+    const maximumResidual=options.maximumContourResidualPixels??6;
     const minimumEdgeSupport=options.minimumOriginalRasterEdgeSupport??0.83;
     if(!Number.isFinite(maximumResidual)||maximumResidual<.5||maximumResidual>8
         ||!Number.isFinite(minimumEdgeSupport)||minimumEdgeSupport<.6||minimumEdgeSupport>1)
@@ -190,7 +194,7 @@ export function registerObservedMetric(
     if(cover.translationSymbol!==topology.dsSymbol)
         return inconclusive("A geometry-derived chamber graph disagrees with the original raster-derived topology");
     const original=verifyRigidMotifFit(raster,observation,basis,{
-        maxVertexResidualPixels:maximumResidual,
+        maxVertexResidualPixels:Math.min(5,maximumResidual),
         minimumRasterEdgeSupport:minimumEdgeSupport
     });
     if(original.status!=="supported")
