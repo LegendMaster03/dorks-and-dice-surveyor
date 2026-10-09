@@ -125,6 +125,8 @@ test('a rotated and scaled mixed raster can derive its candidate symbol without 
  assert.equal(result.status,'consistent-candidate',result.reason);
  const groundTruth=deriveTranslationMotif({units:'pixel',basis:[{x:128,y:0},{x:0,y:64}],cells:squareTriangles.map((poly,i)=>({id:`cell-${i}`,polygon:poly.map(([x,y])=>({x,y}))}))});
  assert.equal(result.candidateDsSymbol,groundTruth.translationSymbol);
+ assert.ok(result.translationRefinementResidualPixels!==null);
+ assert.ok(result.translationRefinementResidualPixels<2);
 });
 function constructUnregisteredMotif(pattern){
  const polys=[];

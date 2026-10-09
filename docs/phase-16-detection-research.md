@@ -19,6 +19,10 @@ Keep Surveyor v2 detection and all three current regular kernels available durin
 
 A reproducible Python-only offline probe `research/phase16_mixed_motif_spike.py` generated the fixed 768×768 mixed-cell raster in `research/phase16_mixed_ground_truth.png`. FFT autocorrelation recovered basis generators matching (128,0) and (0,64) up to sign and ordering. Connected-component contour approximation labeled the expected triangle/quadrilateral classes on clear interior cells; it did **not** reconstruct a reliable incidence graph or D-symbol. The recorded clean-image CPU time was approximately 0.17 s with peak RSS approximately 131 MB; hardware and Python library configuration were not standardized. Ground truth is synthetic, not held out. This is a preliminary feasibility signal, not a completed generalized detector.
 
+## Continuous candidate refinement (additive, Phase 16)
+
+The internal research path now fits both periodic translation vectors simultaneously from centroids of repeated cells segmented on the original raster. Each motif class has its own intercept; shared vectors are estimated through class-centered least squares. Address rounding is performed only from the original candidate, and the fit is bounded to a small seed neighborhood. Failure returns an explicit inconclusive outcome and the original candidate still must pass the independent rigid source-ink/corner verification. No resampled or recursively corrected raster is used. This is additional geometric evidence, not a mathematically derived translation cover or a calibrated production detector.
+
 ## Explicit unresolved risks
 
 - Image borders and cropping can reduce three-by-three support even for a correct lattice; validity must account for visible overlap rather than penalizing unsupported regions as false evidence.

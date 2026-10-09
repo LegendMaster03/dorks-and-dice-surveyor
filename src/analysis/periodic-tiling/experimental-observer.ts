@@ -5,6 +5,7 @@ import { evaluateOriginalRasterTranslations } from "./original-edge-candidates.j
 import { observeMotifInteriors, type InteriorOptions } from "./motif-interiors.js";
 import { deriveObservedTopology, type ObservedTopologyOptions } from "./observed-topology.js";
 import { verifyRigidMotifFit, type RigidFitOptions } from "./global-motif-fit.js";
+import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigid-basis-refinement.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
 
 /**
@@ -25,6 +26,7 @@ export type ExperimentalMotifResult =
         minimumEdgeObservations: number;
         originalRasterEdgeSupport: number;
         maximumRigidVertexResidualPixels: number;
+        translationRefinementResidualPixels: number | null;
     }
     | { status: "inconclusive" | "ambiguous"; reason: string; checkedHypotheses: number };
 
@@ -35,6 +37,7 @@ export function investigatePeriodicMotif(
         interiors?: InteriorOptions;
         topology?: ObservedTopologyOptions;
         globalFit?: RigidFitOptions;
+        refinement?: BasisRefinementOptions;
     } = {}
 ): ExperimentalMotifResult {
     const translations = evaluateOriginalRasterTranslations(raster, {
@@ -48,18 +51,24 @@ export function investigatePeriodicMotif(
         minimum: number;
         rasterSupport: number;
         rigidResidual: number;
+        refinementResidual: number | null;
     }[] = [];
     for (const hypothesis of translations.hypotheses) {
         const interior = observeMotifInteriors(raster, hypothesis.basis, options.interiors);
         if (interior.status !== "observed") continue;
-        const topology = deriveObservedTopology(interior, hypothesis.basis, options.topology);
+        // The same translation integers must explain every original-image cell.
+        // A single joint fit refines metric generators, never isolated cells.
+        const refined = refineRigidTranslationBasis(interior, hypothesis.basis, options.refinement);
+        const chosenBasis = refined.status === "refined" ? refined.basis : hypothesis.basis;
+        const topology = deriveObservedTopology(interior, chosenBasis, options.topology);
         if (topology.status !== "derived") continue;
-        const globalFit = verifyRigidMotifFit(raster, interior, hypothesis.basis, options.globalFit);
+        const globalFit = verifyRigidMotifFit(raster, interior, chosenBasis, options.globalFit);
         if (globalFit.status !== "supported") continue;
-        verified.push({ symbol: topology.dsSymbol, basis: hypothesis.basis,
+        verified.push({ symbol: topology.dsSymbol, basis: chosenBasis,
             minimum: topology.minimumEdgeObservations,
             rasterSupport: globalFit.originalRasterEdgeSupport,
-            rigidResidual: globalFit.maxVertexResidualPixels });
+            rigidResidual: globalFit.maxVertexResidualPixels,
+            refinementResidual: refined.status === "refined" ? refined.residualPixels : null });
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
@@ -94,6 +103,7 @@ export function investigatePeriodicMotif(
         rejectedHypotheses: checked - verified.length,
         minimumEdgeObservations: Math.min(...verified.map(h => h.minimum)),
         originalRasterEdgeSupport: preferred.rasterSupport,
-        maximumRigidVertexResidualPixels: preferred.rigidResidual
+        maximumRigidVertexResidualPixels: preferred.rigidResidual,
+        translationRefinementResidualPixels: preferred.refinementResidual
     };
 }
