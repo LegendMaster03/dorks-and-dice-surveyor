@@ -7,6 +7,7 @@ import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/exp
 import {verifyRigidMotifFit} from '../dist/src/analysis/periodic-tiling/global-motif-fit.js';
 import {registerObservedMetric} from '../dist/src/analysis/periodic-tiling/observed-metric-registration.js';
 import {verifyProjectedPolygonsInOriginalRaster} from '../dist/src/analysis/periodic-tiling/original-polygon-projection.js';
+import {deriveInteriorMasksFromOriginalEdges} from '../dist/src/analysis/periodic-tiling/edge-derived-interiors.js';
 
 /** Rasterizes arbitrary periodic input polygons, without any detector catalog. */
 function rasterize(basis, polygons, {width=640,height=640,angle=0,scale=1,phase=[29,37]}={}){
@@ -235,4 +236,45 @@ test('contradictory vertex constraints and drift cannot generate a shared polygo
  assert.notEqual(registerObservedMetric(raster,observation,topology,distorted).status,'registered');
  assert.equal(registerObservedMetric(raster,observation,topology,basis,
     {maximumContourResidualPixels:100}).status,'unsupported');
+});
+
+test('existing Sobel boundaries yield candidate closed-cell geometry on non-white multitone mixed motifs',()=>{
+ const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
+ // Keep all tile interiors below the old >=180 white-region threshold.
+ // The source has neither black strokes nor a bright white background.
+ const muted={width:raster.width,height:raster.height,
+   pixels:Uint8Array.from(raster.pixels,value=>value===0?92:163)};
+ assert.equal(observeMotifInteriors(muted,basis).status,'inconclusive');
+ const masks=deriveInteriorMasksFromOriginalEdges(muted);
+ assert.equal(masks.status,'generated',masks.reason);
+ const symbols=[];
+ for(const mask of masks.masks){
+   assert.equal(mask.provenance,'original-sobel-gradient-boundaries');
+   const observed=observeMotifInteriors(mask.raster,basis);
+   if(observed.status!=='observed')continue;
+   const topology=deriveObservedTopology(observed,basis);
+   if(topology.status==='derived')symbols.push(topology.dsSymbol);
+ }
+ const expected=deriveTranslationMotif({units:'pixel',basis,
+   cells:squareTriangles.map((poly,i)=>({id:'multitone-'+i,
+     polygon:poly.map(([x,y])=>({x,y}))}))}).translationSymbol;
+ assert.ok(symbols.includes(expected),'A mask must recover the same independently derived chamber graph');
+});
+test('Sobel mask segmentation cannot manufacture a motif from flat or strongly textured images',()=>{
+ const size=256;
+ const flat={width:size,height:size,pixels:new Uint8Array(size*size).fill(150)};
+ assert.equal(deriveInteriorMasksFromOriginalEdges(flat).status,'inconclusive');
+ const noise=new Uint8Array(size*size);
+ let seed=42033;
+ for(let i=0;i<noise.length;i++){
+   seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+   noise[i]=seed>>>24;
+ }
+ const outcome=deriveInteriorMasksFromOriginalEdges({width:size,height:size,pixels:noise});
+ if(outcome.status==='generated')for(const m of outcome.masks){
+   const observed=observeMotifInteriors(m.raster,[{x:64,y:0},{x:0,y:64}]);
+   assert.notEqual(observed.status,'observed');
+ }
+ const invalid=deriveInteriorMasksFromOriginalEdges(flat,{dilationRadius:12});
+ assert.equal(invalid.status,'unsupported');
 });
