@@ -5,6 +5,7 @@ import {deriveObservedTopology} from '../dist/src/analysis/periodic-tiling/obser
 import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topology/motif.js';
 import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
 import {verifyRigidMotifFit} from '../dist/src/analysis/periodic-tiling/global-motif-fit.js';
+import {registerObservedMetric} from '../dist/src/analysis/periodic-tiling/observed-metric-registration.js';
 
 /** Rasterizes arbitrary periodic input polygons, without any detector catalog. */
 function rasterize(basis, polygons, {width=640,height=640,angle=0,scale=1,phase=[29,37]}={}){
@@ -181,4 +182,38 @@ test('a distorted translation basis is rejected by the original-image global rig
  const perturbed=[{x:basis[0].x+2.5,y:0},basis[1]];
  const result=verifyRigidMotifFit(raster,observed,perturbed);
  assert.equal(result.status,'inconclusive');
+});
+
+test('joint original-raster contours reconstruct exact shared polygon boundaries without shape hints',()=>{
+ for(const [motifBasis,polygons,transform] of [
+   [[[128,0],[0,64]],squareTriangles,{}],
+   [[[128,0],[0,128]],twoSquareFourTriangles,{}],
+   [[[128,0],[0,64]],squareTriangles,{angle:13,scale:1.1}]
+ ]){
+   const {raster,basis}=rasterize(motifBasis,polygons,transform);
+   const observation=observeMotifInteriors(raster,basis,transform.angle?{contourTolerancePixels:3}:{});
+   const topology=deriveObservedTopology(observation,basis,transform.angle?{maxInkGapPixels:8}:{});
+   assert.equal(topology.status,'derived',topology.reason);
+   const result=registerObservedMetric(raster,observation,topology,basis);
+   assert.equal(result.status,'registered',result.reason);
+   assert.equal(result.cover.translationSymbol,topology.dsSymbol);
+   assert.equal(result.independentlyDerivedDsSymbol,topology.dsSymbol);
+   assert.ok(result.maximumContourResidualPixels<=5);
+   assert.ok(result.originalRasterEdgeSupport>=0.83);
+   assert.equal(result.evidence,'experimental-joint-original-raster-registration');
+ }
+});
+test('contradictory vertex constraints and drift cannot generate a shared polygon witness',()=>{
+ const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
+ const observation=observeMotifInteriors(raster,basis);
+ const topology=deriveObservedTopology(observation,basis);
+ assert.equal(topology.status,'derived',topology.reason);
+ const bad=topology.cells.map((cell,i)=>({...cell,boundaries:cell.boundaries.map(e=>({...e}))}));
+ const edge=bad[0].boundaries[0];
+ bad[0].boundaries[0]={...edge,translation:[edge.translation[0]+1,edge.translation[1]]};
+ assert.equal(registerObservedMetric(raster,observation,{...topology,cells:bad},basis).status,'inconclusive');
+ const distorted=[{x:basis[0].x+2.5,y:basis[0].y},basis[1]];
+ assert.notEqual(registerObservedMetric(raster,observation,topology,distorted).status,'registered');
+ assert.equal(registerObservedMetric(raster,observation,topology,basis,
+    {maximumContourResidualPixels:100}).status,'unsupported');
 });
