@@ -183,6 +183,13 @@ test("preview reconstructs a translated mixed-cell raster and exposes provisiona
             "Metric evidence does not promote a provisional motif to an accepted tiling");
         assert.ok(value.evidence.metricRegistration.rasterSymmetriesSupported
             <= value.evidence.metricRegistration.rasterSymmetriesChecked);
+        assert.equal(value.evidence.metricRegistration.sourceProjection.status,
+            "supported",
+            value.evidence.metricRegistration.sourceProjection.reason ??
+                "This closed-line mixed raster should support independent whole-image projection");
+        assert.ok(value.evidence.metricRegistration.sourceProjection.edgeSupport >= 0.83);
+        assert.ok(value.evidence.metricRegistration.sourceProjection.supportedRegions >= 7);
+        assert.equal(value.authoritative, false);
         if (value.evidence.metricRegistration.status === "registered") {
             assert.ok(Number.isFinite(value.evidence.metricRegistration
                 .maximumContourResidualSourcePixels));
