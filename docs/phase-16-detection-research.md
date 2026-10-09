@@ -477,8 +477,46 @@ perspective rectification has been supplied. Photographic perspective may
 legitimately yield `inconclusive` and must not be counted as a false
 negative under a calibrated planar-map contract that has not yet been set.
 Likewise a positive `consistent-candidate` is still only a research candidate.
-Actual observed results must be collected and manually adjudicated before
-the real-image Phase 16 acceptance criterion can be claimed.
+The independent originals were actually executed against the experimental
+pipeline on **2026-10-09**, with checksum verification and no supplied expected
+symbol or geometry. All three returned **inconclusive**; none emitted a
+confidently wrong pattern but **none demonstrated true real-image detection**.
+The exact publicly traceable measurements from the completed research workflow
+are:
+
+| Image | Analysis size | Result | Failure checkpoint |
+| --- | --- | --- | --- |
+| Externally drawn hexagon-and-triangle tiling | 600 × 600 | inconclusive | Three candidate translation bases passed the Sobel periodicity search, but none reached a complete reciprocal chamber graph; original white-interior segmentation rejected the colored artwork as insufficiently high-contrast. |
+| Hexagonal floor photograph | 542 × 399 | inconclusive | No two independent translations passed original-image distant-region agreement (0 hypotheses). |
+| Square floor photograph | 482 × 640 | inconclusive | No two independent translations passed original-image distant-region agreement (0 hypotheses). |
+
+The first attempt encountered a Wikimedia HTTP 429 for the square photograph.
+The bounded direct-original retry and verified SHA-1 ultimately succeeded;
+the successful run for all three originals is
+[Surveyor external-image research run 37996396637](https://github.com/LegendMaster03/dorks-and-dice-surveyor/actions/runs/37996396637).
+More explicit original segmentation diagnostics were produced in
+[run 37996543882](https://github.com/LegendMaster03/dorks-and-dice-surveyor/actions/runs/37996543882).
+
+The fallback experiment `edge-derived-interiors.ts` reuses the existing
+original-image Sobel gradients to form a bounded set of candidate cell-interior
+masks without requiring every filled tile to be white. An independently
+constructed synthetic nonwhite mixed motif can now produce the correct
+reciprocal D-symbol from those gradient contours, rather than only a bright
+background. In the v3 investigator this fallback is **conditional** on the
+specific closed-line contrast rejection; the original source image, never
+a derived mask, still supplies every global ink and translation residual
+check. Every candidate discloses optional segmentation provenance.
+No v2 detection path has been changed.
+
+The external vector artwork still returned inconclusive after this exploratory
+fallback. The algorithm has **not** established enough compatible contour
+incidence and unchanged-source verification to promote that real image.
+Perspective-rich photographs remain outside the proven rigid-lattice
+operating envelope. These results are meaningful **negative acceptance
+evidence**, not a completed calibrated benchmark: only three externally
+authored samples, no ground-truth chamber labels and no true positive.
+Broader, independently annotated real map images are required before
+generalized Surveyor detection can be deployed.
 
 To run manually on a machine with internet access:
 `npm ci && npm run build && node research/phase16-public-image-corpus.mjs --run`.
@@ -532,3 +570,8 @@ photographs, unrelated labels and image resolution changes can legitimately
 make this check inconclusive. Separately sourced, correctly labeled and
 actually executed real-image holdouts plus operating-envelope calibration
 remain mandatory before an authoritative generalized detector can be shipped.
+
+
+The external-image workflow was returned to **manual-only**
+(`workflow_dispatch`) after those bounded research runs. Ordinary feature
+branch pushes and production deployment do not fetch Commons assets.
