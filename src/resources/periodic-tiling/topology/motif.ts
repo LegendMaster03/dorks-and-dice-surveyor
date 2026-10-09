@@ -258,6 +258,9 @@ export function adjacentAddress(address: CellAddress, boundary: BoundaryInterfac
 export function enumerateCells(cover: OperationalCover, minU: number, maxU: number, minV: number, maxV: number, limit = 10000): CellAddress[] {
     if (![minU, maxU, minV, maxV, limit].every(Number.isSafeInteger) || limit < 1 || minU > maxU || minV > maxV)
         fail("Invalid enumeration range");
+    // The caller may lower the default limit, but must not disable the absolute
+    // allocation bound by supplying Number.MAX_SAFE_INTEGER as its limit.
+    if (limit > 100_000) fail("Enumeration limit exceeds the maximum safe cell count");
     const width = maxU - minU + 1, height = maxV - minV + 1;
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height)) fail("Translation range exceeds safe integer precision");
     const total = width * height * cover.cells.length;

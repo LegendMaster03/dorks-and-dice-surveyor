@@ -23,6 +23,8 @@ test('D-symbol classification distinguishes syntax, axioms, curvature and limits
  assert.equal(inspectDSymbol('<1:2,1,1:4,4>').status,'structure-invalid');
  assert.equal(inspectDSymbol('garbage').status,'syntax-invalid');
  assert.equal(inspectDSymbol(s2,1).status,'limit-exceeded');
+ assert.equal(inspectDSymbol('x'.repeat(131_073)).status,'limit-exceeded');
+ assert.equal(inspectDSymbol(null).status,'syntax-invalid');
  assert.equal(inspectDSymbol('<1.1:1:1,1,1:4,4>').symbol.canonical,s1);
 });
 test('operational motifs prove D-symbol projections without named registrations',()=>{
@@ -74,6 +76,7 @@ test('a noncatalog mixed triangle/quadrilateral motif reconstructs deterministic
  const ids=enumerateCells(a,-2,2,-1,1).map(addressKey);
  assert.equal(ids.length,45); assert.equal(new Set(ids).size,45);
  assert.throws(()=>enumerateCells(a,-1000,1000,-1000,1000));
+ assert.throws(()=>enumerateCells(a,0,99999,0,99999,Number.MAX_SAFE_INTEGER),/maximum safe cell count/);
  assert.throws(()=>enumerateCells(a,Number.MIN_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,0,0));
  assert.throws(()=>addressKey({motifCell:'a',lattice:[Number.MAX_SAFE_INTEGER+1,0]}));
  for(const cell of a.cells)for(const edge of cell.boundary){

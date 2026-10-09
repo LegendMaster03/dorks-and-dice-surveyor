@@ -76,6 +76,11 @@ export function canonicalDSymbol(
 
 export function inspectDSymbol(text: string, chamberLimit = 256): DSymbolInspection {
     try {
+        // Reject oversized untrusted notation before attempting any parsing or
+        // canonicalization. The 2048-chamber supported envelope fits inside this.
+        if (typeof text !== "string") syntax("D-symbol must be a string");
+        if (text.length > 131_072)
+            throw new DError("limit-exceeded", "D-symbol exceeds the bounded input length");
         const match = /^\s*<\s*(?:(\d+\.\d+)\s*:\s*)?(\d+)\s*:\s*([^:]+)\s*:\s*([^:]+)\s*>\s*$/.exec(text);
         if (!match) syntax("Expected <size:s0,s1,s2:m01,m12>");
         const size = positive(match![2], "chamber count");
