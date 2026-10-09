@@ -12,6 +12,7 @@ import { crossCheckMetricSymmetryWithOriginalRaster } from "./original-raster-is
 import { verifyProjectedPolygonsInOriginalRaster, type SourcePolygonProjection } from "./original-polygon-projection.js";
 import { deriveInteriorMasksFromOriginalEdges } from "./edge-derived-interiors.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
+import { recoverPrimitiveObservedLattice } from "./primitive-lattice.js";
 
 /**
  * Unreleased research pipeline: current Sobel evidence -> original-image rigid
@@ -157,7 +158,29 @@ export function investigatePeriodicMotif(
         return (an.status === "euclidean" ? an.symbol.chamberCount : Infinity)
              - (bn.status === "euclidean" ? bn.symbol.chamberCount : Infinity);
     });
-    const preferred = sorted[0];
+    let preferred = sorted[0];
+    // The Sobel candidate basis may span a strict translation sublattice.
+    // Test all prime-index reductions supported by the observed cells, not
+    // the written D-symbol or a catalogued pattern family.
+    const primitive = recoverPrimitiveObservedLattice(raster, {
+        basis:preferred.basis,interior:preferred.interior,
+        topology:preferred.topology,rasterSupport:preferred.rasterSupport,
+        rigidResidual:preferred.rigidResidual
+    }, {topology:options.topology,refinement:options.refinement,globalFit:options.globalFit});
+    if (primitive.status==="ambiguous")
+        return {status:"ambiguous",reason:primitive.reason,checkedHypotheses:checked};
+    if (primitive.reductions) {
+        const candidate=primitive.candidate;
+        preferred={...preferred,symbol:candidate.topology.dsSymbol,
+            basis:candidate.basis,interior:candidate.interior,topology:candidate.topology,
+            rasterSupport:candidate.rasterSupport,rigidResidual:candidate.rigidResidual,
+            motifCells:candidate.topology.cells.map(cell=>({
+                classId:cell.classId,
+                polygonAnalysisPixels:candidate.interior.interiors.find(example=>
+                    example.motifClass===cell.classId)!.polygon,
+                boundaries:cell.boundaries
+            }))};
+    }
     const base = inspectDSymbol(preferred.symbol, 2048);
     if (base.status !== "euclidean")
         return { status: "inconclusive", reason: "The minimal candidate is not a valid Euclidean D-symbol", checkedHypotheses: checked };
