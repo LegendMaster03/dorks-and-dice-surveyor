@@ -188,6 +188,36 @@ and edge branching still unresolved. **This alone is not a torsion-free
 translation torus or a geometric realization.** The orientability step is
 proved and tested, but general branched-orbifold unfolding remains outstanding.
 
+## Exact metric chamber symmetry from separately verified polygons
+
+`verifyMetricChamberSymmetry` is a second, more restrictive bounded
+research constructor. Its input is an **independently verified exact periodic
+polygon cover**, not raw image measurements or the untrusted provisional
+contours from Surveyor v3. It reconstructs the barycentric chamber graph,
+enumerates every possible chamber automorphism, and finds its planar
+rotation/reflection, if any. For each candidate isometry it checks the image
+of all vertices, edge midpoints and representative cell centers under **one
+global transform**, a primitive integer-unimodular action on both lattice
+generators, and exact reciprocal translation-voltage equations on every
+edge. Voltage checks use `BigInt` to avoid numerical overflow. The resulting
+chamber orbit quotient is independently parsed as Euclidean and must be
+covered by the original translation D-symbol.
+
+A square metric realizes eight automorphisms and reduces to one chamber;
+an unequal-sided rectangle retains four, while an oblique parallelogram
+retains two, despite all three sharing the combinatorial square torus.
+Separate tests exercise mixed triangle/quadrilateral motifs and periodic
+T-junction boundaries. Loose numerical tolerances are explicitly rejected.
+
+This proves only metric isometries **of a supplied valid finite polygonal
+witness**. It does not prove that noisy source-image contours, polygon
+segmentation, image registration, or distant image regions support those
+isometries. The v3 response remains unchanged and non-authoritative; it
+still carries the verified *observed translation-group* D-symbol.
+Before exposing any maximal-symmetry identity, Surveyor needs
+original-raster isometry verification and calibrated ambiguity checks.
+Hex Crawl has an independent C# implementation of the same proof boundary.
+
 ## Independent combinatorial chamber-symmetry reduction (not geometric detection)
 
 The new `reduceCombinatorialChamberSymmetry` research function accepts a
