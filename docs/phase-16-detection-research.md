@@ -378,10 +378,11 @@ Initial synthetic closed-line checks:
 - Two independent axis-aligned mixed-polygon maps admit a globally shared
   exact polygon witness, consistent with the independently recovered
   D-symbol and original-image edge checks.
-- A rotated and scaled mixed map still recovers valid raster chamber
-  topology, but its noisy contour-to-exact polygon fit produces a
-  geometrically overlapping candidate. The metric result is explicitly
-  **inconclusive**; the algorithm must not report false geometric certainty.
+- The initial rotated and scaled mixed map *appeared* to overlap due
+  to a numerical bug in the exact segment-intersection predicate.
+  Each signed orientation is now compared with a length-scaled tolerance.
+  With the non-overlap proof retained, this map now produces an exact
+  metric witness. The separate actual-overlap negative fixture still fails.
 - Reciprocal boundary corruption, contradictory constraints, excessive
   contour residuals and inaccurate periodic basis are refused, and no
   database state or existing production analysis behavior changes.
@@ -432,3 +433,56 @@ map envelope, but not calibrated real-map correctness or a general source-image
 symmetry certificate. A fully confirmed metric quotient would require every
 claimed isometry to be supported under a declared operating envelope, with
 measured false-positive bounds and tested adversarial artwork.
+
+
+## Independent public artwork and photographic research corpus (manual-only)
+
+The previous held-out raster suite is entirely programmatically generated and
+cannot establish performance on maps from other authors. The new
+`research/phase16-public-image-corpus.mjs` manifest identifies THREE independently
+authored, unmodified Wikimedia Commons originals and pins their **published SHA-1
+checksums**. They are downloaded from their Commons file redirects at manual
+probe time. Their actual checksum is verified *before* resizing and analyzing.
+No guessed pattern, raster translation, polygon or known D-symbol is passed
+to the Surveyor detector. The research output records the provisional D-symbol,
+polygon-side counts, exact metric registration status, source-image symmetry
+support and runtime; it expressly **does not** assign acceptance confidence or
+promote any user-world tiling. The manifest and checksums have an offline
+mandatory CI test, while actual Wikimedia downloads have an optional
+`workflow_dispatch` workflow to avoid brittle, network-dependent required CI.
+There are no stored copyrighted image assets in the repository.
+
+Independent sources and license provenance:
+
+- **Arthur Baelde**, *A periodic tiling by regular hexagons and equilateral
+  triangles.svg* (2013/2022 revision), non-edge-to-edge mixed tiling,
+  [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:A_periodic_tiling_by_regular_hexagons_and_equilateral_triangles.svg),
+  Creative Commons Attribution-ShareAlike **3.0**, original SHA-1
+  `5a03bd6bf603642d524cea6d26d7f96e9a5946bd`.
+- **David Shay**, *Hexagonal tessellation.JPG*, photograph of floor tiling
+  in Rome, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Hexagonal_tessellation.JPG),
+  Creative Commons Attribution-ShareAlike **3.0**, original SHA-1
+  `68f08e84b5ce0ad0adda1ff07a3519f7d10bc952`.
+- **121 Unbiunium**, *Square Tiles.jpg* (2026), photograph of square
+  floor tiles, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Square_Tiles.jpg),
+  Creative Commons Attribution-ShareAlike **4.0**, original SHA-1
+  `8fc47cec443788ca38544562dd051fd044f2008f`.
+
+The optional probe re-renders downloaded images as a single bounded grayscale
+image **for analysis only** and records dimensions of the transformed
+observation. The original work, credits and publication links remain preserved.
+This is not a fully labeled benchmark: authorship and visible geometry are
+known, but no independent exhaustive periodic chamber ground truth or
+perspective rectification has been supplied. Photographic perspective may
+legitimately yield `inconclusive` and must not be counted as a false
+negative under a calibrated planar-map contract that has not yet been set.
+Likewise a positive `consistent-candidate` is still only a research candidate.
+Actual observed results must be collected and manually adjudicated before
+the real-image Phase 16 acceptance criterion can be claimed.
+
+To run manually on a machine with internet access:
+`npm ci && npm run build && node research/phase16-public-image-corpus.mjs --run`.
+A metadata-only no-network dry run is
+`node research/phase16-public-image-corpus.mjs --list` (after building
+`dist`). The GitHub Action `Phase 16 external artwork research` is
+manual-only and cannot deploy.
