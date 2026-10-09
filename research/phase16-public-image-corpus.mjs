@@ -84,24 +84,44 @@ export function validateManifest(cases=PUBLIC_IMAGE_CASES){
   return cases.length>=3;
 }
 
+const wait=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function fetchBounded(url){
-  const ctrl=new AbortController();
-  const timeout=setTimeout(()=>ctrl.abort(),30_000);
-  try{
-    const response=await fetch(url,{signal:ctrl.signal,redirect:'follow',
-      headers:{'user-agent':'DorksAndDice-SurveyorResearch/1.0 (public Wikimedia corpus)'}});
-    if(!response.ok)throw new Error('External image fetch failed: HTTP '+response.status);
-    const contentLength=Number(response.headers.get('content-length'));
-    if(Number.isFinite(contentLength)&&contentLength>MAX_DOWNLOAD)
-      throw new Error('External image exceeds bounded download allowance');
-    const buffers=[];let total=0;
-    for await(const chunk of response.body){
-      total+=chunk.byteLength;
-      if(total>MAX_DOWNLOAD)throw new Error('External image exceeds bounded download allowance');
-      buffers.push(Buffer.from(chunk));
-    }
-    return Buffer.concat(buffers,total);
-  }finally{clearTimeout(timeout);}
+  for(let attempt=0;attempt<4;attempt++){
+    const ctrl=new AbortController();
+    const timeout=setTimeout(()=>ctrl.abort(),30_000);
+    let retryAfterMs=0;
+    try{
+      const response=await fetch(url,{signal:ctrl.signal,redirect:'follow',
+        headers:{'user-agent':'DorksAndDice-SurveyorResearch/1.0 (https://github.com/LegendMaster03/dorks-and-dice-surveyor; publicly licensed test image checks)'}});
+      if(response.status===429||response.status===503){
+        const retryAfter=Number(response.headers.get('retry-after'));
+        if(Number.isFinite(retryAfter)&&retryAfter>0)
+          retryAfterMs=Math.min(30_000,retryAfter*1000);
+        await response.body?.cancel();
+        if(attempt===3)throw new Error(
+          'External original-image fetch rate limited after four attempts: HTTP '+response.status);
+      }else if(!response.ok){
+        throw new Error('External original-image fetch failed: HTTP '+response.status);
+      }else{
+        const contentLength=Number(response.headers.get('content-length'));
+        if(Number.isFinite(contentLength)&&contentLength>MAX_DOWNLOAD)
+          throw new Error('External image exceeds bounded download allowance');
+        const buffers=[];let total=0;
+        for await(const chunk of response.body){
+          total+=chunk.byteLength;
+          if(total>MAX_DOWNLOAD)throw new Error('External image exceeds bounded download allowance');
+          buffers.push(Buffer.from(chunk));
+        }
+        return Buffer.concat(buffers,total);
+      }
+    }finally{clearTimeout(timeout);}
+    const backoff=Math.max(retryAfterMs,Math.min(30_000,3000*2**attempt));
+    process.stderr.write('PHASE16_PUBLIC_FETCH_RETRY '+JSON.stringify({
+      original:url,attempt:attempt+1,backoffMs:backoff
+    })+'\\n');
+    await wait(backoff);
+  }
+  throw new Error('External original-image fetch exhausted all bounded retries');
 }
 
 export async function probeIndependentPublicCase(c){
@@ -153,7 +173,9 @@ async function main(){
   if(!process.argv.includes('--run')||process.argv.some(x=>x!=='--run'&&x!==process.argv[0]&&x!==process.argv[1]))
     throw new Error('Usage: node research/phase16-public-image-corpus.mjs [--list|--run]');
   const failures=[];
-  for(const c of PUBLIC_IMAGE_CASES){
+  for(const [index,c] of PUBLIC_IMAGE_CASES.entries()){
+    // Avoid burst downloads from the same shared GitHub Actions runner IP.
+    if(index>0)await wait(2500);
     try{
       const outcome=await probeIndependentPublicCase(c);
       process.stdout.write('PHASE16_PUBLIC_HOLDOUT '+JSON.stringify(outcome)+'\n');
