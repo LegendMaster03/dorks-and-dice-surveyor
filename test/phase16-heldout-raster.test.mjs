@@ -8,6 +8,8 @@ import { observeMotifInteriors } from '../dist/src/analysis/periodic-tiling/moti
 import { refineRigidTranslationBasis } from '../dist/src/analysis/periodic-tiling/rigid-basis-refinement.js';
 import { deriveObservedTopology } from '../dist/src/analysis/periodic-tiling/observed-topology.js';
 import { verifyRigidMotifFit } from '../dist/src/analysis/periodic-tiling/global-motif-fit.js';
+import { buildEdgeField } from '../dist/src/analysis/hex-grid/detector.js';
+import { discoverTranslations } from '../dist/src/analysis/periodic-tiling/translations.js';
 
 /**
  * Phase 16 held-out synthetic benchmark, independent of the detector's
@@ -138,6 +140,25 @@ function inspectSample(label,raster,expected){
     process.stdout.write('PHASE16_STAGE '+JSON.stringify({
       label,search:search.status,searchReason:search.reason,stages
     })+'\\n');
+    if(search.hypotheses.length===0) {
+      const field=buildEdgeField(raster,60_000);
+      const alternative=[];
+      for(const threshold of [0.7,0.8,0.9,0.97]){
+        const samples=field.samples.filter(s=>
+          field.strength[s.y*field.width+s.x]>=threshold);
+        const candidate=samples.length>=500
+          ?discoverTranslations({...field,samples},
+              {minDistance:18,maxDistance:220,maxPairVotes:300_000,maxHypotheses:5})
+          :null;
+        alternative.push({threshold,samples:samples.length,
+          status:candidate?.status??'insufficient',
+          highestSupport:candidate?.vectors?.[0]?.support??null,
+          coveredRegions:candidate?.hypotheses?.[0]?.coveredRegions??null,
+          vectorCount:candidate?.vectors?.length??0});
+      }
+      process.stdout.write('PHASE16_GRADIENT '+JSON.stringify({label,
+        sampleCount:field.samples.length,alternative})+'\\n');
+    }
   }
   return summary;
 }
