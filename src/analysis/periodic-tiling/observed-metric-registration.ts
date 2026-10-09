@@ -207,7 +207,7 @@ export function registerObservedMetric(
     try{cover=deriveTranslationMotif(witness);}
     catch(error){
         if(!(error instanceof CoverValidationError))throw error;
-        return inconclusive(`Independently reconstructed periodic polygon geometry fails: ${error.message}; diagnostics ${JSON.stringify(witness.cells.map(c=>c.polygon.map(p=>[Number(p.x.toFixed(3)),Number(p.y.toFixed(3))])))}`);
+        return inconclusive(`Independently reconstructed periodic polygon geometry fails: ${error.message}`);
     }
     if(cover.translationSymbol!==topology.dsSymbol)
         return inconclusive("A geometry-derived chamber graph disagrees with the original raster-derived topology");
