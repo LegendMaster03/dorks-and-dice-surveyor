@@ -181,10 +181,22 @@ export function registerObservedMetric(
     }
     if(worst>maximumResidual)
         return inconclusive(`Shared periodic polygon vertices deviate by ${worst.toFixed(2)} px from one exact joint fit (limit ${maximumResidual.toFixed(2)} px)`);
+    // The source image crop can begin many whole lattice periods from the
+    // origin. Bring the ENTIRE motif into one nearby representative domain
+    // by a single integral period displacement. This changes no cell shape,
+    // adjacency, fit residual, or infinite-cover registration.
+    const centroid=mul(fitted.reduce(add,{x:0,y:0}),1/fitted.length);
+    const centerAddress=coordinates(centroid);
+    const centerU=Math.round(centerAddress.x-.5);
+    const centerV=Math.round(centerAddress.y-.5);
+    if(!Number.isSafeInteger(centerU)||!Number.isSafeInteger(centerV)
+        ||Math.abs(centerU)>2048||Math.abs(centerV)>2048)
+        return unsupported("Image-domain translation normalization exceeds bounded lattice coordinates");
+    const uniformOriginShift=shift(centerU,centerV);
     const witness:PeriodicWitness={units:"pixel",basis:[a,b],
         cells:kinds.map(kind=>({id:`observed-${kind.id}`,
             polygon:Array.from({length:kind.sideCount},(_,i)=>
-                fitted[key(kind.id,i)])}))};
+                sub(fitted[key(kind.id,i)],uniformOriginShift))}))};
     let cover:OperationalCover;
     try{cover=deriveTranslationMotif(witness);}
     catch(error){
