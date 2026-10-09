@@ -44,7 +44,7 @@ test('cyclic orbifold holonomy unfolds square, triangular, and hexagonal reflect
   ['<1:1,1,1:4,4>',4],
   ['<1:1,1,1:3,6>',6],
   ['<1:1,1,1:6,3>',6],
-  ['<2:1 2,1 2,2:4 4,4>',2]
+  ['<2:1 2,1 2,2:4 4,4>',4]
  ];
  for(const [source,expectedSheet] of cases){
   const result=prove(source);
@@ -72,6 +72,23 @@ test('unbranched mixed-degree and checkerboard torus symbols remain their own pr
 test('invalid and genuinely resource-bounded input fail without inventing a cover',()=>{
  assert.equal(constructGeneralEuclideanTranslationCover('garbage').status,'invalid');
  assert.equal(constructGeneralEuclideanTranslationCover('<1:1,1,1:3,3>').status,'invalid');
- assert.equal(constructGeneralEuclideanTranslationCover('<1:1,1,1:4,4>',8).status,'unsupported');
+ assert.equal(constructGeneralEuclideanTranslationCover('<1:1,1,1:3,6>',8).status,'unsupported');
  assert.equal(constructGeneralEuclideanTranslationCover('<1:1,1,1:4,4>',0).status,'unsupported');
+});
+
+test('nonuniform symmetry-reduced mixed polygon quotients unfold without a named shape',()=>{
+ // Obtained independently as quotients of chamber automorphisms of the
+ // shared 20-chamber square/triangle and 28-chamber non-edge-to-edge tori.
+ // Their unequal face/vertex orders prohibit the regular-reflection shortcut.
+ const quotients=[
+  '<10:2 5 4 6 7 8 10,1 4 6 5 9 10,3 5 7 8 9 10:3 3 4,5 5>',
+  '<10:2 5 6 8 10,3 4 6 9 10,2 5 7 8 10:3 4,5>',
+  '<14:2 5 7 9 11 13 14,1 4 6 8 10 12 14 13,3 5 4 6 7 8 9 14 11 13:6 4,3 4 4 3>'
+ ];
+ for(const quotient of quotients){
+  const result=prove(quotient);
+  assert.ok(result.chamberCount>=20);
+  assert.ok(result.primitiveCells.some(c=>c.sides!==result.primitiveCells[0].sides),
+    'The uplift must retain different polygon side counts where supplied');
+ }
 });
