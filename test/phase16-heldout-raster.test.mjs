@@ -112,9 +112,9 @@ function inspectSample(label,raster,expected){
     maximumCornerDriftPixels:result.status==='consistent-candidate'
       ?Number(result.maximumRigidVertexResidualPixels.toFixed(2)):null};
   // Machine-readable diagnostic lines can be aggregated from CI output.
-  process.stdout.write('PHASE16_HELDOUT '+JSON.stringify(summary)+'\\n');
+  process.stdout.write('PHASE16_HELDOUT '+JSON.stringify(summary)+'\n');
   if(wrong)process.stderr.write(label+' produced an incorrect D-symbol: '+
-    JSON.stringify({actual:observed,expected})+'\\n');
+    JSON.stringify({actual:observed,expected})+'\n');
   if (!observed && label.startsWith('mixed-')) {
     const search=evaluateOriginalRasterTranslations(raster,
       {minDistance:18,maxDistance:220,maxPairVotes:300_000,maxHypotheses:5});
@@ -139,7 +139,7 @@ function inspectSample(label,raster,expected){
     }
     process.stdout.write('PHASE16_STAGE '+JSON.stringify({
       label,search:search.status,searchReason:search.reason,stages
-    })+'\\n');
+    })+'\n');
     if(search.hypotheses.length===0) {
       const field=buildEdgeField(raster,60_000);
       const alternative=[];
@@ -157,7 +157,32 @@ function inspectSample(label,raster,expected){
           vectorCount:candidate?.vectors?.length??0});
       }
       process.stdout.write('PHASE16_GRADIENT '+JSON.stringify({label,
-        sampleCount:field.samples.length,alternative})+'\\n');
+        sampleCount:field.samples.length,alternative})+'\n');
+      const darkFraction=raster.pixels.reduce((n,p)=>n+(p<100),0)/raster.pixels.length;
+      const lightFraction=raster.pixels.reduce((n,p)=>n+(p>220),0)/raster.pixels.length;
+      const nearInk=field.samples.filter(sample=>{
+        let dark=false,light=false;
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+          const v=raster.pixels[(sample.y+dy)*raster.width+sample.x+dx];
+          if(v<100)dark=true;
+          if(v>180)light=true;
+        }
+        return dark&&light;
+      });
+      const thresholds=[];
+      for(const minRegionSupport of [0.65,0.55,0.45]){
+        const cand=discoverTranslations({...field,samples:nearInk},
+          {minDistance:18,maxDistance:220,maxPairVotes:300_000,
+            maxHypotheses:5,minRegionSupport});
+        thresholds.push({minRegionSupport,status:cand.status,
+          highestSupport:cand.vectors[0]?.support??null,
+          top:cand.vectors.slice(0,5).map(v=>({
+            x:v.vector.x,y:v.vector.y,support:v.support
+          })),hypotheses:cand.hypotheses.length});
+      }
+      process.stdout.write('PHASE16_INK '+JSON.stringify({
+        label,darkFraction,lightFraction,nearInk:nearInk.length,thresholds
+      })+'\n');
     }
   }
   return summary;
