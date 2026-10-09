@@ -188,20 +188,21 @@ export function registerObservedMetric(
     // physical pixel observation, refit a vertex, or alter drift residuals.
     // The independent polygon constructor must derive every new adjacency
     // voltage and prove non-overlap in the entire infinite periodic cover.
-    const witness:PeriodicWitness={units:"pixel",basis:[a,b],
-        cells:kinds.map(kind=>{
-            const polygon=Array.from({length:kind.sideCount},(_,i)=>
-                fitted[key(kind.id,i)]);
-            const center=mul(polygon.reduce(add,{x:0,y:0}),1/polygon.length);
-            const period=coordinates(center);
-            const u=Math.round(period.x-.5),v=Math.round(period.y-.5);
-            if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
-                ||Math.abs(u)>2048||Math.abs(v)>2048)
-                throw new RangeError("Periodic motif class address exceeds bounded normalization");
-            const periodOffset=shift(u,v);
-            return {id:`observed-${kind.id}`,
-                polygon:polygon.map(p=>sub(p,periodOffset))};
-        })};
+    const representatives:{id:string;polygon:ObservedPoint[]}[]=[];
+    for(const kind of kinds){
+        const polygon=Array.from({length:kind.sideCount},(_,i)=>
+            fitted[key(kind.id,i)]);
+        const center=mul(polygon.reduce(add,{x:0,y:0}),1/polygon.length);
+        const period=coordinates(center);
+        const u=Math.round(period.x-.5),v=Math.round(period.y-.5);
+        if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
+            ||Math.abs(u)>2048||Math.abs(v)>2048)
+            return unsupported("Periodic motif class address exceeds bounded normalization");
+        const periodOffset=shift(u,v);
+        representatives.push({id:`observed-${kind.id}`,
+            polygon:polygon.map(p=>sub(p,periodOffset))});
+    }
+    const witness:PeriodicWitness={units:"pixel",basis:[a,b],cells:representatives};
     let cover:OperationalCover;
     try{cover=deriveTranslationMotif(witness);}
     catch(error){
