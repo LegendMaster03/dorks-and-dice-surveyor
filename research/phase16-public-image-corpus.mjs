@@ -22,6 +22,7 @@ export const PUBLIC_IMAGE_CASES=Object.freeze([
     file:'A_periodic_tiling_by_regular_hexagons_and_equilateral_triangles.svg',
     sha1:'5a03bd6bf603642d524cea6d26d7f96e9a5946bd',
     source:'https://commons.wikimedia.org/wiki/File:A_periodic_tiling_by_regular_hexagons_and_equilateral_triangles.svg',
+    originalUrl:'https://upload.wikimedia.org/wikipedia/commons/6/66/A_periodic_tiling_by_regular_hexagons_and_equilateral_triangles.svg',
     author:'Arthur Baelde',
     license:'CC BY-SA 3.0',
     morphology:'hexagons and triangles, non-edge-to-edge',
@@ -32,6 +33,7 @@ export const PUBLIC_IMAGE_CASES=Object.freeze([
     file:'Hexagonal_tessellation.JPG',
     sha1:'68f08e84b5ce0ad0adda1ff07a3519f7d10bc952',
     source:'https://commons.wikimedia.org/wiki/File:Hexagonal_tessellation.JPG',
+    originalUrl:'https://upload.wikimedia.org/wikipedia/commons/e/ef/Hexagonal_tessellation.JPG',
     author:'David Shay',
     license:'CC BY-SA 3.0',
     morphology:'hexagonal floor tiles under photographic perspective',
@@ -42,6 +44,7 @@ export const PUBLIC_IMAGE_CASES=Object.freeze([
     file:'Square_Tiles.jpg',
     sha1:'8fc47cec443788ca38544562dd051fd044f2008f',
     source:'https://commons.wikimedia.org/wiki/File:Square_Tiles.jpg',
+    originalUrl:'https://upload.wikimedia.org/wikipedia/commons/7/73/Square_Tiles.jpg',
     author:'121 Unbiunium',
     license:'CC BY-SA 4.0',
     morphology:'square tiles photographed on site',
@@ -66,6 +69,9 @@ export function validateManifest(cases=PUBLIC_IMAGE_CASES){
   for(const c of cases){
     if(typeof c.id!=='string'||!/^[a-z0-9-]+$/.test(c.id)||ids.has(c.id)
        ||!/^https:\/\/commons\.wikimedia\.org\/wiki\/File:[A-Za-z0-9_().-]+$/.test(c.source)
+       ||typeof c.originalUrl!=='string'
+       ||!/^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/[0-9a-f]\/([0-9a-f]{2})\/[A-Za-z0-9_().-]+$/.test(c.originalUrl)
+       ||!c.originalUrl.endsWith('/'+c.file)
        ||!/^CC BY-SA (3\.0|4\.0)$/.test(c.license)
        ||typeof c.author!=='string'||!c.author.trim()
        ||typeof c.morphology!=='string'||!c.morphology.trim()
@@ -101,8 +107,9 @@ async function fetchBounded(url){
 export async function probeIndependentPublicCase(c){
   // Pin immutable authored artwork bytes even when the redirect URL resolves
   // to a newer Commons revision. Changed checksums are explicit blockers.
-  const encoded=await fetchBounded(
-    'https://commons.wikimedia.org/wiki/Special:Redirect/file/'+encodeURIComponent(c.file));
+  // Direct immutable-format original file URI from Commons' "Original file"
+  // link. The expected SHA-1 is always rechecked on the downloaded bytes.
+  const encoded=await fetchBounded(c.originalUrl);
   if(!verifyPinnedFixtureBytes(encoded,c.sha1))
     throw new Error(c.id+': downloaded bytes do not match pinned Commons SHA-1');
   const prepared=await sharp(encoded,{limitInputPixels:MAX_DECODED_PIXELS})
