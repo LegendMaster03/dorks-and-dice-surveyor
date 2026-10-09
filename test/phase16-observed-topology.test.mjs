@@ -247,18 +247,26 @@ test('existing Sobel boundaries yield candidate closed-cell geometry on non-whit
  assert.equal(observeMotifInteriors(muted,basis).status,'inconclusive');
  const masks=deriveInteriorMasksFromOriginalEdges(muted);
  assert.equal(masks.status,'generated',masks.reason);
- const symbols=[];
+ const symbols=[],diagnostics=[];
  for(const mask of masks.masks){
    assert.equal(mask.provenance,'original-sobel-gradient-boundaries');
    const observed=observeMotifInteriors(mask.raster,basis);
-   if(observed.status!=='observed')continue;
+   if(observed.status!=='observed'){
+     diagnostics.push({threshold:mask.threshold,dark:mask.darkFraction,
+       interiorStatus:observed.status,reason:observed.reason});
+     continue;
+   }
    const topology=deriveObservedTopology(observed,basis);
+   diagnostics.push({threshold:mask.threshold,dark:mask.darkFraction,
+     interiors:observed.interiors.length,classes:observed.classes.length,
+     topologyStatus:topology.status,reason:topology.reason});
    if(topology.status==='derived')symbols.push(topology.dsSymbol);
  }
  const expected=deriveTranslationMotif({units:'pixel',basis,
    cells:squareTriangles.map((poly,i)=>({id:'multitone-'+i,
      polygon:poly.map(([x,y])=>({x,y}))}))}).translationSymbol;
- assert.ok(symbols.includes(expected),'A mask must recover the same independently derived chamber graph');
+ assert.ok(symbols.includes(expected),
+   'A mask must recover the same independently derived chamber graph: '+JSON.stringify(diagnostics));
 });
 test('Sobel mask segmentation cannot manufacture a motif from flat or strongly textured images',()=>{
  const size=256;
