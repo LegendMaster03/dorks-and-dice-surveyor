@@ -1,18 +1,20 @@
-import type { RegularTilingWorkerRequest, RegularTilingWorkerResult } from "./analysis/regular-tiling/worker-contract.js";
+import type { AnalysisWorkerRequest, AnalysisWorkerResult } from "./analysis/periodic-tiling/worker-contract.js";
 import { loadConfig } from "./config.js";
 import { BoundedWorkerPool } from "./infrastructure/worker-pool.js";
 import { log } from "./logging.js";
 import { createPeriodicTilingResource } from "./resources/periodic-tiling/resource.js";
+import { createPeriodicMotifInvestigationResource } from "./resources/periodic-tiling/investigation-resource.js";
 import { createSurveyorServer } from "./server.js";
 
 const config = loadConfig();
-const periodicTilingPool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
+const periodicTilingPool = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
     new URL("./analysis/worker.js", import.meta.url),
     config.workerCount,
     config.queueLimit,
     config.analysisTimeoutMs);
 const resources = [
-    createPeriodicTilingResource({ config, pool: periodicTilingPool })
+    createPeriodicTilingResource({ config, pool: periodicTilingPool }),
+    createPeriodicMotifInvestigationResource({ config, pool: periodicTilingPool })
 ] as const;
 const server = createSurveyorServer({ resources, readiness: periodicTilingPool });
 

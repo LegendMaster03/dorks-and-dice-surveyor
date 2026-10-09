@@ -57,3 +57,26 @@ This check found a genuine flaw in the existing symbol-to-torus constructor: cho
 ## Bounded image-free realization from a D-symbol and explicit scale
 
 `reflection-realization.ts` now accepts a **one-chamber Euclidean reflection symbol** and explicit edge length, units and rotation, then unfolds the regular cell boundary directly through reflected copies. It infers a primitive two-vector translation lattice, enumerates a finite polygonal motif and validates the derived chamber cover against the input symbol using the independent geometric and structural verifiers. No named tiling lookup, raster or shape registration determines the construction. In this mathematically narrow class, the Euclidean condition `(m01 - 2) * (m12 - 2) = 4` yields the triangular, quadrilateral and hexagonal reflection cases without separate shape implementations. Metric constraints are applied as a global similarity transformation *after* the unit-scale combinatorics are verified; they do not change D-symbol identity or adjacency. Nontrivial multi-chamber symmetry quotients return `unresolved-geometry` until a general unfolding method is implemented. This is an additive internal constructor, not the general Phase 16 acceptance gate or an API endpoint.
+
+
+### Additive experimental HTTP contract (Phase 16 branch only)
+
+The opt-in `POST /v3/periodic-tiling/investigate` endpoint shares the existing
+service-token authentication, bounded raster decoder, worker queue,
+cancellation and timeout limits with unchanged production
+`POST /v2/periodic-tiling/detect`. Discovery marks this separate capability
+`maturity: experimental` and `authoritative: false`. **It does not claim to
+identify an accepted pattern, offer production tiling creation or replace the
+existing detector.** No `expectedDsSymbol`, other selector, or query option is
+accepted. A consistent structural hypothesis is returned as a **candidate**,
+never as `tiling`, `detected`, or an authenticated world decision.
+
+The v3 investigation response includes the source media/dimensions, analysis
+scale, derived candidate D-symbol, source-pixel translation-basis vectors,
+edge support, measured geometric residuals in source pixels, candidate counts
+and timings. Ambiguous/inconclusive results carry no candidate identity.
+The non-authoritative result is returned even if a downscaled analysis image
+was used; `sourceResolutionVerified` explicitly records whether full-size
+pixels were examined. v3 error envelopes advertise v3; all v2 envelopes remain
+unchanged. This is a compatibility seam for later calibration and integration,
+not the final generalized detector acceptance gate.

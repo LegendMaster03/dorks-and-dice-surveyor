@@ -6,6 +6,8 @@ import type {
 
 export const SurveyorApiVersion = "v2" as const;
 export const PeriodicTilingDetectionCapability = "map.periodic-tiling.detect" as const;
+export const PeriodicMotifInvestigationCapability = "map.periodic-tiling.investigate" as const;
+export const PeriodicMotifInvestigationApiVersion = "v3" as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
@@ -50,7 +52,7 @@ export type SurveyorTiming = {
 };
 
 export type SurveyorErrorResponse = {
-    apiVersion: typeof SurveyorApiVersion;
+    apiVersion: typeof SurveyorApiVersion | typeof PeriodicMotifInvestigationApiVersion;
     capability: string;
     error: {
         code: string;
@@ -65,4 +67,44 @@ export type PublicHexGridDetectionOptions = PublicPeriodicTilingDetectionOptions
 export type SurveyorHexGridAnalysis = Omit<SurveyorPeriodicTilingAnalysis, "tiling" | "fit"> & {
     tiling: { dsSymbol: "<1:1,1,1:6,3>" } | null;
     fit: HexLatticeFit | null;
+};
+
+/**
+ * Non-authoritative research contract. Never use a candidate as a detected or
+ * accepted world tiling. All dimensional measurements refer to source pixels.
+ */
+export type SurveyorPeriodicMotifInvestigation = {
+    apiVersion: typeof PeriodicMotifInvestigationApiVersion;
+    capability: typeof PeriodicMotifInvestigationCapability;
+    maturity: "experimental";
+    authoritative: false;
+    status: "consistent-candidate" | "inconclusive" | "ambiguous";
+    reason: string;
+    candidate: null | {
+        dsSymbol: string;
+        translationBasisSourcePixels: [
+            { x: number; y: number }, { x: number; y: number }
+        ];
+    };
+    evidence: null | {
+        matchedHypotheses: number;
+        checkedHypotheses: number;
+        rejectedHypotheses: number;
+        minimumEdgeObservations: number;
+        originalRasterEdgeSupport: number;
+        maximumRigidVertexResidualSourcePixels: number;
+        translationRefinementResidualSourcePixels: number | null;
+    };
+    source: {
+        width: number;
+        height: number;
+        mediaType: SupportedRasterMediaType;
+    };
+    analysis: {
+        width: number;
+        height: number;
+        scale: number;
+        sourceResolutionVerified: boolean;
+    };
+    timing: Pick<SurveyorTiming, "decodeMs" | "preparationMs" | "grayscaleMs" | "detectorMs" | "totalMs">;
 };

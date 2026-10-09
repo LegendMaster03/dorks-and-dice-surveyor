@@ -20,17 +20,17 @@ import { prepareRaster } from "../../image/preprocess.js";
 import type { BoundedWorkerPool } from "../../infrastructure/worker-pool.js";
 import { log } from "../../logging.js";
 import { mapRegularDetectionToSourceImage } from "../../analysis/regular-tiling/result-mapper.js";
+import type { RegularTilingWorkerResult } from "../../analysis/regular-tiling/worker-contract.js";
 import type {
-    RegularTilingWorkerRequest,
-    RegularTilingWorkerResult
-} from "../../analysis/regular-tiling/worker-contract.js";
+    AnalysisWorkerRequest, AnalysisWorkerResult
+} from "../../analysis/periodic-tiling/worker-contract.js";
 import type { SurveyorResource } from "../resource.js";
 import { periodicTilingDefinitions } from "./catalog.js";
 import { selectPeriodicTiling, type PeriodicTilingSelection } from "./selection.js";
 
 export type PeriodicTilingResourceDependencies = {
     config: SurveyorConfig;
-    pool: BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>;
+    pool: BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>;
 };
 
 const capabilityDescriptor = {
@@ -104,6 +104,9 @@ async function detectPeriodicTiling(
                 signal: controller.signal,
                 timeoutMs: dependencies.config.analysisTimeoutMs
             });
+            // Shared worker pool also processes non-authoritative motif investigations.
+            // A cross-mode response must never be interpreted as a regular detection.
+            if ("mode" in workerResult) throw new Error("Unexpected experimental worker result for v2 detection.");
             const mapped = mapRegularDetectionToSourceImage(workerResult.detection, prepared.analysisScale);
             const fit = mapped.fit;
             const score = mapped.status === "detected" && fit != null

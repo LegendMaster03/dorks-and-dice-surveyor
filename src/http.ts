@@ -44,7 +44,10 @@ export function correlationIdentifier(value: string | string[] | undefined): str
     return candidate && /^[A-Za-z0-9._:-]{1,128}$/.test(candidate) ? candidate : randomUUID();
 }
 
-export function writeError(response: ServerResponse, error: unknown, capability: string): void {
+export function writeError(
+    response: ServerResponse, error: unknown, capability: string,
+    apiVersion: SurveyorErrorResponse["apiVersion"] = SurveyorApiVersion
+): void {
     let status = 500;
     let code = "internal_failure";
     let message = "Surveyor failed to process the request.";
@@ -70,7 +73,7 @@ export function writeError(response: ServerResponse, error: unknown, capability:
 
     if (status === 401) response.setHeader("www-authenticate", "Bearer");
     const body: SurveyorErrorResponse = {
-        apiVersion: SurveyorApiVersion,
+        apiVersion,
         capability,
         error: { code, message }
     };
