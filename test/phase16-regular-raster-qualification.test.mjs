@@ -66,9 +66,16 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
           const observed=observeMotifInteriors(raster,h.basis);
           const topology=observed.status==='observed'
             ?deriveObservedTopology(observed,h.basis):null;
+          const wider=observed.status==='observed'
+            ?[9,11,13].map(inkGap=>{
+                const res=deriveObservedTopology(observed,h.basis,{maxInkGapPixels:inkGap});
+                return {inkGap,status:res.status,reason:res.reason??null,
+                  dsSymbol:res.status==='derived'?res.dsSymbol:null};
+              }):[];
           return {index,basis:h.basis,interior:observed.status,
             interiorReason:observed.reason,classes:observed.classes.length,
-            topology:topology?.status??null,topologyReason:topology?.reason??null};
+            topology:topology?.status??null,topologyReason:topology?.reason??null,
+            wider};
        });
    }
    const actual=detected.status==='consistent-candidate'?detected.candidateDsSymbol:null;
