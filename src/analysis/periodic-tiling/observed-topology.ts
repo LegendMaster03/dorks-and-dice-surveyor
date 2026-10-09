@@ -72,10 +72,10 @@ export function deriveObservedTopology(
     const inconclusive = (reason: string): ObservedTopology => ({ status: "inconclusive", reason });
     const unsupported = (reason: string): ObservedTopology => ({ status: "unsupported", reason });
     const maxInkGap = options.maxInkGapPixels ?? 7;
-    const maxCells = options.maxCells ?? 260;
+    const maxCells = options.maxCells ?? 600;
     const minObservations = options.minObservationsPerEdge ?? 3;
     if (!Number.isFinite(maxInkGap) || maxInkGap < 1 || maxInkGap > 16 ||
-        !Number.isSafeInteger(maxCells) || maxCells < 1 || maxCells > 500 ||
+        !Number.isSafeInteger(maxCells) || maxCells < 1 || maxCells > 800 ||
         !Number.isSafeInteger(minObservations) || minObservations < 2 || minObservations > 30)
         return unsupported("Invalid or excessive topology search limits");
     if (observation.status !== "observed") return inconclusive("No reliable repeated polygon interiors");
@@ -110,6 +110,32 @@ export function deriveObservedTopology(
     type Vote = { targetClass: number; targetSide: number; shift: readonly [number, number]; points: ObservedPoint[] };
     const evidence = observation.classes.map(c => Array.from({ length: c.sideCount }, () => new Map<string, Vote>()));
     const perClass = observation.classes.map(() => new Set<string>());
+    // Index observed centroids once; repeatedly scanning every cell against
+    // every cell side is quadratic for detailed, high-contrast maps. Each
+    // candidate is still checked by the exact same geometric counterpart test.
+    const bucketSize = 64;
+    const bucket = (coordinate: number): number => Math.floor(coordinate / bucketSize);
+    const positionKey = (x: number, y: number): string => `${x},${y}`;
+    const index = new Map<string, number[]>();
+    for (let i = 0; i < interiors.length; i++) {
+        const centroid = interiors[i].centroid;
+        const key = positionKey(bucket(centroid.x), bucket(centroid.y));
+        const bucketIndices = index.get(key) ?? [];
+        bucketIndices.push(i);
+        index.set(key, bucketIndices);
+    }
+    const allIndices = interiors.map((_, i) => i);
+    function nearby(midpoint: ObservedPoint, radius: number): readonly number[] {
+        const x0 = bucket(midpoint.x - radius), x1 = bucket(midpoint.x + radius);
+        const y0 = bucket(midpoint.y - radius), y1 = bucket(midpoint.y + radius);
+        // Pathological long edges cannot amplify the spatial lookup into a
+        // large grid scan; fall back to the original bounded list instead.
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > interiors.length) return allIndices;
+        const candidates: number[] = [];
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
+            for (const i of index.get(positionKey(x, y)) ?? []) candidates.push(i);
+        return candidates;
+    }
     // There must be enough distant evidence to establish a motif, not a single
     // locally plausible patch. Retain the spatial positions of all votes.
     for (let i = 0; i < interiors.length; i++) {
@@ -122,11 +148,12 @@ export function deriveObservedTopology(
             const segment = at(from.polygon, side);
             const hits: { target: number; side: number; score: number }[] = [];
             const midpoint = { x: (segment[0].x + segment[1].x) / 2, y: (segment[0].y + segment[1].y) / 2 };
-            for (let j = 0; j < interiors.length; j++) {
+            const searchRadius = Math.max(60, norm(sub(segment[1], segment[0])) * 2 + 24);
+            for (const j of nearby(midpoint, searchRadius)) {
                 if (i === j) continue;
                 const target = interiors[j];
                 // Safe geometric pruning before considering each candidate side.
-                if (norm(sub(target.centroid, midpoint)) > Math.max(60, norm(sub(segment[1], segment[0])) * 2 + 24)) continue;
+                if (norm(sub(target.centroid, midpoint)) > searchRadius) continue;
                 for (let candidate = 0; candidate < target.polygon.length; candidate++) {
                     const score = counterpart(segment, at(target.polygon, candidate), maxInkGap);
                     if (score != null) hits.push({ target: j, side: candidate, score });
