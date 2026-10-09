@@ -9,6 +9,7 @@ import { verifyRigidMotifFit, type RigidFitOptions } from "./global-motif-fit.js
 import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigid-basis-refinement.js";
 import { registerObservedMetric } from "./observed-metric-registration.js";
 import { crossCheckMetricSymmetryWithOriginalRaster } from "./original-raster-isometry.js";
+import { verifyProjectedPolygonsInOriginalRaster, type SourcePolygonProjection } from "./original-polygon-projection.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
 
 /**
@@ -35,6 +36,7 @@ export type ExperimentalMetricEvidence = {
     mathematicalMetricSymmetries: number | null;
     rasterSymmetriesChecked: number;
     rasterSymmetriesSupported: number;
+    sourceProjection: SourcePolygonProjection;
 };
 
 /** An exact polygon witness is distinct from a noisy raster geometry observation. */
@@ -134,6 +136,9 @@ export function investigatePeriodicMotif(
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;
+    const sourceProjection: SourcePolygonProjection = geometry.status === "registered"
+        ? verifyProjectedPolygonsInOriginalRaster(raster, geometry.cover)
+        : {status:"inconclusive",reason:"An exact image-registered polygon witness is required"};
     const metricRegistration: ExperimentalMetricEvidence = {
         status: geometry.status,
         reason: geometry.status === "registered" ? null : geometry.reason,
@@ -148,7 +153,8 @@ export function investigatePeriodicMotif(
         rasterSymmetriesChecked: crossCheck?.status === "evaluated"
             ? crossCheck.checkedNontrivialSymmetries : 0,
         rasterSymmetriesSupported: crossCheck?.status === "evaluated"
-            ? crossCheck.supportedNontrivialSymmetries : 0
+            ? crossCheck.supportedNontrivialSymmetries : 0,
+        sourceProjection
     };
     // Retain an observed minimal presentation, never assert that the absolute
     // maximal symmetry quotient was reconstructed from this evidence alone.
