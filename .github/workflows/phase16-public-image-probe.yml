@@ -5,6 +5,9 @@ run-name: External image research at ${{ github.sha }}
 # change assets. The code and pinned corpus manifest remain under normal CI.
 on:
   workflow_dispatch:
+  # Temporary research execution trigger; remove after corpus evidence is captured.
+  push:
+    branches: [feature/tile-crawl-phase-16]
 
 permissions:
   contents: read
