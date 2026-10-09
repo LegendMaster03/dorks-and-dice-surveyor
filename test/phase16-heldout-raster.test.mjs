@@ -3,6 +3,11 @@ import test from 'node:test';
 import { performance } from 'node:perf_hooks';
 import { investigatePeriodicMotif } from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
 import { deriveTranslationMotif } from '../dist/src/resources/periodic-tiling/topology/motif.js';
+import { evaluateOriginalRasterTranslations } from '../dist/src/analysis/periodic-tiling/original-edge-candidates.js';
+import { observeMotifInteriors } from '../dist/src/analysis/periodic-tiling/motif-interiors.js';
+import { refineRigidTranslationBasis } from '../dist/src/analysis/periodic-tiling/rigid-basis-refinement.js';
+import { deriveObservedTopology } from '../dist/src/analysis/periodic-tiling/observed-topology.js';
+import { verifyRigidMotifFit } from '../dist/src/analysis/periodic-tiling/global-motif-fit.js';
 
 /**
  * Phase 16 held-out synthetic benchmark, independent of the detector's
@@ -108,6 +113,32 @@ function inspectSample(label,raster,expected){
   process.stdout.write('PHASE16_HELDOUT '+JSON.stringify(summary)+'\\n');
   if(wrong)process.stderr.write(label+' produced an incorrect D-symbol: '+
     JSON.stringify({actual:observed,expected})+'\\n');
+  if (!observed && label.startsWith('mixed-')) {
+    const search=evaluateOriginalRasterTranslations(raster,
+      {minDistance:18,maxDistance:220,maxPairVotes:300_000,maxHypotheses:5});
+    const stages=[];
+    for(const candidate of search.hypotheses){
+      const interior=observeMotifInteriors(raster,candidate.basis);
+      const fit=interior.status==='observed'
+        ?refineRigidTranslationBasis(interior,candidate.basis):null;
+      const basis=fit?.status==='refined'?fit.basis:candidate.basis;
+      const topology=interior.status==='observed'
+        ?deriveObservedTopology(interior,basis):null;
+      const globalFit=topology?.status==='derived'
+        ?verifyRigidMotifFit(raster,interior,basis):null;
+      stages.push({
+        det:Math.round(Math.abs(candidate.basis[0].x*candidate.basis[1].y-
+          candidate.basis[0].y*candidate.basis[1].x)),
+        interiors:interior.status,interiorReason:interior.reason,
+        motifClasses:interior.classes?.length??0,
+        topology:topology?.status??null,topologyReason:topology?.reason??null,
+        rigid:globalFit?.status??null,rigidReason:globalFit?.reason??null
+      });
+    }
+    process.stdout.write('PHASE16_STAGE '+JSON.stringify({
+      label,search:search.status,searchReason:search.reason,stages
+    })+'\\n');
+  }
   return summary;
 }
 test('new seeded multi-orbit tilings: bounded correct identities, no confidently wrong motifs',()=>{
