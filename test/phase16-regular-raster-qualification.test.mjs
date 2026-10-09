@@ -72,10 +72,27 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
                 return {inkGap,status:res.status,reason:res.reason??null,
                   dsSymbol:res.status==='derived'?res.dsSymbol:null};
               }):[];
+          const simplified=index===0?[3.5,4.5,5.5,7].map(tolerance=>{
+            const inside=observeMotifInteriors(raster,h.basis,{
+              contourTolerancePixels:tolerance
+            });
+            const graph=inside.status==='observed'
+              ?deriveObservedTopology(inside,h.basis):null;
+            return {tolerance,interior:inside.status,
+              sides:inside.classes.map(c=>c.sideCount),
+              result:graph?.status??null,reason:graph?.reason??inside.reason};
+          }):[];
+          const example=observed.interiors.find(i=>i.motifClass===
+            (e.name==='hexagon'?1:0));
+          const segmentLengths=example?.polygon.map((pt,j)=>{
+            const next=example.polygon[(j+1)%example.polygon.length];
+            return Math.round(Math.hypot(pt.x-next.x,pt.y-next.y)*10)/10;
+          });
           return {index,basis:h.basis,interior:observed.status,
             interiorReason:observed.reason,classes:observed.classes.length,
+            sides:observed.classes.map(c=>c.sideCount),segmentLengths,
             topology:topology?.status??null,topologyReason:topology?.reason??null,
-            wider};
+            wider,simplified};
        });
    }
    const actual=detected.status==='consistent-candidate'?detected.candidateDsSymbol:null;
