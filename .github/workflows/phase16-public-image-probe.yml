@@ -1,0 +1,38 @@
+name: Phase 16 external artwork research
+run-name: External image research at ${{ github.sha }}
+
+# Deliberately not a pull-request/deployment gate: Commons may rate limit or
+# change assets. The code and pinned corpus manifest remain under normal CI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-artwork-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Compile source-image observer
+        run: npm run build
+      - name: Evaluate unmodified checksum-pinned public image originals
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          node research/phase16-public-image-corpus.mjs --run 2>&1 | tee phase16-public-image-observations.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase16-public-image-observations
+          path: phase16-public-image-observations.log
+          retention-days: 14
+          if-no-files-found: ignore
