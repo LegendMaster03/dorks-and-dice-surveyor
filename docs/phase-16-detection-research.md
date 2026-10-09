@@ -486,3 +486,49 @@ A metadata-only no-network dry run is
 `node research/phase16-public-image-corpus.mjs --list` (after building
 `dist`). The GitHub Action `Phase 16 external artwork research` is
 manual-only and cannot deploy.
+
+## Full-image exact-polygon raster projection — held-out spatial evidence
+
+The new bounded `verifyProjectedPolygonsInOriginalRaster` module projects the
+**independently verified pixel-coordinate periodic polygon witness** over the
+entire visible image. Unlike the earlier `global-motif-fit` check, it samples
+the *predicted* translated strokes in regions even where no complete closed
+raster interior was detected, plus valid geometric interior points expected
+to lie in bright negative space. The tested image is the **unchanged source
+grayscale raster**; no warp, local registration, image rewrite or fitting
+against this evidence is performed.
+
+The verifier uses deterministic bounded enumeration of at most 8,000
+periodic cell copies and at most 160,000 source stroke samples, with a
+1.5-million-pixel input cap. It returns `supported`, `inconclusive`
+or `unsupported` with explicit provenance. Its current *exploratory*
+thresholds are at least 83% stroke evidence, 82% eligible bright interior
+evidence, and at least seven of nine spatial regions with sufficient local
+stroke agreement (and coverage in all rows and columns). These are not
+empirically calibrated probabilities or statistically independent tests.
+
+The tests require the unchanged original image to support both an
+axis-aligned and a rotated mixed-square-and-triangle witness; a raster
+with predicted geometry erased from roughly half the crop fails, as does
+an image whose tile interiors are painted dark while the boundaries
+remain present. Limited local obstruction can remain `supported`
+without lowering thresholds. Malformed pixel witnesses and oversized
+sample requests return `unsupported`, never a fabricated identity.
+
+The additive `evidence.metricRegistration.sourceProjection` v3 field reports
+the independent check's status, original-image stroke/negative-space support
+ratios and region coverage **only when actually supported**; all metrics
+are null when inconclusive or unsupported. Pixel proportions do not need
+source-resize scaling. Neither this field nor mathematical symmetry
+verification changes the candidate D-symbol, automatically accepts a world
+geometry or affects the deployed Surveyor v2 detector. The authenticated
+full-image mixed-map HTTP regression now requires supported projection.
+
+**Remaining limitation:** this test uses the SAME source image used for
+contour extraction, so it is an out-of-fit spatial plausibility check, not
+an independent test sample in the statistical sense. Colorful interiors,
+line breaks, inconsistent ink contrast, heavy obstruction, perspective
+photographs, unrelated labels and image resolution changes can legitimately
+make this check inconclusive. Separately sourced, correctly labeled and
+actually executed real-image holdouts plus operating-envelope calibration
+remain mandatory before an authoritative generalized detector can be shipped.
