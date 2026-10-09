@@ -96,10 +96,12 @@ function rankVector(
  * polygon incidence and derive a D-symbol before a pattern may be reported.
  */
 export function discoverTranslations(field: EdgeField, options: TranslationOptions = {}): TranslationSearch {
-    for (const [name, value] of Object.entries(options)) {
-        if (!Number.isFinite(value) || value <= 0) {
+    for (const name of [
+        "minDistance", "maxDistance", "minRegionSupport", "maxPairVotes", "maxHypotheses"
+    ] as const) {
+        const value = options[name];
+        if (value !== undefined && (!Number.isFinite(value) || value <= 0))
             throw new RangeError(`${name} must be finite and positive`);
-        }
     }
     if (options.maxHypotheses !== undefined && !Number.isSafeInteger(options.maxHypotheses))
         throw new RangeError("maxHypotheses must be an exact positive integer");
