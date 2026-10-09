@@ -70,7 +70,7 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
      const areaRatio=outputArea/inputArea;
      verifiedLargerCover=Number.isSafeInteger(chamberRatio)&&chamberRatio>1
        &&Math.abs(chamberRatio-areaRatio)<.06
-       &&projectChambers(a.symbol,target.symbol);
+       &&Boolean(projectChambers(a.symbol,target.symbol));
    }
    const record={name:e.name,correct,verifiedLargerCover,
      status:detected.status,elapsedMs,
