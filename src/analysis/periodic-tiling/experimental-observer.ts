@@ -51,7 +51,7 @@ export type ExperimentalMotifResult =
         originalRasterEdgeSupport: number;
         maximumRigidVertexResidualPixels: number;
         translationRefinementResidualPixels: number | null;
-        metricRegistration: ExperimentalMetricEvidence;
+        metricRegistration?: ExperimentalMetricEvidence;
     }
     | { status: "inconclusive" | "ambiguous"; reason: string; checkedHypotheses: number };
 
