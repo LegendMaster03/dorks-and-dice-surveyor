@@ -244,7 +244,13 @@ export function realizeGeneralEuclideanQuotient(
         // primitive adjacency and quotient projection in lattice coordinates.
         const u = transformed.basis[0], v = transformed.basis[1];
         const determinant = u.x * v.y - u.y * v.x;
-        if (!Number.isFinite(determinant) || determinant <= 1e-12)
+        // Reject near-collinearity relative to the requested period lengths,
+        // not by an absolute area threshold: a valid small world-unit scale
+        // may have a determinant far below 1e-12.
+        const relativeArea = determinant /
+            (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y));
+        if (!Number.isFinite(determinant) || !Number.isFinite(relativeArea)
+            || relativeArea <= 1e-8)
             return unresolved("The fitted affine translation basis is degenerate");
         const normalized = (point: Point2): Point2 => ({
             x: (point.x * v.y - point.y * v.x) / determinant,
