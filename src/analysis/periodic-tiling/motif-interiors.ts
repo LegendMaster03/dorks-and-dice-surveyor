@@ -181,6 +181,25 @@ export function observeMotifInteriors(
     if (normalized.status !== "split")
         return empty("inconclusive", normalized.reason, components.length);
     for (let i = 0; i < found.length; i++) found[i].polygon = normalized.polygons[i];
+    if (normalized.restoredVertices > 0) {
+        // An intact white component very near the crop can lack a complete
+        // neighboring component beyond the image. Its long side can only be
+        // partially subdivided by the local evidence. Omit the peripheral
+        // component from topology *votes*, not from original-image validation.
+        // This is a generic edge-length-derived margin, not a tiling profile.
+        const longestEdge = Math.max(...found.flatMap(cell=>cell.polygon.map((p,i)=>
+            Math.hypot(p.x-cell.polygon[(i+1)%cell.polygon.length].x,
+                p.y-cell.polygon[(i+1)%cell.polygon.length].y))));
+        const margin = Math.min(128,Math.ceil(longestEdge+8));
+        const complete = found.filter(cell=>cell.polygon.every(p=>
+            p.x >= margin && p.y >= margin &&
+            p.x <= width-margin && p.y <= height-margin));
+        if (complete.length < 6)
+            return empty("inconclusive",
+                "Too few complete interior junctions after excluding uncertain crop boundaries",
+                components.length);
+        found.splice(0,found.length,...complete);
+    }
     // Classify by lattice phase first, independently of side count: a cell
     // near a crop boundary may have one locally unobservable T-junction.
     // Never repair it by inventing a side; discard only that isolated contour
