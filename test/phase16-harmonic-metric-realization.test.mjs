@@ -75,6 +75,19 @@ test('anisotropic oblique period fitting preserves a verified translation topolo
    reference.cover.translationSymbol);
 });
 
+test('small but nondegenerate world-unit periods remain admissible under normalized proof',()=>{
+ const source='<2:1 2,1 2,2:4 4,4>';
+ const result=realizeGeneralEuclideanQuotient(source,{
+   worldUnitsPerAbstractPeriod:1e-5,units:'km',
+   periodULength:1.25e-5,periodVLength:2e-5,periodAngleDegrees:70,
+   rotationDegrees:33
+ });
+ assert.equal(result.status,'realized',result.reason);
+ const u=result.cover.basis[0],v=result.cover.basis[1];
+ assert.ok(u.x*v.y-u.y*v.x>0);
+ assert.ok(Math.abs(Math.hypot(u.x,u.y)-1.25e-5)<1e-12);
+});
+
 test('degenerate or unbounded requested periods never generate authoritative geometry',()=>{
  const source='<1:1,1,1:4,4>';
  for(const metric of [
