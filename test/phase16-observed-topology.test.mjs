@@ -79,7 +79,7 @@ test('derived raster chamber symbol equals independent polygonal ground truth fo
  }
 });
 
-test('incomplete cropped evidence and T-junctions never silently claim a chamber identity',()=>{
+test('complete T-junctions reconstruct the proven periodic chamber graph; incomplete crops remain inconclusive',()=>{
  const tJunction=[
    [[0,0],[64,0],[64,64],[0,64]],
    [[64,0],[128,0],[128,32],[64,32]],
@@ -87,10 +87,16 @@ test('incomplete cropped evidence and T-junctions never silently claim a chamber
  ];
  const image=rasterize([[128,0],[0,64]],tJunction);
  const observation=observeMotifInteriors(image.raster,image.basis);
- if(observation.status==='observed') {
-   const derived=deriveObservedTopology(observation,image.basis);
-   assert.notEqual(derived.status,'derived', 'An unsplit T-junction must not be assigned one neighbor per whole side');
- } else assert.notEqual(observation.status,'detected');
+ assert.equal(observation.status,'observed',observation.reason);
+ const derived=deriveObservedTopology(observation,image.basis);
+ assert.equal(derived.status,'derived',derived.reason);
+ const expected=deriveTranslationMotif({units:'pixel',
+   basis:[{x:128,y:0},{x:0,y:64}],
+   cells:tJunction.map((poly,i)=>({id:`junction-${i}`,
+     polygon:poly.map(([x,y])=>({x,y}))}))
+ });
+ assert.equal(derived.dsSymbol,expected.translationSymbol,
+   'Split T-junction incidence must equal independent geometric witness');
  const small=rasterize([[128,0],[0,64]],squareTriangles,{width:154,height:148});
  const insufficient=observeMotifInteriors(small.raster,small.basis);
  if(insufficient.status==='observed') assert.notEqual(deriveObservedTopology(insufficient,small.basis).status,'derived');
