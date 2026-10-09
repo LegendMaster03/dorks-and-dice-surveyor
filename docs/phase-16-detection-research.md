@@ -224,10 +224,13 @@ regular and mixed-cell quotient examples pass.
 
 Harmonic embedding is not a theorem that *every* valid Euclidean
 D-symbol will have a nondegenerate admissible embedding under these
-choices. It also does not satisfy arbitrary anisotropic constraints,
-fixed corner angles, or arbitrary polygon edge-length requirements:
-only explicit uniform period scale, rotation, and world units are
-supported so far. Degenerate, oversized or incompatible cases return
-`unresolved-geometry`. The operational Tile Crawl metric validator
-and UI remain Phase 16 work; no saved world consumes this candidate
-automatically.
+choices. A bounded, orientation-preserving affine fitting stage now accepts
+explicit unequal period-u/v lengths and the included lattice angle; every
+output is independently reverified after normalization back to lattice
+coordinates so fixed absolute pixel/world tolerances do not manufacture
+false overlaps after scale or rotation. Invalid, collapsed and excessive
+period requests return `unresolved-geometry`. Arbitrary fixed polygon
+corner angles, individual edge-length constraints and nonlinear coupled
+metric requirements remain unsupported. The operational Tile Crawl metric
+validator and UI integration remain Phase 16 work; no saved world consumes
+this candidate automatically.
