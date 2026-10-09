@@ -9,7 +9,9 @@ import {verifyOriginalRasterIsometry as verify,
 const p=(x,y)=>({x,y});
 const quarterTurn={sourceOrigin:p(319.5,319.5),targetOrigin:p(319.5,319.5),
     xAxis:p(0,1),yAxis:p(-1,0)};
-const halfTurn={sourceOrigin:p(319.5,319.5),targetOrigin:p(319.5,319.5),
+// Grid line centers lie on multiples of 40, so the true half-turn center
+// is (320,320), not the raster's half-pixel bounding-box midpoint (319.5).
+const halfTurn={sourceOrigin:p(320,320),targetOrigin:p(320,320),
     xAxis:p(-1,0),yAxis:p(0,-1)};
 function raster({xPitch=40,yPitch=40,width=640,height=640,
     grid=true,local=false,maskCorner=false,texture=false}={}){
