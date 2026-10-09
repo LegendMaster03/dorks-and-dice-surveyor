@@ -75,7 +75,11 @@ export function splitObservedTJunctionSides(
             for (let y = startY; y <= endY; y++) for (let x = startX; x <= endX; x++)
                 for (const candidate of bins.get(pointKey(x, y)) ?? [])
                     if (candidate.owner !== owner) candidates.add(candidate);
-            const splits: number[] = [];
+            // A candidate vertex is a true subdivision only when two distinct
+            // neighboring cells meet there, one on each side of the junction.
+            // A single shifted corner is common on slanted raster strokes and
+            // cannot independently prove a T-junction.
+            const witnesses: { t: number; owner: number; left: boolean }[] = [];
             for (const other of candidates) {
                 const opposing = subtract(other.to, other.from);
                 // The separately traced white region lies on the opposite
@@ -93,8 +97,18 @@ export function splitObservedTJunctionSides(
                 // near-tangent encounters do not count as incidence evidence.
                 if (covered < Math.max(9, Math.min(distance, other.length) * 0.30))
                     continue;
-                for (const t of [t0, t1]) {
-                    if (t > 7 && t < distance - 7) splits.push(t);
+                if (t0 > 7 && t0 < distance - 7)
+                    witnesses.push({ t: t0, owner: other.owner, left: t0 > t1 });
+                if (t1 > 7 && t1 < distance - 7)
+                    witnesses.push({ t: t1, owner: other.owner, left: t1 > t0 });
+            }
+            const splits: number[] = [];
+            for (const left of witnesses) {
+                if (!left.left) continue;
+                for (const right of witnesses) {
+                    if (right.left || right.owner === left.owner ||
+                        Math.abs(left.t - right.t) > maxInkGap) continue;
+                    splits.push((left.t + right.t) / 2);
                 }
             }
             splits.sort((a, b) => a - b);

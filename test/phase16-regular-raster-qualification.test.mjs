@@ -138,8 +138,9 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    }
  }
  assert.equal(observations.length,4);
- assert.equal(observations.find(x=>x.name==='square')?.correct,true,
-   'The original single-orbit square raster must reconstruct exactly');
+ for(const name of ['square','triangle','hexagon'])
+   assert.equal(observations.find(x=>x.name===name)?.correct,true,
+     name+' must reconstruct the independently derived exact D-symbol');
  assert.equal(observations.find(x=>x.name==='rhombille')?.verifiedLargerCover,true,
    'The known doubled rhombille lattice must have an independent exact cover proof');
 });

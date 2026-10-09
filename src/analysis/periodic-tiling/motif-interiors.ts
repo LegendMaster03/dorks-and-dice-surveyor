@@ -60,6 +60,40 @@ function simplifyClosed(polygon:readonly Point[], tolerance:number):Point[] {
     const combined=[...chain(rotated.slice(0,far+1)).slice(0,-1),...chain([...rotated.slice(far),origin]).slice(0,-1)];
     return combined.filter((p,i)=>i===0||sqDist(p,combined[i-1])>.01);
 }
+/**
+ * Remove a raster staircase fragment only when its two incident contour
+ * segments are nearly collinear and the omitted corner stays inside the
+ * existing contour uncertainty. A sharp short side is not removed. Run this
+ * before reconstructing T-junctions, whose collinear subdivision is evidence.
+ */
+function stabilizeRasterContour(points: readonly Point[], tolerance: number): Point[] {
+    const polygon = [...points];
+    while (polygon.length > 3) {
+        let best = -1, bestError = Infinity;
+        for (let i = 0; i < polygon.length; i++) {
+            const a = polygon[(i + polygon.length - 1) % polygon.length];
+            const b = polygon[i], c = polygon[(i + 1) % polygon.length];
+            const ab = { x: b.x - a.x, y: b.y - a.y };
+            const bc = { x: c.x - b.x, y: c.y - b.y };
+            const lenA = Math.hypot(ab.x, ab.y), lenB = Math.hypot(bc.x, bc.y);
+            if (lenA < 1 || lenB < 1 ||
+                Math.min(lenA, lenB) > Math.max(8, Math.max(lenA, lenB) * 0.5))
+                continue;
+            // A genuine change of direction or a separately observable short
+            // side cannot be merged on length alone.
+            if ((ab.x * bc.x + ab.y * bc.y) / (lenA * lenB) < 0.97)
+                continue;
+            const error = segmentDistance(b, a, c);
+            if (error <= tolerance && error < bestError) {
+                bestError = error;
+                best = i;
+            }
+        }
+        if (best < 0) break;
+        polygon.splice(best, 1);
+    }
+    return polygon;
+}
 function traceContour(component:Component, labels:Int32Array,id:number,width:number,height:number,maxEdges:number):Point[]|null {
     const starts=new Map<string,Point[]>();
     let count=0;
@@ -162,7 +196,7 @@ export function observeMotifInteriors(
         if(found.length>=maxInteriors)return empty("unsupported","Too many interior cells",components.length);
         const contour=traceContour(comp,labels,i+1,width,height,30000);
         if(!contour||contour.length>4096)continue;
-        const polygon=simplifyClosed(contour,tolerance);
+        const polygon=stabilizeRasterContour(simplifyClosed(contour,tolerance),tolerance);
         if(polygon.length<3||polygon.length>32)continue;
         const centroid={x:comp.sumX/comp.count,y:comp.sumY/comp.count};
         const u=fraction((centroid.x*b.y-centroid.y*b.x)/det);
