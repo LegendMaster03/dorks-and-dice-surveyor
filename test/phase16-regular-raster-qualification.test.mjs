@@ -128,8 +128,8 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    observations.push(record);
    process.stdout.write('PHASE16_REGULAR '+JSON.stringify(record)+'\n');
    assert.ok(elapsedMs<=15000,e.name+' exceeded 15-second raster-analysis budget');
-   assert.ok(actual===null||correct||verifiedLargerCover,
-     e.name+' confidently produced a different unproved tiling topology');
+   assert.ok(actual===null||correct,
+     e.name+' must not claim a nonprimitive or unproved translation presentation');
    if(actual!==null){
      if(['square','triangle','hexagon','rhombille'].includes(e.name) && correct){
        assert.equal(detected.metricRegistration?.status,'registered',
@@ -144,9 +144,9 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    }
  }
  assert.equal(observations.length,4);
- for(const name of ['square','triangle','hexagon'])
+ for(const name of ['square','triangle','hexagon','rhombille'])
    assert.equal(observations.find(x=>x.name===name)?.correct,true,
      name+' must reconstruct the independently derived exact D-symbol');
- assert.equal(observations.find(x=>x.name==='rhombille')?.verifiedLargerCover,true,
-   'The known doubled rhombille lattice must have an independent exact cover proof');
+ assert.equal(observations.find(x=>x.name==='rhombille')?.verifiedLargerCover,false,
+   'The detector must no longer return the known doubled rhombille presentation');
 });
