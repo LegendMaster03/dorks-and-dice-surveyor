@@ -3,7 +3,6 @@ import type {
     RegularLatticeDetectionOptions,
     RegularLatticeFit
 } from "./analysis/regular-tiling/detector.js";
-import type { PeriodicTilingType } from "./resources/periodic-tiling/types.js";
 
 export const SurveyorApiVersion = "v1" as const;
 export const PeriodicTilingDetectionCapability = "map.periodic-tiling.detect" as const;
