@@ -89,3 +89,8 @@ observation count. IDs and polygon coordinates are **observations**, not
 persistent Tile Crawl cells or a certified non-overlapping geometric witness.
 These values cannot replace full mathematical realization validation or the
 remaining held-out image-detection acceptance suite.
+
+
+### Non-edge-to-edge raster boundaries
+
+A bounded spatial-index pass now restores collinear T-junction subdivisions on long observed contour sides when independent, oppositely oriented neighboring sides provide ink-separated geometric evidence. It does not assume a tiling catalog, alter the original raster, or permit partial segment matching to bypass reciprocal/holonomy validation. This specifically addresses complete, high-contrast periodic T-junction patterns; noisy, occluded, and ambiguously segmented junctions still require held-out validation before confident detection. The usual D-symbol and global rigid-fit checks remain mandatory.
