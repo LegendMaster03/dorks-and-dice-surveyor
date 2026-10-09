@@ -76,5 +76,69 @@
       ],
       "key": "triangle-a@-9,14"
     }
+  ],
+  "symbolCoverCases": [
+    {
+      "name": "square torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed",
+      "sideCounts": [
+        4
+      ]
+    },
+    {
+      "name": "checkerboard torus",
+      "dsSymbol": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4
+      ]
+    },
+    {
+      "name": "unlisted mixed square triangle torus",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "constructed",
+      "sideCounts": [
+        3,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "rhombille three rhombi torus",
+      "dsSymbol": "<24:2 7 6 10 14 16 18 20 17 19 24 23,3 5 9 12 13 15 17 19 21 22 24 23,4 6 8 11 14 15 18 21 22 19 23 24:4 4 4,3 6 3>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "name": "non edge to edge torus",
+      "dsSymbol": "<28:2 7 6 10 13 15 17 18 20 22 25 23 27 28,3 5 9 12 11 14 16 19 21 24 23 26 27 28,4 6 8 11 13 14 17 19 20 23 25 22 28 27:6 4 4,3 4 4 3>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4,
+        6
+      ]
+    },
+    {
+      "name": "square symmetry quotient needs unfolding",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "unsupported"
+    },
+    {
+      "name": "two chamber nontranslation quotient needs unfolding",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "unsupported"
+    },
+    {
+      "name": "non Euclidean symbol",
+      "dsSymbol": "<1:1,1,1:6,6>",
+      "status": "invalid"
+    }
   ]
 }

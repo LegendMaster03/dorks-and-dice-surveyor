@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topology/motif.js';
 import {constructTranslationCoverFromSymbol} from '../dist/src/resources/periodic-tiling/topology/translation-cover-from-symbol.js';
@@ -56,14 +57,33 @@ test('derive noncatalog operational torus topology solely from independently bui
  }
 });
 
-test('canonical chamber relabelings reproduce the identical deterministic translation cover',()=>{
- const source=deriveTranslationMotif(mixed).translationSymbol;
- const original=inspectDSymbol(source).symbol;
- // Identity may be serialized using an arbitrary starting flag numbering.
- // A second canonical parser pass must not change addresses or adjacency.
- const representation=inspectDSymbol(source).symbol.canonical;
- assert.deepEqual(constructTranslationCoverFromSymbol(source),constructTranslationCoverFromSymbol(representation));
- assert.equal(original.canonical,representation);
+function arbitraryRelabel(source){
+ const symbol=inspectDSymbol(source).symbol,n=symbol.chamberCount;
+ const toOld=Array.from({length:n+1},(_,i)=>i===0?0:n+1-i);
+ const toNew=Array.from({length:n+1},(_,i)=>i===0?0:n+1-i);
+ const maps=symbol.involutions.map(map=>toOld.map((old,i)=>i?toNew[map[old]]:0));
+ const involutions=maps.map(map=>map.slice(1).flatMap((target,i)=>i+1<=target?[target]:[]).join(' ')).join(',');
+ const labels=[symbol.m01,symbol.m12].map((seq,i)=>{
+   const seen=new Set(),entries=[];
+   for(let c=1;c<=n;c++)if(!seen.has(c)){
+     entries.push(seq[toOld[c]]);
+     const orbit=[c];seen.add(c);
+     for(let k=0;k<orbit.length;k++)for(const step of [maps[i][orbit[k]],maps[i+1][orbit[k]]]){
+       if(!seen.has(step)){seen.add(step);orbit.push(step);}
+     }
+   }
+   return entries.join(' ');
+ }).join(',');
+ return `<${n}:${involutions}:${labels}>`;
+}
+
+test('arbitrary chamber relabelings produce the identical stable address and adjacency contract',()=>{
+ for(const witness of [square,mixed,rhombille,tJunction]){
+  const source=deriveTranslationMotif(witness).translationSymbol;
+  const relabeled=arbitraryRelabel(source);
+  assert.equal(inspectDSymbol(relabeled).symbol.canonical,inspectDSymbol(source).symbol.canonical);
+  assert.deepEqual(constructTranslationCoverFromSymbol(relabeled),constructTranslationCoverFromSymbol(source));
+ }
 });
 
 test('orbifold symmetry quotients and non-Euclidean symbols are explicitly rejected, not fabricated',()=>{
@@ -74,4 +94,16 @@ test('orbifold symmetry quotients and non-Euclidean symbols are explicitly rejec
  assert.equal(constructTranslationCoverFromSymbol('<1:1,1,1:3,3>').status,'invalid');
  assert.equal(constructTranslationCoverFromSymbol('garbage').status,'invalid');
  assert.equal(constructTranslationCoverFromSymbol(deriveTranslationMotif(mixed).translationSymbol,4).status,'unsupported');
+});
+
+
+test('both implementations share the same versioned cover-construction expectations',()=>{
+ const corpus=JSON.parse(readFileSync(new URL('./fixtures/periodic-topology-v1.json',import.meta.url),'utf8'));
+ assert.equal(corpus.contractVersion,1);
+ for(const item of corpus.symbolCoverCases){
+  const actual=constructTranslationCoverFromSymbol(item.dsSymbol);
+  assert.equal(actual.status,item.status,`${item.name}: ${actual.reason}`);
+  if(actual.status==='constructed')
+   assert.deepEqual(actual.cells.map(c=>c.sides).sort((a,b)=>a-b),item.sideCounts.slice().sort((a,b)=>a-b));
+ }
 });

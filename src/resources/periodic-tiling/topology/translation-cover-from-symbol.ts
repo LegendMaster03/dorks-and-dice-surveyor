@@ -37,7 +37,13 @@ export function constructTranslationCoverFromSymbol(source: string, limit = 1024
     const check = inspectDSymbol(source, limit);
     if (check.status === "limit-exceeded") return unsupported("D-symbol exceeds bounded chamber capacity");
     if (check.status !== "euclidean") return {status:"invalid",reason:`A valid Euclidean D-symbol is required (${check.status})`};
-    const symbol: DSymbol = check.symbol;
+    // A symbol may be supplied with arbitrary chamber numbers. Normalize first
+    // so that motif identities and integer edge voltages are stable across
+    // equivalent relabelings (not merely within one input string).
+    const canonicalInspection = inspectDSymbol(check.symbol.canonical, limit);
+    if (canonicalInspection.status !== "euclidean")
+        return inconclusive("Canonical chamber normalization was inconsistent");
+    const symbol: DSymbol = canonicalInspection.symbol;
     if (!symbol.fixedPointFree || !symbol.weaklyOrientable)
         return unsupported("A finite unbranched orientable torus presentation is required; a symmetry quotient needs unfolding");
     const [s0,s1,s2]=symbol.involutions, n=symbol.chamberCount;
