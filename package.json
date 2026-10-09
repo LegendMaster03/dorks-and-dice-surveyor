@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/test/*.test.js test/detector-parity.test.mjs test/phase16-topology.test.mjs test/phase16-translations.test.mjs test/phase16-motif-interiors.test.mjs test/phase16-observed-topology.test.mjs test/phase16-basis-refinement.test.mjs test/phase16-noisy-motifs.test.mjs test/phase16-symbol-cover.test.mjs test/phase16-witness-validation.test.mjs test/phase16-reflection-realization.test.mjs test/phase16-t-junction-raster.test.mjs test/phase16-heldout-raster.test.mjs",
+    "test": "npm run build && node --test dist/test/*.test.js test/detector-parity.test.mjs test/phase16-topology.test.mjs test/phase16-translations.test.mjs test/phase16-motif-interiors.test.mjs test/phase16-observed-topology.test.mjs test/phase16-basis-refinement.test.mjs test/phase16-noisy-motifs.test.mjs test/phase16-symbol-cover.test.mjs test/phase16-witness-validation.test.mjs test/phase16-reflection-realization.test.mjs test/phase16-t-junction-raster.test.mjs test/phase16-heldout-raster.test.mjs test/phase16-uniform-quotient-unfolding.test.mjs",
     "start": "node dist/src/main.js",
     "check": "npm run typecheck && npm test"
   },

@@ -140,3 +140,19 @@ than shipping extra CPU cost or relaxing the reciprocal adjacency checks.
 The failing noise variant remains visible as a benchmark inconclusive result.
 These tests do not replace independent real-map held-out validation or
 probabilistic confidence calibration.
+
+
+## Uniform Euclidean multi-chamber symmetry quotients
+
+The bounded, additive `unfoldUniformEuclideanQuotient` constructor now derives
+an **unbranched orientable translational torus** for more than one chamber
+whenever *all* chambers have the same face and vertex orders and satisfy
+`(p-2)(q-2)=4`. It constructs the one-chamber reflection tiling's verified
+torus without any registered shape name, forms a **connected fiber product**
+of the two chamber involution actions, validates its Euclidean order and
+covering projections to both factors, and derives primitive integer
+translations using the existing tree/cotree and witness verification.
+Inputs with mixed face degrees, mixed vertex valences, excessive product size,
+or no proved cover remain explicitly unsupported or inconclusive. This
+does not infer a unique geometric embedding or produce generalized mixed-cell
+orbifold unfolding, which remain Phase 16 blockers.
