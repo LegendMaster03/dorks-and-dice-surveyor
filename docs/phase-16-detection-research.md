@@ -392,3 +392,43 @@ acceptance requirements. Rotated/occluded/artwork-heavy polygon metric
 reconstruction, larger unfamiliar motifs, quantified image uncertainty,
 independent real-world holdouts and end-to-end image-to-metric-symmetry
 confidence calibration remain blockers.
+
+## Numerical periodic intersections and v3 metric evidence bridge
+
+The independent polygonal torus constructor previously checked whether the
+product of two signed segment-side determinants was negative. For a shared
+vertex in a rotated motif, one determinant can be a tiny nonzero floating
+point rounding error while the other is large. Their product can cross the
+fixed threshold and incorrectly classify two touching boundaries as a
+proper interior crossing. The constructor now checks **each signed
+orientation separately against its own segment-length-scaled distance
+tolerance**, consistent with the existing boundary point tolerance.
+A numerical regression confirms a valid independently constructed rotated
+square/triangle motif is not rejected, and a separate overlapping-polygon
+fixture still fails the strict non-overlap proof.
+
+The original rotated and scaled mixed-raster fixture now produces a fully
+verified **exact shared polygon translation witness** from original image
+contours. The original contour-uncertainty ceiling, independent five-pixel
+multi-region drift gate, topology agreement, and exact polygon non-overlap
+checks remain intact. No pattern-name catalog or locally accumulated
+alignment corrections were introduced.
+
+The experimental v3 investigator now also runs that geometric constructor
+on its selected complete topology candidate. Its additive
+`evidence.metricRegistration` property records `registered`,
+`inconclusive`, or `unsupported`, the bounded source-pixel residuals when
+registered, and a separate count of mathematically available isometries
+versus transformations actually supported by original-image ink/background
+checks. The previous provisional polygons, candidate D-symbol, non-authoritative
+status, and source-image scaling semantics are unchanged. Metric fit failure
+never silently changes a topologically supported observation into an
+accepted geometric world. Older candidate evidence lacking this optional
+field remains readable, and the existing v2 response and endpoint do not
+change.
+
+This is stronger end-to-end evidence for the supported synthetic closed-line
+map envelope, but not calibrated real-map correctness or a general source-image
+symmetry certificate. A fully confirmed metric quotient would require every
+claimed isometry to be supported under a declared operating envelope, with
+measured false-positive bounds and tested adversarial artwork.
