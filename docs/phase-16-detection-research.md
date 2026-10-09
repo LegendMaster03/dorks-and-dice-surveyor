@@ -115,3 +115,28 @@ residuals for later baseline comparison. These are synthetic held-out seeds,
 **not** an independent real-world image corpus, confidence calibration or the
 full Phase 16 acceptance gate. The stated thresholds must not be lowered in
 response to a failed CI run without explicit documented scope approval.
+
+
+### Held-out baseline and unsuccessful ink-edge recovery experiment
+
+The first four previously unseen seeded 3-by-2 mixed-polygon motifs yielded
+**1/4** exact identities (all other clean motifs inconclusive, zero wrong).
+Stage diagnostics traced two failures to the old 260-interior topology cap.
+The spatially indexed candidate-neighbor search now admits up to 600 observed
+interiors and runs the same reciprocal incidence and original-image rigid-fit
+checks; the held-out result improved to **3/4** exact identities, zero wrong.
+The cropped test yielded a correct motif; the noisy distracted stress test was
+inconclusive. Two texture-only negatives and an additional high-contrast
+nonperiodic ink-stroke negative were inconclusive. Tests retain the original
+minimum 2/4 clean success threshold; adding the third negative is strictly
+stronger and does not weaken the declared gate.
+
+The remaining noisy rotated mixed map (seed 5023, deterministic noise ±7)
+failed initial translation discovery, despite intact structural ground truth.
+A candidate-only Sobel gradient/ink retry briefly improved translation
+hypothesis count, but none survived independent repeated boundary evidence.
+That unproven retry and its more permissive ranking weights were removed rather
+than shipping extra CPU cost or relaxing the reciprocal adjacency checks.
+The failing noise variant remains visible as a benchmark inconclusive result.
+These tests do not replace independent real-map held-out validation or
+probabilistic confidence calibration.

@@ -31,8 +31,6 @@ export type TranslationOptions = {
     minRegionSupport?: number;
     maxPairVotes?: number;
     maxHypotheses?: number;
-    /** Use only for original-image, high-contrast ink-edge evidence retries. */
-    pixelTolerance?: "strict" | "nearby";
 };
 const PI = Math.PI;
 function halfTurnDistance(a: number, b: number): number {
@@ -50,13 +48,7 @@ function uniformSamples<T>(items: readonly T[], count: number): T[] {
 function region(x: number, y: number, width: number, height: number): number {
     return Math.min(2, Math.floor(3 * y / height)) * 3 + Math.min(2, Math.floor(3 * x / width));
 }
-function rankVector(
-    field: EdgeField,
-    vector: TranslationVector,
-    source: readonly EdgeSample[],
-    orientation: Float32Array,
-    pixelTolerance: "strict" | "nearby"
-): TranslationEvidence {
+function rankVector(field: EdgeField, vector: TranslationVector, source: readonly EdgeSample[], orientation: Float32Array): TranslationEvidence {
     const matched = new Float64Array(9), considered = new Int32Array(9);
     for (const sample of source) {
         const x = sample.x + vector.x, y = sample.y + vector.y;
@@ -67,14 +59,7 @@ function rankVector(
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
             const idx = (y + dy) * field.width + x + dx;
             if (orientation[idx] !== -1 && halfTurnDistance(sample.normal, orientation[idx]) < 0.18) {
-                // Quantized integer translation vectors can miss a continuous,
-                // jointly rigid lattice by one source pixel. This retry mode
-                // still requires matching normals and cross-region support.
-                const weight = dx === 0 && dy === 0 ? 1
-                    : dx === 0 || dy === 0
-                        ? (pixelTolerance === "nearby" ? 0.85 : 0.55)
-                        : (pixelTolerance === "nearby" ? 0.68 : 0.30);
-                best = Math.max(best, weight);
+                best = Math.max(best, dx === 0 && dy === 0 ? 1 : (dx === 0 || dy === 0 ? 0.55 : 0.30));
             }
         }
         matched[r] += best;
@@ -96,20 +81,15 @@ function rankVector(
  * polygon incidence and derive a D-symbol before a pattern may be reported.
  */
 export function discoverTranslations(field: EdgeField, options: TranslationOptions = {}): TranslationSearch {
-    for (const name of [
-        "minDistance", "maxDistance", "minRegionSupport", "maxPairVotes", "maxHypotheses"
-    ] as const) {
-        const value = options[name];
-        if (value !== undefined && (!Number.isFinite(value) || value <= 0))
+    for (const [name, value] of Object.entries(options)) {
+        if (!Number.isFinite(value) || value <= 0) {
             throw new RangeError(`${name} must be finite and positive`);
+        }
     }
     if (options.maxHypotheses !== undefined && !Number.isSafeInteger(options.maxHypotheses))
         throw new RangeError("maxHypotheses must be an exact positive integer");
     if (options.maxPairVotes !== undefined && !Number.isSafeInteger(options.maxPairVotes))
         throw new RangeError("maxPairVotes must be an exact positive integer");
-    if (options.pixelTolerance !== undefined
-        && options.pixelTolerance !== "strict" && options.pixelTolerance !== "nearby")
-        throw new RangeError("pixelTolerance must be strict or nearby");
     const min = Math.max(8, options.minDistance ?? 12);
     const max = Math.min(Math.min(field.width, field.height) / 2, options.maxDistance ?? 220);
     const maxVotes = Math.min(1_000_000, Math.max(1000, options.maxPairVotes ?? 500_000));
@@ -138,8 +118,8 @@ export function discoverTranslations(field: EdgeField, options: TranslationOptio
         let best: TranslationEvidence | null = null;
         for (let x = 2*qx-2; x <= 2*qx+2; x++) for (let y = 2*qy-2; y <= 2*qy+2; y++) {
             if (x*x + y*y < minSq || x*x + y*y > maxSq) continue;
-            const forward = rankVector(field,{x,y},testing,orientation,options.pixelTolerance ?? "strict");
-            const backwards = rankVector(field,{x:-x,y:-y},testing,orientation,options.pixelTolerance ?? "strict");
+            const forward = rankVector(field,{x,y},testing,orientation);
+            const backwards = rankVector(field,{x:-x,y:-y},testing,orientation);
             const score = Math.min(forward.support,backwards.support);
             const evidence: TranslationEvidence = {
                 vector: {x,y}, support: score,
