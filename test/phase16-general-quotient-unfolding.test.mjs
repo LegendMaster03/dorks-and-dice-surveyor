@@ -92,3 +92,14 @@ test('nonuniform symmetry-reduced mixed polygon quotients unfold without a named
     'The uplift must retain different polygon side counts where supplied');
  }
 });
+
+test('shared general Euclidean quotient conformance corpus remains exact across languages',()=>{
+ for(const sample of fixture.generalQuotientCases){
+  const result=constructGeneralEuclideanTranslationCover(sample.dsSymbol,sample.chamberLimit??1024);
+  assert.equal(result.status,sample.status,sample.name+': '+result.reason);
+  if(result.status!=='constructed')continue;
+  prove(sample.dsSymbol,sample.chamberLimit??1024);
+  if(sample.cyclicSheets!==undefined)
+    assert.equal(result.cyclicSheetCount,sample.cyclicSheets,sample.name);
+ }
+});

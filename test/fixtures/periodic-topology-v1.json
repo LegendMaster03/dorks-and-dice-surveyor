@@ -279,5 +279,74 @@
       "chamberLimit": 1,
       "status": "unsupported"
     }
+  ],
+  "generalQuotientCases": [
+    {
+      "name": "square-reflection-442",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "constructed",
+      "cyclicSheets": 4
+    },
+    {
+      "name": "triangle-reflection-632",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "status": "constructed",
+      "cyclicSheets": 6
+    },
+    {
+      "name": "hexagon-reflection-632",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "status": "constructed",
+      "cyclicSheets": 6
+    },
+    {
+      "name": "two-chamber-square",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "constructed",
+      "cyclicSheets": 4
+    },
+    {
+      "name": "square-torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed",
+      "cyclicSheets": 1
+    },
+    {
+      "name": "mixed-square-triangle-torus",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "constructed",
+      "cyclicSheets": 1
+    },
+    {
+      "name": "square-triangle-quotient-A",
+      "dsSymbol": "<10:2 5 4 6 7 8 10,1 4 6 5 9 10,3 5 7 8 9 10:3 3 4,5 5>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-triangle-quotient-B",
+      "dsSymbol": "<10:2 5 6 8 10,3 4 6 9 10,2 5 7 8 10:3 4,5>",
+      "status": "constructed"
+    },
+    {
+      "name": "non-edge-to-edge-mixed-quotient",
+      "dsSymbol": "<14:2 5 7 9 11 13 14,1 4 6 8 10 12 14 13,3 5 4 6 7 8 9 14 11 13:6 4,3 4 4 3>",
+      "status": "constructed"
+    },
+    {
+      "name": "non-euclidean",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-syntax",
+      "dsSymbol": "garbage",
+      "status": "invalid"
+    },
+    {
+      "name": "capacity-too-small",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "chamberLimit": 8,
+      "status": "unsupported"
+    }
   ]
 }
