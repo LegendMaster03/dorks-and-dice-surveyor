@@ -7,7 +7,9 @@ const cases=[
  ['<1:1,1,1:3,6>',2],
  ['<1:1,1,1:4,4>',1],
  ['<1:1,1,1:6,3>',1],
- ['<2:1 2,1 2,2:4 4,4>',2]
+ ['<2:1 2,1 2,2:4 4,4>',2],
+ ['<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>',1],
+ ['<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>',2]
 ];
 
 test('metric realizations unfold regular symmetry quotients with proof of polygon closure and primitive periods',()=>{
@@ -50,4 +52,14 @@ test('mixed degrees, ill-posed geometry and over-limit covers are never fabricat
   assert.notEqual(realizeUniformEuclideanQuotient('<2:1 2,1 2,2:4 4,4>',{edgeLengthWorldUnits:input,units:'world'}).status,'realized');
  }
  assert.notEqual(realizeUniformEuclideanQuotient('<2:1 2,1 2,2:4 4,4>',{edgeLengthWorldUnits:1,units:'world'},8).status,'realized');
+});
+
+test('equivalent input chamber relabeling and repeated construction are geometrically deterministic',()=>{
+ const symbol='<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>';
+ const options={edgeLengthWorldUnits:1,units:'world'};
+ const first=realizeUniformEuclideanQuotient(symbol,options);
+ const second=realizeUniformEuclideanQuotient(symbol,options);
+ assert.equal(first.status,'realized',first.reason);
+ assert.deepEqual(first,second);
+ assert.ok(first.cover.cells.length>1,'Checkerboard topology must retain distinct cell addresses');
 });
