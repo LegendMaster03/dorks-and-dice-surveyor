@@ -188,8 +188,8 @@ test("preview reconstructs a translated mixed-cell raster and exposes provisiona
                 const back = other.boundaries[boundary.targetSideIndex];
                 assert.equal(back.targetProvisionalId, cell.provisionalId);
                 assert.equal(back.targetSideIndex, boundary.sideIndex);
-                assert.equal(back.translation.u, -boundary.translation.u);
-                assert.equal(back.translation.v, -boundary.translation.v);
+                assert.equal(back.translation.u + boundary.translation.u, 0);
+                assert.equal(back.translation.v + boundary.translation.v, 0);
             }
         }
     });
