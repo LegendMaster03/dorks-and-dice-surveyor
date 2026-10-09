@@ -78,3 +78,11 @@ test('invalid, non-euclidean, and over-limit quotients fail closed',()=>{
  assert.equal(unfoldUniformEuclideanQuotient(twoChamber,0).status,'unsupported');
  assert.equal(unfoldUniformEuclideanQuotient(twoChamber,5000).status,'unsupported');
 });
+
+test('cross-language versioned uniform quotient conformance cases share supported envelope',()=>{
+ for(const entry of corpus.uniformQuotientCases){
+   const result=unfoldUniformEuclideanQuotient(entry.dsSymbol,entry.chamberLimit??768);
+   assert.equal(result.status,entry.status,`${entry.name}: ${result.reason}`);
+   if(result.status==='constructed')verify(result,entry.dsSymbol);
+ }
+});

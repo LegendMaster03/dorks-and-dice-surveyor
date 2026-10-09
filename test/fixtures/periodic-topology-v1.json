@@ -183,5 +183,53 @@
         4
       ]
     }
+  ],
+  "uniformQuotientCases": [
+    {
+      "name": "triangular-reflection",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-reflection",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "hexagonal-reflection",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-two-chamber-symmetry",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-unbranched-torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-checkerboard-torus",
+      "dsSymbol": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+      "status": "constructed"
+    },
+    {
+      "name": "mixed-square-triangle-quotient",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "unsupported"
+    },
+    {
+      "name": "non-euclidean-reflection",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "status": "invalid"
+    },
+    {
+      "name": "bounded-two-chamber-symmetry",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "chamberLimit": 8,
+      "status": "unsupported"
+    }
   ]
 }
