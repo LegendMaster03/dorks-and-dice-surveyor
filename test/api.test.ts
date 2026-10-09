@@ -138,6 +138,81 @@ test("automatic classification reports square tiles despite a hexagonal expectat
     });
 });
 
+async function regularPatternPng(kind: "triangular" | "hexagonal"): Promise<Buffer> {
+    const width = 420, height = 320;
+    const pixels = Buffer.alloc(width * height, 224);
+    const darken = (x: number, y: number) => {
+        const ix = Math.round(x), iy = Math.round(y);
+        if (ix >= 0 && iy >= 0 && ix < width && iy < height)
+            pixels[iy * width + ix] = Math.min(pixels[iy * width + ix], 45);
+    };
+    if (kind === "triangular") {
+        const pitch = 30 * Math.sqrt(3) / 2;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let nearest = Number.POSITIVE_INFINITY;
+                for (const angle of [-4, 56, 116]) {
+                    const radians = angle * Math.PI / 180;
+                    const rho = x * Math.cos(radians) + y * Math.sin(radians);
+                    const phase = ((rho % pitch) + pitch) % pitch;
+                    nearest = Math.min(nearest, phase, pitch - phase);
+                }
+                if (nearest <= 2) pixels[y * width + x] = 48;
+            }
+        }
+    } else {
+        const spacing = 30 * Math.sqrt(3);
+        const angle = -4 * Math.PI / 180;
+        const u = { x: spacing * Math.cos(angle), y: spacing * Math.sin(angle) };
+        const v = { x: spacing * Math.cos(angle + Math.PI / 3), y: spacing * Math.sin(angle + Math.PI / 3) };
+        const radius = spacing / Math.sqrt(3);
+        const reach = Math.ceil(Math.hypot(width, height) / spacing) + 4;
+        const draw = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+            const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 1.5);
+            for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+                for (let dy = -1; dy <= 1; dy++)
+                    for (let dx = -1; dx <= 1; dx++)
+                        if (dx * dx + dy * dy <= 1) darken(x + dx, y + dy);
+            }
+        };
+        for (let i = -reach; i <= reach; i++) {
+            for (let j = -reach; j <= reach; j++) {
+                const cx = 11 + i * u.x + j * v.x, cy = 9 + i * u.y + j * v.y;
+                if (cx < -spacing || cy < -spacing || cx > width + spacing || cy > height + spacing)
+                    continue;
+                const corners = Array.from({ length: 6 }, (_, k) => {
+                    const theta = angle - Math.PI / 6 + k * Math.PI / 3;
+                    return { x: cx + radius * Math.cos(theta), y: cy + radius * Math.sin(theta) };
+                });
+                for (let edge = 0; edge < 6; edge++)
+                    draw(corners[edge], corners[(edge + 1) % 6]);
+            }
+        }
+    }
+    return sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
+}
+
+test("without hints Surveyor independently identifies triangular and hexagonal rasters", async () => {
+    await withServer(async baseUrl => {
+        for (const [kind, expected] of [
+            ["triangular", "<1:1,1,1:3,6>"],
+            ["hexagonal", "<1:1,1,1:6,3>"]
+        ] as const) {
+            const response = await fetch(baseUrl + "/v2/periodic-tiling/detect?minimumConfidence=0.22", {
+                method: "POST",
+                headers: { "content-type": "image/png", authorization: "Bearer " + token },
+                body: bodyOf(await regularPatternPng(kind))
+            });
+            assert.equal(response.status, 200, kind);
+            const value = await response.json() as Record<string, any>;
+            assert.equal(value.status, "detected", kind + ": " + value.reason);
+            assert.deepEqual(value.tiling, { dsSymbol: expected }, kind);
+        }
+    });
+});
+
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
