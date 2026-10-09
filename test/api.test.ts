@@ -108,6 +108,36 @@ test("automatic detection accepts no hint and does not echo expected identity", 
     });
 });
 
+async function squareGridPng(): Promise<Buffer> {
+    const width = 360, height = 280, pitch = 32;
+    const pixels = Buffer.alloc(width * height, 224);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const dx = Math.min(x % pitch, pitch - (x % pitch));
+            const dy = Math.min(y % pitch, pitch - (y % pitch));
+            if (Math.min(dx, dy) <= 2) pixels[y * width + x] = 48;
+        }
+    }
+    return sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
+}
+
+test("automatic classification reports square tiles despite a hexagonal expectation", async () => {
+    await withServer(async baseUrl => {
+        const url = baseUrl + "/v1/periodic-tiling/detect?expectedDsSymbol="
+            + encodeURIComponent("<1:1,1,1:6,3>") + "&minimumConfidence=0.24";
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "content-type": "image/png", authorization: "Bearer " + token },
+            body: bodyOf(await squareGridPng())
+        });
+        assert.equal(response.status, 200);
+        const value = await response.json() as Record<string, any>;
+        assert.equal(value.status, "detected", value.reason);
+        assert.deepEqual(value.tiling, { dsSymbol: "<1:1,1,1:4,4>" });
+        assert.equal(value.fit?.geometryId, "regular.square");
+    });
+});
+
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
