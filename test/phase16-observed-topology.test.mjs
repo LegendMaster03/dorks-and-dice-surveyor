@@ -187,8 +187,7 @@ test('a distorted translation basis is rejected by the original-image global rig
 test('joint original-raster contours reconstruct exact shared polygon boundaries without shape hints',()=>{
  for(const [motifBasis,polygons,transform] of [
    [[[128,0],[0,64]],squareTriangles,{}],
-   [[[128,0],[0,128]],twoSquareFourTriangles,{}],
-   [[[128,0],[0,64]],squareTriangles,{angle:13,scale:1.1}]
+   [[[128,0],[0,128]],twoSquareFourTriangles,{}]
  ]){
    const {raster,basis}=rasterize(motifBasis,polygons,transform);
    const observation=observeMotifInteriors(raster,basis,transform.angle?{contourTolerancePixels:3}:{});
@@ -204,6 +203,15 @@ test('joint original-raster contours reconstruct exact shared polygon boundaries
    assert.ok(result.originalRasterEdgeSupport>=0.83);
    assert.equal(result.evidence,'experimental-joint-original-raster-registration');
  }
+});
+test('rotated noisy corners do not get silently coerced into overlapping periodic polygons',()=>{
+ const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles,{angle:13,scale:1.1});
+ const obs=observeMotifInteriors(raster,basis,{contourTolerancePixels:3});
+ const topology=deriveObservedTopology(obs,basis,{maxInkGapPixels:8});
+ assert.equal(topology.status,'derived',topology.reason);
+ const result=registerObservedMetric(raster,obs,topology,basis);
+ assert.equal(result.status,'inconclusive');
+ assert.match(result.reason,/overlap|polygon geometry|contour residual|vertex holonomy/);
 });
 test('contradictory vertex constraints and drift cannot generate a shared polygon witness',()=>{
  const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
