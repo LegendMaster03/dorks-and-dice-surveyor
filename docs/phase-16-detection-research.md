@@ -44,7 +44,7 @@ When diffuse edge noise swamps the current Sobel candidates, an additive *single
 - Multi-region residuals and phase consistency must be jointly fitted once to the original evidence, with bounded hypotheses, memory, runtime and cancellation.
 - This is not production-ready, and the old `/v2/periodic-tiling/detect` response must not be extended to claim support for unfamiliar motifs before those gates pass.
 
-**Operating envelope of this internal experiment:** image at most 1,500,000 pixels by default, at most 260 observed cells for incidence, maximum 24 motif classes and 12 polygon sides per observed cell, 5 original-image lattice hypotheses by default, at least 3 repeated independent matching edges per motif boundary, at least 1.4 normalized unit-domain lengths of spatial span per accepted boundary, at least 83% original-raster edge ink support and at most 5 pixels maximum rigidly predicted corner residual in at least four raster regions. High-contrast closed-line polygons only; non-edge-to-edge T-junctions and missing boundaries return inconclusive. Actual deployed Surveyor limits remain unchanged. These provisional limits are not a final calibrated operating envelope.
+**Operating envelope of this internal experiment:** image at most 1,500,000 pixels by default, at most 260 observed cells for incidence, maximum 24 motif classes and 12 polygon sides per observed cell, 5 original-image lattice hypotheses by default, at least 3 repeated independent matching edges per motif boundary, at least 1.4 normalized unit-domain lengths of spatial span per accepted boundary, at least 83% original-raster edge ink support and at most 5 pixels maximum rigidly predicted corner residual in at least four raster regions. High-contrast closed-line polygons only; clearly evidenced non-edge-to-edge T-junctions can now be reconstructed, while missing or ambiguous boundaries remain inconclusive. Actual deployed Surveyor limits remain unchanged. These provisional limits are not a final calibrated operating envelope.
 
 **Recommendation:** continue global metric registration, arbitrary-image robustness and the automatic D-symbol-to-translation-cover mathematical construction as blockers. Maintain the current v2 behavior and a compatible, additive future result contract. Do not request a Phase 17 migration or generalized runtime cutover until Phase 16 mathematical/Surveyor acceptance tests are satisfied.
 
@@ -94,3 +94,24 @@ remaining held-out image-detection acceptance suite.
 ### Non-edge-to-edge raster boundaries
 
 A bounded spatial-index pass now restores collinear T-junction subdivisions on long observed contour sides when independent, oppositely oriented neighboring sides provide ink-separated geometric evidence. It does not assume a tiling catalog, alter the original raster, or permit partial segment matching to bypass reciprocal/holonomy validation. This specifically addresses complete, high-contrast periodic T-junction patterns; noisy, occluded, and ambiguously segmented junctions still require held-out validation before confident detection. The usual D-symbol and global rigid-fit checks remain mandatory.
+
+
+## Predeclared held-out synthetic regression suite
+
+`test/phase16-heldout-raster.test.mjs` is an additional reproducible, seeded
+benchmark. A generator separate from Surveyor's detector chooses unknown 3-by-2
+mixed-square/triangle motifs with inequivalent cell types, computes polygonal
+ground truth independently, draws original raster images and applies rotations,
+scales, deterministic grayscale noise, crop offsets and unrelated strokes.
+Neither the symbol nor the translation basis is passed into the investigator.
+
+The **provisional** gate is fixed before running: among four complete new
+mixed motifs, at least two must reconstruct exactly and **none** may assert a
+wrong symbol; two crop/distractor stress maps must never produce a wrong
+candidate; two gridless texture negatives must never become motif candidates.
+An inconclusive stress image is not counted as a successful detection. Every
+sample emits machine-readable status, correctness, milliseconds and geometric
+residuals for later baseline comparison. These are synthetic held-out seeds,
+**not** an independent real-world image corpus, confidence calibration or the
+full Phase 16 acceptance gate. The stated thresholds must not be lowered in
+response to a failed CI run without explicit documented scope approval.
