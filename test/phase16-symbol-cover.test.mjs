@@ -107,3 +107,14 @@ test('both implementations share the same versioned cover-construction expectati
    assert.deepEqual(actual.cells.map(c=>c.sides).sort((a,b)=>a-b),item.sideCounts.slice().sort((a,b)=>a-b));
  }
 });
+
+
+test('a finite torus quotient may legitimately exceed 256 chambers',()=>{
+ const corpus=JSON.parse(readFileSync(new URL('./fixtures/periodic-topology-v1.json',import.meta.url),'utf8'));
+ const source=corpus.symbolCoverCases.find(c=>c.name==='unbranched-square-36-face-torus').dsSymbol;
+ const actual=constructTranslationCoverFromSymbol(source);
+ assert.equal(actual.status,'constructed',actual.reason);
+ assert.equal(actual.chamberCount,288);
+ assert.equal(actual.cells.length,36);
+ verifyGraph(actual);
+});
