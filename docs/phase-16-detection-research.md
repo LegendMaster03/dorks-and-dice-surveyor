@@ -188,6 +188,28 @@ and edge branching still unresolved. **This alone is not a torsion-free
 translation torus or a geometric realization.** The orientability step is
 proved and tested, but general branched-orbifold unfolding remains outstanding.
 
+## Independent combinatorial chamber-symmetry reduction (not geometric detection)
+
+The new `reduceCombinatorialChamberSymmetry` research function accepts a
+valid bounded Euclidean D-symbol, enumerates every possible chamber-image
+automorphism by propagating the three involutions, enforces face/vertex
+multiplicity preservation, and forms the orbit quotient. An independent
+D-symbol parser and chamber-cover projection certify the derived quotient.
+The search is quadratic in the bounded chamber count, with no named-pattern
+catalog, guessed symmetry, or factorial permutation enumeration. Regression
+tests show the eight-chamber square translation torus reducing to the
+one-chamber square quotient and require valid, idempotent reductions of
+mixed-polygon and non-edge-to-edge motifs. The same construction and
+tests exist independently in Hex Crawl's C# domain.
+
+A D-symbol chamber automorphism is **combinatorial**; it may not represent a
+rigid isometry of the observed raster or of a selected metric embedding.
+Consequently the observer still reports its separately verified
+**translation-group D-symbol**, not the maximal combinatorial quotient,
+as its experimental candidate. The remaining real-image/geometric symmetry
+proof, confidence calibration, and production observed identity convention
+are not satisfied by this mathematical reduction.
+
 ## General Euclidean cone-point unfolding (cross-language proof)
 
 The additional `constructGeneralEuclideanTranslationCover` constructor no
