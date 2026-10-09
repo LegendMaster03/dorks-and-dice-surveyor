@@ -26,7 +26,7 @@ import type {
 } from "../../analysis/regular-tiling/worker-contract.js";
 import type { SurveyorResource } from "../resource.js";
 import { periodicTilingDefinitions } from "./catalog.js";
-import { selectPeriodicTiling, type ImplementedPeriodicTilingDefinition } from "./selection.js";
+import { selectPeriodicTiling, type PeriodicTilingSelection } from "./selection.js";
 
 export type PeriodicTilingResourceDependencies = {
     config: SurveyorConfig;
@@ -36,50 +36,10 @@ export type PeriodicTilingResourceDependencies = {
 const capabilityDescriptor = {
     id: PeriodicTilingDetectionCapability,
     path: "/v1/periodic-tiling/detect",
-    notationSelectors: [
-        {
-            name: "crNotation",
-            kind: "notation",
-            notation: "Cundy-Rollett",
-            required: false,
-            preferred: true
-        },
-        {
-            name: "gjhNotation",
-            kind: "notation",
-            notation: "GomJau-Hogg",
-            required: false,
-            preferred: false
-        }
-    ],
-    selectorRule: "At least one notation is required. Both may be supplied only when they resolve to the same tiling.",
-    derivedIdentity: ["periodicTilingType", "crNotation", "gjhNotation"],
-    implementedTilings: periodicTilingDefinitions
-        .filter(tiling => tiling.detectorId != null)
-        .map(tiling => ({
-            periodicTilingType: tiling.periodicTilingType,
-            crNotation: tiling.crNotation,
-            gjhNotation: tiling.gjhNotation
-        })),
-    recognizedTilings: periodicTilingDefinitions.map(tiling => ({
-        periodicTilingType: tiling.periodicTilingType,
-        crNotation: tiling.crNotation,
-        gjhNotation: tiling.gjhNotation,
-        implemented: tiling.detectorId != null
-    })),
-    notationParsers: [
-        { notation: "Cundy-Rollett", grammarDriven: true },
-        { notation: "GomJau-Hogg", grammarDriven: true }
-    ],
-    recognizedTilingFamilies: [
-        { name: "Regular", implemented: true },
-        { name: "semiregular", implemented: false, subtypes: ["Archimedean", "uniform"] },
-        { name: "k-uniform", implemented: false },
-        { name: "Plane-vertex", implemented: false },
-        { name: "2-uniform", implemented: false },
-        { name: "Fractalizing", implemented: false },
-        { name: "non-edge-to-edge", implemented: false }
-    ]
+    notationHint: { name: "expectedDsSymbol", notation: "Delaney-Dress", required: false },
+    authoritativeIdentity: "Response tiling.dsSymbol is derived from image evidence, not the hint.",
+    implementedTilings: periodicTilingDefinitions.map(item => ({ dsSymbol: item.dsSymbol })),
+    notationParsers: [{ notation: "Delaney-Dress", grammarDriven: true }]
 } as const;
 
 export function createPeriodicTilingResource(dependencies: PeriodicTilingResourceDependencies): SurveyorResource {
@@ -105,11 +65,7 @@ async function detectPeriodicTiling(
     response: ServerResponse,
     url: URL,
     dependencies: PeriodicTilingResourceDependencies,
-    tiling: ImplementedPeriodicTilingDefinition): Promise<void> {
-    if (tiling.detectorId !== "regular-lattice") {
-        throw new SurveyorRequestError(500, "tiling_dispatch_failure", "The implemented periodic tiling could not be dispatched.");
-    }
-
+    selection: PeriodicTilingSelection): Promise<void> {
     const totalStarted = performance.now();
     const correlationId = correlationIdentifier(request.headers["x-correlation-id"]);
     response.setHeader("x-correlation-id", correlationId);
@@ -131,28 +87,53 @@ async function detectPeriodicTiling(
             dependencies.config.maxPixels,
             dependencies.config.analysisMaximumDimension);
         const detectorOptions = mapOptionsToAnalysisSpace(sourceOptions, prepared.analysisScale);
-        const workerResult = await dependencies.pool.run({
-            raster: prepared.raster,
-            geometryId: tiling.detectorGeometry,
-            options: detectorOptions
-        }, {
-            signal: controller.signal,
-            timeoutMs: dependencies.config.analysisTimeoutMs
-        });
-        const mapped = mapRegularDetectionToSourceImage(workerResult.detection, prepared.analysisScale);
+        // Evaluate against the original prepared raster for every supported hypothesis.
+        // The caller's optional hint only affects the evaluation order.
+        const attempts: {
+            definition: (typeof selection.prioritizedDetectors)[number];
+            result: RegularTilingWorkerResult;
+            mapped: ReturnType<typeof mapRegularDetectionToSourceImage>;
+            score: number;
+        }[] = [];
+        for (const definition of selection.prioritizedDetectors) {
+            const workerResult = await dependencies.pool.run({
+                raster: prepared.raster,
+                geometryId: definition.detectorGeometry,
+                options: detectorOptions
+            }, {
+                signal: controller.signal,
+                timeoutMs: dependencies.config.analysisTimeoutMs
+            });
+            const mapped = mapRegularDetectionToSourceImage(workerResult.detection, prepared.analysisScale);
+            const fit = mapped.fit;
+            const score = mapped.status === "detected" && fit != null
+                ? fit.confidence * 0.5 + fit.supportCoverage * 0.3
+                    + (1 - Math.min(1, fit.residualPixels / Math.max(1, fit.edgeLengthPixels))) * 0.2
+                : -1;
+            attempts.push({ definition, result: workerResult, mapped, score });
+        }
+        const candidates = attempts.filter(item => item.mapped.status === "detected" && item.mapped.fit);
+        candidates.sort((a, b) => b.score - a.score);
+        // Confidence scales across detector families are not fully calibrated.
+        const ambiguous = candidates.length > 1 && candidates[0].score - candidates[1].score < 0.04;
+        const winner = ambiguous ? null : (candidates[0] ?? null);
+        const status = winner ? "detected"
+            : ambiguous || attempts.some(item => item.mapped.status === "inconclusive") || candidates.length > 0
+                ? "inconclusive"
+                : "gridless";
         const totalMs = performance.now() - totalStarted;
-        const edgeFieldMs = workerResult.edgeFieldMs;
-        const detectorMs = Math.max(0, workerResult.detectorTotalMs - edgeFieldMs);
+        const edgeFieldMs = attempts.reduce((sum, item) => sum + item.result.edgeFieldMs, 0);
+        const detectorMs = attempts.reduce(
+            (sum, item) => sum + Math.max(0, item.result.detectorTotalMs - item.result.edgeFieldMs), 0);
         const result: SurveyorPeriodicTilingAnalysis = {
             apiVersion: SurveyorApiVersion,
             capability: PeriodicTilingDetectionCapability,
-            tiling: {
-                periodicTilingType: tiling.periodicTilingType,
-                crNotation: tiling.crNotation,
-                gjhNotation: tiling.gjhNotation
-            },
-            status: mapped.status,
-            reason: mapped.reason,
+            tiling: winner ? { dsSymbol: winner.definition.dsSymbol } : null,
+            status,
+            reason: winner ? winner.mapped.reason
+                : ambiguous ? "Multiple periodic tilings fit the image without a decisive winner."
+                : status === "gridless" ? "No supported periodic tiling was detected."
+                : "Periodic structure could not be identified confidently.",
             source: {
                 width: prepared.sourceWidth,
                 height: prepared.sourceHeight,
@@ -164,7 +145,7 @@ async function detectPeriodicTiling(
                 scale: prepared.analysisScale,
                 sourceResolutionVerified: Math.abs(prepared.analysisScale - 1) <= Number.EPSILON
             },
-            fit: mapped.fit,
+            fit: winner?.mapped.fit ?? null,
             timing: {
                 decodeMs: prepared.timings.decodeMs,
                 preparationMs: prepared.timings.preparationMs,
@@ -178,11 +159,9 @@ async function detectPeriodicTiling(
         log("info", "surveyor.analysis.completed", {
             correlationId,
             capability: PeriodicTilingDetectionCapability,
-            periodicTilingType: tiling.periodicTilingType,
-            crNotation: tiling.crNotation,
-            gjhNotation: tiling.gjhNotation,
-            detectorId: tiling.detectorId,
-            detectorGeometry: tiling.detectorGeometry,
+            expectedDsSymbol: selection.expectedDsSymbol,
+            detectedDsSymbol: result.tiling?.dsSymbol ?? null,
+            detectorGeometry: winner?.definition.detectorGeometry ?? null,
             mediaType: prepared.mediaType,
             sourceWidth: prepared.sourceWidth,
             sourceHeight: prepared.sourceHeight,
@@ -198,11 +177,7 @@ async function detectPeriodicTiling(
         log("error", "surveyor.analysis.failed", {
             correlationId,
             capability: PeriodicTilingDetectionCapability,
-            periodicTilingType: tiling.periodicTilingType,
-            crNotation: tiling.crNotation,
-            gjhNotation: tiling.gjhNotation,
-            detectorId: tiling.detectorId,
-            detectorGeometry: tiling.detectorGeometry,
+            expectedDsSymbol: selection.expectedDsSymbol,
             errorCategory: errorCategory(error),
             durationMs: performance.now() - totalStarted
         });

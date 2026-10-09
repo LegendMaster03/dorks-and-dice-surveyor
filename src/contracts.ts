@@ -17,15 +17,13 @@ export type PublicPeriodicTilingDetectionOptions = Pick<
     "minimumSpacingPixels" | "maximumSpacingPixels" | "maximumEdgeSamples" | "minimumConfidence">;
 
 export type PeriodicTilingIdentity = {
-    periodicTilingType: PeriodicTilingType;
-    crNotation: string;
-    gjhNotation: string;
+    dsSymbol: string;
 };
 
 export type SurveyorPeriodicTilingAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
     capability: typeof PeriodicTilingDetectionCapability;
-    tiling: PeriodicTilingIdentity;
+    tiling: PeriodicTilingIdentity | null;
     status: PeriodicTilingDetectionStatus;
     reason: string;
     source: {
@@ -66,10 +64,6 @@ export type SurveyorErrorResponse = {
 // exact hex identity and HexLatticeFit rather than widening to the generalized fit.
 export type PublicHexGridDetectionOptions = PublicPeriodicTilingDetectionOptions;
 export type SurveyorHexGridAnalysis = Omit<SurveyorPeriodicTilingAnalysis, "tiling" | "fit"> & {
-    tiling: {
-        periodicTilingType: "Regular";
-        crNotation: "6^3";
-        gjhNotation: "6/m30/r(h1)";
-    };
+    tiling: { dsSymbol: "<1:1,1,1:6,3>" } | null;
     fit: HexLatticeFit | null;
 };
