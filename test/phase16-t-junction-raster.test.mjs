@@ -12,7 +12,7 @@ const tJunction = [
 ];
 const sourcePolys = tJunction.map(poly => poly.map(([x,y]) => ({x,y})));
 
-function rasterize(polygons, {width=640,height=640}={}) {
+function rasterize(polygons, {width=640,height=640,basis=[[128,0],[0,64]]}={}) {
   const pixels=new Uint8Array(width*height).fill(255);
   function draw([ax,ay],[bx,by]) {
     const n=Math.max(Math.abs(bx-ax),Math.abs(by-ay))*2;
@@ -26,7 +26,7 @@ function rasterize(polygons, {width=640,height=640}={}) {
   }
   for(let u=-7;u<=7;u++)for(let v=-12;v<=12;v++){
     for(const poly of polygons){
-      const vertices=poly.map(([x,y])=>[x+128*u+29,y+64*v+37]);
+      const vertices=poly.map(([x,y])=>[x+basis[0][0]*u+basis[1][0]*v+29,y+basis[0][1]*u+basis[1][1]*v+37]);
       for(let i=0;i<vertices.length;i++)draw(vertices[i],vertices[(i+1)%vertices.length]);
     }
   }
@@ -61,6 +61,25 @@ test('periodic image reconstructs subdivided non-edge-to-edge T-junctions and a 
   });
   assert.equal(derived.dsSymbol,expected.translationSymbol);
   assert.ok(derived.cells.some(cell=>cell.sides===6));
+});
+
+test('unregistered staggered-brick lattice reconstructs a second T-junction topology with oblique translations',()=>{
+  const brick=[[[0,0],[96,0],[96,32],[0,32]]];
+  const motifBasis=[[96,0],[48,32]];
+  const raster=rasterize(brick,{basis:motifBasis});
+  const basis=motifBasis.map(([x,y])=>({x,y}));
+  const observed=observeMotifInteriors(raster,basis);
+  assert.equal(observed.status,'observed',observed.reason);
+  assert.deepEqual(observed.classes.map(c=>c.sideCount),[6]);
+  const topology=deriveObservedTopology(observed,basis);
+  assert.equal(topology.status,'derived',topology.reason);
+  const expected=deriveTranslationMotif({
+    units:'pixel',basis,
+    cells:brick.map((poly,i)=>({id:`brick-${i}`,polygon:poly.map(([x,y])=>({x,y}))}))
+  });
+  assert.equal(topology.dsSymbol,expected.translationSymbol);
+  assert.equal(topology.cells.length,1);
+  assert.equal(topology.cells[0].boundaries.length,6);
 });
 
 test('T-junction reconstruction remains bounded for hostile or excessive contours',()=>{
