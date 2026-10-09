@@ -46,6 +46,13 @@ test("candidate motif geometry and reciprocal interface references use source pi
     assert.equal(evidence.maximumRigidVertexResidualSourcePixels, 5);
     assert.equal(evidence.translationRefinementResidualSourcePixels, 2.5);
     assert.equal(evidence.originalRasterEdgeSupport, 0.92);
+    assert.equal(evidence.metricRegistration?.status, "registered");
+    assert.equal(evidence.metricRegistration?.maximumContourResidualSourcePixels, 6);
+    assert.equal(evidence.metricRegistration?.rmsContourResidualSourcePixels, 3);
+    assert.equal(evidence.metricRegistration?.originalRasterEdgeSupport, 0.96);
+    assert.equal(evidence.metricRegistration?.mathematicalMetricSymmetries, 4);
+    assert.equal(evidence.metricRegistration?.rasterSymmetriesChecked, 3);
+    assert.equal(evidence.metricRegistration?.rasterSymmetriesSupported, 2);
 });
 test("mapping rejects invalid scale to prevent deceptive coordinate claims", () => {
     const sample: Extract<ExperimentalMotifResult, { status: "consistent-candidate" }> = {
