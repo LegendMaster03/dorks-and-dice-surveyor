@@ -1,4 +1,4 @@
-# Surveyor API v1
+# Surveyor API v2
 
 ## Resource discovery
 
@@ -8,7 +8,7 @@ The first registered resource is `periodic-tiling`.
 
 ## Periodic-tiling detection
 
-POST /v1/periodic-tiling/detect
+POST /v2/periodic-tiling/detect
 Capability: map.periodic-tiling.detect
 
 The image, not the caller, determines the returned tiling identity.
@@ -64,11 +64,7 @@ Optional parameters:
 
 These are detector options, not tiling identity selectors.
 
-For square and triangular Regular profiles, the spacing bounds describe polygon edge length. For hexagonal `6^3`, they retain the pre-existing center-to-center spacing meaning for compatibility with the original hex API. A future API version may normalize that legacy input convention; v1 does not silently change it.
-
-## Classification vocabulary
-
-Derived periodic-tiling classification vocabulary currently includes `Regular`, `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These values are not request selectors.
+For square and triangular Regular profiles, the spacing bounds describe polygon edge length. For hexagonal honeycomb, they retain the pre-existing center-to-center spacing meaning for compatibility with the original hex API. A future API version may normalize that legacy input convention; v2 preserves that legacy fit convention.
 
 ## Scope note
 

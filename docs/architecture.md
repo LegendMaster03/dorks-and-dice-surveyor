@@ -27,7 +27,7 @@ The current composition root registers `periodic-tiling`. Additional headless re
 
 ## Periodic-tiling resource
 
-The periodic-tiling resource exposes `map.periodic-tiling.detect` at `POST /v1/periodic-tiling/detect`.
+The periodic-tiling resource exposes `map.periodic-tiling.detect` at `POST /v2/periodic-tiling/detect`.
 
 Its internal dependency direction is:
 
@@ -70,7 +70,7 @@ The core `regular.hexagonal` path delegates to the existing extracted `detectHex
 
 This preserves the behavior that prevents a strong local near-period fit from incrementally pulling the final solution away from the one rigid lattice supported by the original raster across distant regions.
 
-A three-family period is not by itself sufficient to distinguish a hexagonal honeycomb from a triangular tiling. Both expose three edge-normal families separated by 60 degrees. After the lattice fit succeeds, the public detector therefore verifies edge occupancy against the original raster: honeycomb edges must be present on the expected finite edge segments and should fall away along the collinear continuation beyond each hex edge. Strong continuous carrier evidence downgrades the requested hexagonal result to `inconclusive` instead of misclassifying a triangular grid as `6^3`.
+A three-family period is not by itself sufficient to distinguish a hexagonal honeycomb from a triangular tiling. Both expose three edge-normal families separated by 60 degrees. After the lattice fit succeeds, the public detector therefore verifies edge occupancy against the original raster: honeycomb edges must be present on the expected finite edge segments and should fall away along the collinear continuation beyond each hex edge. Strong continuous carrier evidence downgrades the hexagonal candidate to `inconclusive` instead of misclassifying a triangular grid as the hexagonal D-symbol.
 
 ### Triangular `3^6`
 
@@ -126,9 +126,12 @@ For the three Regular tilings, each edge family has one uniform spacing. More co
 
 That future work should preserve the same rule: all motif components act as simultaneous evidence for one common lattice rather than being aligned sequentially.
 
-## Notation scope beyond edge-to-edge tilings
+## Geometric realization scope
 
-The published GomJau-Hogg system is a construction notation for edge-to-edge regular-polygon tessellations, including the regular, uniform, and k-uniform families it documents. It should not be treated as proof that every eventual Surveyor periodic-tiling family can be uniquely parameterized by GJ-H alone. In particular, non-edge-to-edge isogonal families can contain continuous geometric parameters such as offsets or edge-length ratios. Future support for those families should preserve the resource/catalog boundary and introduce explicit parameterized identity rather than overloading the parser or pretending the notation contains information it does not encode.
+The Delaney-Dress symbol represents tiling combinatorics and symmetry.
+Exact image registration, metric scale, and geometric deformations remain
+independent observations. Implementing full arbitrary-periodic-tiling
+geometric realization is not a prerequisite for parsing and sharing symbols.
 
 ## Concurrency
 
