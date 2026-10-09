@@ -35,7 +35,7 @@ export type PeriodicTilingResourceDependencies = {
 
 const capabilityDescriptor = {
     id: PeriodicTilingDetectionCapability,
-    path: "/v1/periodic-tiling/detect",
+    path: "/v2/periodic-tiling/detect",
     notationHint: { name: "expectedDsSymbol", notation: "Delaney-Dress", required: false },
     authoritativeIdentity: "Response tiling.dsSymbol is derived from image evidence, not the hint.",
     implementedTilings: periodicTilingDefinitions.map(item => ({ dsSymbol: item.dsSymbol })),

@@ -4,7 +4,7 @@ import type {
     RegularLatticeFit
 } from "./analysis/regular-tiling/detector.js";
 
-export const SurveyorApiVersion = "v1" as const;
+export const SurveyorApiVersion = "v2" as const;
 export const PeriodicTilingDetectionCapability = "map.periodic-tiling.detect" as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 

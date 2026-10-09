@@ -35,10 +35,10 @@ test("service identity advertises registered resources and periodic-tiling capab
     if (!address || typeof address === "string") throw new Error("Expected address.");
     try {
         const value = await (await fetch(`http://127.0.0.1:${address.port}/`)).json() as any;
-        assert.equal(value.apiVersion, "v1");
+        assert.equal(value.apiVersion, "v2");
         assert.deepEqual(value.resources, ["periodic-tiling"]);
         assert.equal(value.capabilities[0].id, "map.periodic-tiling.detect");
-        assert.equal(value.capabilities[0].path, "/v1/periodic-tiling/detect");
+        assert.equal(value.capabilities[0].path, "/v2/periodic-tiling/detect");
         assert.deepEqual(value.capabilities[0].notationHint, {
             name: "expectedDsSymbol", notation: "Delaney-Dress", required: false
         });

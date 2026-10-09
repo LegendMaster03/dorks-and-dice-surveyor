@@ -7,7 +7,7 @@ import type {
 
 test("legacy SurveyorHexGridAnalysis preserves the pre-generalization hex fit contract", () => {
     const legacy: SurveyorHexGridAnalysis = {
-        apiVersion: "v1",
+        apiVersion: "v2",
         capability: "map.periodic-tiling.detect",
         tiling: { dsSymbol: "<1:1,1,1:6,3>" },
         status: "detected",
@@ -44,7 +44,7 @@ test("legacy SurveyorHexGridAnalysis preserves the pre-generalization hex fit co
 
 test("generalized periodic analysis exposes geometry-neutral Regular fit fields", () => {
     const generalized: SurveyorPeriodicTilingAnalysis = {
-        apiVersion: "v1",
+        apiVersion: "v2",
         capability: "map.periodic-tiling.detect",
         tiling: { dsSymbol: "<1:1,1,1:4,4>" },
         status: "detected",

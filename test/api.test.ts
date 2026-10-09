@@ -76,7 +76,7 @@ test("health endpoints do not require analysis authentication", async () => {
 test("analysis requires bearer authentication", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        const route = `${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`;
+        const route = `${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`;
         assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png" }, body })).status, 401);
         assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png", authorization: "Bearer wrong" }, body })).status, 401);
     });
@@ -86,7 +86,7 @@ test("automatic detection accepts no hint and does not echo expected identity", 
     await withServer(async baseUrl => {
         const headers = { "content-type": "image/png", authorization: "Bearer " + token };
         const encoded = await plainPng();
-        const route = baseUrl + "/v1/periodic-tiling/detect";
+        const route = baseUrl + "/v2/periodic-tiling/detect";
         const send = (query: string) => fetch(route + (query ? "?" + query : ""),
             { method: "POST", headers, body: bodyOf(encoded) });
         for (const query of [
@@ -123,7 +123,7 @@ async function squareGridPng(): Promise<Buffer> {
 
 test("automatic classification reports square tiles despite a hexagonal expectation", async () => {
     await withServer(async baseUrl => {
-        const url = baseUrl + "/v1/periodic-tiling/detect?expectedDsSymbol="
+        const url = baseUrl + "/v2/periodic-tiling/detect?expectedDsSymbol="
             + encodeURIComponent("<1:1,1,1:6,3>") + "&minimumConfidence=0.24";
         const response = await fetch(url, {
             method: "POST",
@@ -141,7 +141,7 @@ test("automatic classification reports square tiles despite a hexagonal expectat
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}&minimumConfidence=0.54`, {
+        const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}&minimumConfidence=0.54`, {
             method: "POST",
             headers: {
                 "content-type": "image/png",
@@ -154,7 +154,7 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         assert.equal(response.headers.get("x-correlation-id"), "contract-test");
         assert.match(response.headers.get("server-timing") ?? "", /detector;dur=/);
         const value = await response.json() as Record<string, any>;
-        assert.equal(value.apiVersion, "v1");
+        assert.equal(value.apiVersion, "v2");
         assert.equal(value.capability, "map.periodic-tiling.detect");
         assert.equal(value.tiling, null);
         assert.ok(["detected", "inconclusive", "gridless"].includes(value.status));
@@ -172,7 +172,7 @@ test("PNG JPEG and WebP traverse decode grayscale detector and source-coordinate
             { format: "jpeg", mediaType: "image/jpeg" },
             { format: "webp", mediaType: "image/webp" }
         ] as const) {
-            const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+            const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
                 method: "POST",
                 headers: {
                     "content-type": fixture.mediaType,
@@ -198,7 +198,7 @@ test("same encoded input produces deterministic analysis apart from timing", asy
     await withServer(async baseUrl => {
         const encoded = await plainPng();
         const analyze = async () => {
-            const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+            const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
                 method: "POST",
                 headers: { "content-type": "image/png", authorization: `Bearer ${token}` },
                 body: bodyOf(encoded)
@@ -216,13 +216,13 @@ test("invalid options, unsupported media, malformed image, and upload limit are 
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
         const headers = { authorization: `Bearer ${token}` };
-        const route = `${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`;
+        const route = `${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`;
         assert.equal((await fetch(`${route}&minimumConfidence=NaN`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body })).status, 400);
         assert.equal((await fetch(route, { method: "POST", headers: { ...headers, "content-type": "image/gif" }, body })).status, 415);
         assert.equal((await fetch(route, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: bodyOf(Buffer.from("bad")) })).status, 422);
     });
     await withServer(async baseUrl => {
-        const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+        const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
             method: "POST",
             headers: { authorization: `Bearer ${token}`, "content-type": "image/png" },
             body: bodyOf(Buffer.alloc(129))

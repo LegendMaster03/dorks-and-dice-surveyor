@@ -51,7 +51,7 @@ jobs:
           import sharp from 'sharp';
           await sharp({ create: { width: 96, height: 96, channels: 3, background: 'white' } }).png().toFile('/tmp/surveyor-smoke.png');
           NODE
-          curl -fsS -X POST 'http://127.0.0.1:18094/v1/periodic-tiling/detect?expectedDsSymbol=%3C1%3A1%2C1%2C1%3A6%2C3%3E&minimumConfidence=0.54' \
+          curl -fsS -X POST 'http://127.0.0.1:18094/v2/periodic-tiling/detect?expectedDsSymbol=%3C1%3A1%2C1%2C1%3A6%2C3%3E&minimumConfidence=0.54' \
             -H "Authorization: Bearer $token" \
             -H 'Content-Type: image/png' \
             --data-binary '@/tmp/surveyor-smoke.png' \
@@ -59,7 +59,7 @@ jobs:
           python3 - <<'PY'
           import json
           value=json.load(open('/tmp/surveyor-analysis.json'))
-          assert value['apiVersion']=='v1', value
+          assert value['apiVersion']=='v2', value
           assert value['capability']=='map.periodic-tiling.detect', value
           assert value['tiling'] is None, value
           assert value['status'] in ('detected','inconclusive','gridless'), value
