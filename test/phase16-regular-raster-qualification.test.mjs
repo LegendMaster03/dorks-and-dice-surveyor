@@ -5,6 +5,9 @@ import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topo
 import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
 import {inspectDSymbol} from '../dist/src/resources/periodic-tiling/topology/d-symbol.js';
 import {projectChambers} from '../dist/src/resources/periodic-tiling/topology/equivalence.js';
+import {evaluateOriginalRasterTranslations} from '../dist/src/analysis/periodic-tiling/original-edge-candidates.js';
+import {observeMotifInteriors} from '../dist/src/analysis/periodic-tiling/motif-interiors.js';
+import {deriveObservedTopology} from '../dist/src/analysis/periodic-tiling/observed-topology.js';
 
 // Geometry is independent mathematical test ground truth, never fed to detector.
 // Each example uses a different fundamental-domain cell structure.
@@ -50,9 +53,24 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
        id:e.name+'-'+i,polygon:points
      }))
    });
+   const raster=rasterize(e);
    const started=performance.now();
-   const detected=investigatePeriodicMotif(rasterize(e));
+   const detected=investigatePeriodicMotif(raster);
    const elapsedMs=Math.round(performance.now()-started);
+   let failedStages=null;
+   if(detected.status!=='consistent-candidate'){
+     const candidates=evaluateOriginalRasterTranslations(raster,{maxHypotheses:5});
+     failedStages=candidates.status!=='candidates'
+       ?{status:candidates.status,reason:candidates.reason}
+       :candidates.hypotheses.map((h,index)=>{
+          const observed=observeMotifInteriors(raster,h.basis);
+          const topology=observed.status==='observed'
+            ?deriveObservedTopology(observed,h.basis):null;
+          return {index,basis:h.basis,interior:observed.status,
+            interiorReason:observed.reason,classes:observed.classes.length,
+            topology:topology?.status??null,topologyReason:topology?.reason??null};
+       });
+   }
    const actual=detected.status==='consistent-candidate'?detected.candidateDsSymbol:null;
    const correct=actual===exact.translationSymbol;
    // Different translation-domain size is not automatically a wrong tiling.
@@ -82,7 +100,7 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
        ?detected.motifCells.map(c=>c.polygonAnalysisPixels.length):null,
      metricProjection:detected.metricRegistration?.sourceProjection?.status??null,
      metricReason:detected.metricRegistration?.reason??null,
-     reason:detected.reason??null};
+     reason:detected.reason??null,failedStages};
    observations.push(record);
    process.stdout.write('PHASE16_REGULAR '+JSON.stringify(record)+'\n');
    assert.ok(elapsedMs<=15000,e.name+' exceeded 15-second raster-analysis budget');
