@@ -10,6 +10,7 @@ import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigi
 import { registerObservedMetric } from "./observed-metric-registration.js";
 import { crossCheckMetricSymmetryWithOriginalRaster } from "./original-raster-isometry.js";
 import { verifyProjectedPolygonsInOriginalRaster, type SourcePolygonProjection } from "./original-polygon-projection.js";
+import { deriveInteriorMasksFromOriginalEdges } from "./edge-derived-interiors.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
 
 /**
@@ -54,6 +55,7 @@ export type ExperimentalMotifResult =
         maximumRigidVertexResidualPixels: number;
         translationRefinementResidualPixels: number | null;
         metricRegistration?: ExperimentalMetricEvidence;
+        segmentationProvenance?: "original-closed-line" | "original-sobel-gradient-mask";
     }
     | { status: "inconclusive" | "ambiguous"; reason: string; checkedHypotheses: number };
 
@@ -74,6 +76,8 @@ export function investigatePeriodicMotif(
         return { status: "inconclusive", reason: translations.reason, checkedHypotheses: 0 };
     const verified: {
         symbol: string;
+        hypothesisIndex: number;
+        segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
         basis: TranslationHypothesis["basis"];
         minimum: number;
         rasterSupport: number;
@@ -83,28 +87,63 @@ export function investigatePeriodicMotif(
         interior: import("./motif-interiors.js").InteriorObservation;
         topology: Extract<ReturnType<typeof deriveObservedTopology>, { status: "derived" }>;
     }[] = [];
-    for (const hypothesis of translations.hypotheses) {
-        const interior = observeMotifInteriors(raster, hypothesis.basis, options.interiors);
-        if (interior.status !== "observed") continue;
-        // The same translation integers must explain every original-image cell.
-        // A single joint fit refines metric generators, never isolated cells.
-        const refined = refineRigidTranslationBasis(interior, hypothesis.basis, options.refinement);
-        const chosenBasis = refined.status === "refined" ? refined.basis : hypothesis.basis;
-        const topology = deriveObservedTopology(interior, chosenBasis, options.topology);
-        if (topology.status !== "derived") continue;
-        const globalFit = verifyRigidMotifFit(raster, interior, chosenBasis, options.globalFit);
-        if (globalFit.status !== "supported") continue;
-        const motifCells: ExperimentalMotifCell[] = topology.cells.map(cell => ({
-            classId: cell.classId,
-            polygonAnalysisPixels: interior.interiors.find(example => example.motifClass === cell.classId)!.polygon,
-            boundaries: cell.boundaries
-        }));
-        verified.push({ symbol: topology.dsSymbol, basis: chosenBasis, motifCells,
-            minimum: topology.minimumEdgeObservations,
-            rasterSupport: globalFit.originalRasterEdgeSupport,
-            rigidResidual: globalFit.maxVertexResidualPixels,
-            refinementResidual: refined.status === "refined" ? refined.residualPixels : null,
-            interior, topology });
+    // Source-image gradient contours are only a segmentation FALLBACK when
+    // the older white-interior probe cannot operate on multitone cells.
+    // The existing Sobel/translation detector and unchanged-raster metric
+    // verification remain the only sources of periodicity and image support.
+    let fallbackMasks: readonly GrayscaleRaster[] | null = null;
+    for (const [hypothesisIndex,hypothesis] of translations.hypotheses.entries()) {
+        const ordinary=observeMotifInteriors(raster,hypothesis.basis,options.interiors);
+        const observations: {
+            interior: import("./motif-interiors.js").InteriorObservation;
+            segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
+        }[]=[{interior:ordinary,segmentationProvenance:"original-closed-line"}];
+        if(ordinary.status==="inconclusive"
+            &&ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")){
+            if(fallbackMasks===null){
+                const masks:GrayscaleRaster[]=[];
+                for(const radius of [0,1]){
+                    const generated=deriveInteriorMasksFromOriginalEdges(raster,{dilationRadius:radius});
+                    if(generated.status==="generated")
+                        masks.push(...generated.masks.map(m=>m.raster));
+                }
+                fallbackMasks=masks;
+            }
+            for(const mask of fallbackMasks)
+                observations.push({
+                    interior:observeMotifInteriors(mask,hypothesis.basis,options.interiors),
+                    segmentationProvenance:"original-sobel-gradient-mask"
+                });
+        }
+        for(const observed of observations){
+            const {interior,segmentationProvenance}=observed;
+            if(interior.status!=="observed")continue;
+            // All positions share the same integral lattice addresses and one
+            // rigid period fit. Sobel-derived masks cannot vote as source ink.
+            const refined=refineRigidTranslationBasis(interior,hypothesis.basis,options.refinement);
+            const chosenBasis=refined.status==="refined"?refined.basis:hypothesis.basis;
+            const topology=deriveObservedTopology(interior,chosenBasis,{
+                ...options.topology,
+                ...(segmentationProvenance==="original-sobel-gradient-mask"
+                    && options.topology?.maxInkGapPixels === undefined
+                    ? {maxInkGapPixels:12} : {})
+            });
+            if(topology.status!=="derived")continue;
+            const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,options.globalFit);
+            if(globalFit.status!=="supported")continue;
+            const motifCells:ExperimentalMotifCell[]=topology.cells.map(cell=>({
+                classId:cell.classId,
+                polygonAnalysisPixels:interior.interiors.find(example=>example.motifClass===cell.classId)!.polygon,
+                boundaries:cell.boundaries
+            }));
+            verified.push({symbol:topology.dsSymbol,hypothesisIndex,
+                segmentationProvenance,basis:chosenBasis,motifCells,
+                minimum:topology.minimumEdgeObservations,
+                rasterSupport:globalFit.originalRasterEdgeSupport,
+                rigidResidual:globalFit.maxVertexResidualPixels,
+                refinementResidual:refined.status==="refined"?refined.residualPixels:null,
+                interior,topology});
+        }
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
@@ -163,13 +202,14 @@ export function investigatePeriodicMotif(
         candidateDsSymbol: preferred.symbol,
         basis: preferred.basis,
         motifCells: preferred.motifCells,
-        matchedHypotheses: verified.length,
+        matchedHypotheses: new Set(verified.map(h=>h.hypothesisIndex)).size,
         checkedHypotheses: checked,
-        rejectedHypotheses: checked - verified.length,
+        rejectedHypotheses: checked - new Set(verified.map(h=>h.hypothesisIndex)).size,
         minimumEdgeObservations: Math.min(...verified.map(h => h.minimum)),
         originalRasterEdgeSupport: preferred.rasterSupport,
         maximumRigidVertexResidualPixels: preferred.rigidResidual,
         translationRefinementResidualPixels: preferred.refinementResidual,
+        segmentationProvenance: preferred.segmentationProvenance,
         metricRegistration
     };
 }
