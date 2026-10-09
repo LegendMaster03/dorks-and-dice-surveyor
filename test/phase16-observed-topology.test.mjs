@@ -269,6 +269,14 @@ test('existing Sobel boundaries yield candidate closed-cell geometry on non-whit
      polygon:poly.map(([x,y])=>({x,y}))}))}).translationSymbol;
  assert.ok(symbols.includes(expected),
    'A mask must recover the same independently derived chamber graph: '+JSON.stringify(diagnostics));
+ const independent=investigatePeriodicMotif(muted,{
+   translation:{minDistance:25,maxDistance:200,maxPairVotes:300_000}
+ });
+ assert.equal(independent.status,'consistent-candidate',independent.reason);
+ assert.equal(independent.candidateDsSymbol,expected);
+ assert.equal(independent.segmentationProvenance,'original-sobel-gradient-mask');
+ assert.ok(independent.originalRasterEdgeSupport>=0.83);
+ assert.ok(independent.maximumRigidVertexResidualPixels<=5);
 });
 test('Sobel mask segmentation cannot manufacture a motif from flat or strongly textured images',()=>{
  const size=256;
