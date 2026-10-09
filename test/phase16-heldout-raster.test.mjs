@@ -173,7 +173,7 @@ function inspectSample(label,raster,expected){
       for(const minRegionSupport of [0.65,0.55,0.45]){
         const cand=discoverTranslations({...field,samples:nearInk},
           {minDistance:18,maxDistance:220,maxPairVotes:300_000,
-            maxHypotheses:5,minRegionSupport});
+            maxHypotheses:5,minRegionSupport,pixelTolerance:"nearby"});
         thresholds.push({minRegionSupport,status:cand.status,
           highestSupport:cand.vectors[0]?.support??null,
           top:cand.vectors.slice(0,5).map(v=>({
