@@ -63,15 +63,38 @@ function solveReducedLaplacian(
  */
 export function realizeGeneralEuclideanQuotient(
     source: string,
-    metric: { worldUnitsPerAbstractPeriod: number; units: string; rotationDegrees?: number },
+    metric: {
+        worldUnitsPerAbstractPeriod: number;
+        units: string;
+        rotationDegrees?: number;
+        periodULength?: number;
+        periodVLength?: number;
+        periodAngleDegrees?: number;
+    },
     chamberLimit = 1024
 ): GeneralEuclideanMetricResult {
     const unresolved = (reason: string): GeneralEuclideanMetricResult =>
         ({ status: "unresolved-geometry", reason });
-    const { worldUnitsPerAbstractPeriod: worldScale, units, rotationDegrees = 0 } = metric;
+    const {
+        worldUnitsPerAbstractPeriod: worldScale, units, rotationDegrees = 0,
+        periodULength = worldScale, periodVLength = worldScale,
+        periodAngleDegrees = 90
+    } = metric;
     if (!Number.isFinite(worldScale) || worldScale <= 1e-6 || worldScale > 1e6
         || !units?.trim() || !Number.isFinite(rotationDegrees) || Math.abs(rotationDegrees) > 3600)
         return unresolved("A finite positive period scale, world unit, and rotation are required");
+    // Positive-determinant affine images preserve straight-edge incidence,
+    // nonoverlap and the integer-addressed translation topology. An oblique
+    // or anisotropic requested basis is therefore fitted before final proof.
+    if (![periodULength, periodVLength, periodAngleDegrees].every(Number.isFinite)
+        || periodULength <= 1e-6 || periodVLength <= 1e-6
+        || periodULength > 1e6 || periodVLength > 1e6
+        || periodAngleDegrees <= 0 || periodAngleDegrees >= 180)
+        return unresolved("The requested period lengths and angle must define a bounded positive-area basis");
+    const periodAngle = periodAngleDegrees * Math.PI / 180;
+    const periodCosine = Math.cos(periodAngle), periodSine = Math.sin(periodAngle);
+    if (periodSine <= 1e-8)
+        return unresolved("The requested period angle collapses the fundamental domain");
     const abstract = constructGeneralEuclideanTranslationCover(source, chamberLimit);
     if (abstract.status !== "constructed")
         return abstract.status === "unsupported" || abstract.status === "invalid"
@@ -191,14 +214,15 @@ export function realizeGeneralEuclideanQuotient(
     } catch (error) {
         return unresolved(`The harmonic polygon motif is not a verified periodic embedding: ${error instanceof Error ? error.message : String(error)}`);
     }
-    // Similarities preserve validated nonoverlap and reciprocal incidence.
-    // Avoid running the absolute-EPS verifier at extreme user scales.
+    // Construct an affine period basis and apply the same transform to every
+    // polygon and reciprocal interface, then independently verify the result.
     const angle = rotationDegrees * Math.PI / 180;
     const cos = Math.cos(angle), sin = Math.sin(angle);
-    const transform = (p: Point2): Point2 => ({
-        x: worldScale * (p.x * cos - p.y * sin),
-        y: worldScale * (p.x * sin + p.y * cos)
-    });
+    const transform = (p: Point2): Point2 => {
+        const x = p.x * periodULength + p.y * periodVLength * periodCosine;
+        const y = p.y * periodVLength * periodSine;
+        return { x: x * cos - y * sin, y: x * sin + y * cos };
+    };
     const transformed: OperationalCover = {
         ...cover, units,
         basis: [transform(cover.basis[0]), transform(cover.basis[1])],
@@ -211,5 +235,16 @@ export function realizeGeneralEuclideanQuotient(
             }))
         }))
     };
+    try {
+        const affineWitness: PeriodicWitness = {
+            basis: transformed.basis, units: transformed.units,
+            cells: transformed.cells.map(cell => ({ id: cell.id, polygon: cell.polygon }))
+        };
+        const independentlyVerified = verifyPeriodicWitness(source, affineWitness);
+        if (independentlyVerified.translationSymbol !== abstract.translationDsSymbol)
+            return unresolved("Affine metric fitting changed the translational chamber graph");
+    } catch (error) {
+        return unresolved(`The fitted affine polygons failed independent periodic verification: ${error instanceof Error ? error.message : String(error)}`);
+    }
     return { status: "realized", cover: transformed, method: "periodic-harmonic-embedding-verified" };
 }
