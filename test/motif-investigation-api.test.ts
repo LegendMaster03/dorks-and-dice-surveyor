@@ -176,8 +176,9 @@ test("preview reconstructs a translated mixed-cell raster and exposes provisiona
         assert.equal(value.authoritative, false);
         assert.equal(value.candidate.dsSymbol, expected.translationSymbol);
         assert.ok(value.candidate.motifCells.length >= 2);
-        assert.ok(["registered", "inconclusive", "unsupported"].includes(
-            value.evidence.metricRegistration.status));
+        assert.equal(value.evidence.metricRegistration.status, "registered",
+            value.evidence.metricRegistration.reason ??
+            "A complete closed-line mixed-cell fixture must have an exact shared polygon witness");
         assert.equal(value.authoritative, false,
             "Metric evidence does not promote a provisional motif to an accepted tiling");
         assert.ok(value.evidence.metricRegistration.rasterSymmetriesSupported
