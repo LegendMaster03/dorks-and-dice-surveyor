@@ -3,10 +3,17 @@ import { projectChambers } from "./equivalence.js";
 import type { OperationalCover, Point2, LatticeShift } from "./motif.js";
 import { reduceCombinatorialChamberSymmetry } from "./chamber-symmetry-reduction.js";
 
+export type VerifiedRigidIsometry = {
+    sourceOrigin: Point2;
+    targetOrigin: Point2;
+    xAxis: Point2;
+    yAxis: Point2;
+};
 export type MetricChamberSymmetryResult =
     | { status: "verified"; translationDsSymbol: string; metricQuotientDsSymbol: string;
         metricAutomorphisms: number; combinatorialAutomorphisms: number;
         sourceChambers: number; quotientChambers: number; maximumResidual: number;
+        verifiedRigidIsometries: readonly VerifiedRigidIsometry[];
         evidence: "complete-periodic-polygon-witness" }
     | { status: "inconclusive" | "unsupported"; reason: string };
 
@@ -118,6 +125,7 @@ export function verifyMetricChamberSymmetry(
         if(px!==py)parent[Math.max(px,py)]=Math.min(px,py);
     };
     let metricAutomorphisms=0, maximumResidual=0;
+    const verifiedRigidIsometries: VerifiedRigidIsometry[] = [];
     const reference=flags[1];
     const d=sub(reference.midpoint,reference.vertex),length=norm(d);
     if(length<1e-9)return unsupported("Barycentric reference side is degenerate");
@@ -205,6 +213,12 @@ export function verifyMetricChamberSymmetry(
             }
             if(!works)continue;
             metricAutomorphisms++;
+            verifiedRigidIsometries.push({
+                sourceOrigin: reference.vertex,
+                targetOrigin: desired.vertex,
+                xAxis: linear({x:1,y:0}),
+                yAxis: linear({x:0,y:1})
+            });
             maximumResidual=Math.max(maximumResidual,worst);
             for(let i=1;i<=n;i++)union(i,map[i]);
             break;
@@ -232,5 +246,6 @@ export function verifyMetricChamberSymmetry(
         metricQuotientDsSymbol:quotient.symbol.canonical,
         metricAutomorphisms,combinatorialAutomorphisms:combinatorial.automorphismCount,
         sourceChambers:n,quotientChambers:qn,maximumResidual,
+        verifiedRigidIsometries,
         evidence:"complete-periodic-polygon-witness"};
 }
