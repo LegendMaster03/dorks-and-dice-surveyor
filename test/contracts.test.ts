@@ -9,11 +9,7 @@ test("legacy SurveyorHexGridAnalysis preserves the pre-generalization hex fit co
     const legacy: SurveyorHexGridAnalysis = {
         apiVersion: "v1",
         capability: "map.periodic-tiling.detect",
-        tiling: {
-            periodicTilingType: "Regular",
-            crNotation: "6^3",
-            gjhNotation: "6/m30/r(h1)"
-        },
+        tiling: { dsSymbol: "<1:1,1,1:6,3>" },
         status: "detected",
         reason: "fixture",
         source: { width: 100, height: 80, mediaType: "image/png" },
@@ -50,11 +46,7 @@ test("generalized periodic analysis exposes geometry-neutral Regular fit fields"
     const generalized: SurveyorPeriodicTilingAnalysis = {
         apiVersion: "v1",
         capability: "map.periodic-tiling.detect",
-        tiling: {
-            periodicTilingType: "Regular",
-            crNotation: "4^4",
-            gjhNotation: "4/m45/r(h1)"
-        },
+        tiling: { dsSymbol: "<1:1,1,1:4,4>" },
         status: "detected",
         reason: "fixture",
         source: { width: 100, height: 80, mediaType: "image/png" },

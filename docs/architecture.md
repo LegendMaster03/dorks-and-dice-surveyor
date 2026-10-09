@@ -35,47 +35,25 @@ Its internal dependency direction is:
 
 These layers have deliberately different responsibilities.
 
-### Notation parsers
+### Delaney-Dress identity
 
-`src/resources/periodic-tiling/notation/` contains independent parsers for Cundy-Rollett and GomJau-Hogg notation.
+Standard two-dimensional Delaney-Dress numerical strings are the sole tiling notation.
+The parser validates chamber involutions, 0/2 commutativity, orbit data,
+Euclidean curvature, and canonicalizes chamber relabeling. The parser is not
+dependent on the catalog and can recognize structurally valid unregistered symbols.
 
-The parsers validate notation structure and return canonical parsed representations. They do not ask whether Surveyor currently knows or implements the represented tiling. Therefore adding a new catalog entry or detector does not require editing the parser merely to accept that notation's structure.
+The catalog registers only implemented detectors: triangular (<1:1,1,1:3,6>),
+square (<1:1,1,1:4,4>) and hexagonal (<1:1,1,1:6,3>).
 
-Cundy-Rollett parsing handles polygon side counts and exponents, cyclic vertex configurations, semicolon-separated vertices, ambiguity/variant brackets, insignificant whitespace, braced exponents, Unicode superscripts, and redundant grouping. Cyclic rotations and reflected readings of one vertex configuration canonicalize to the same form. The overloaded parenthesized repetition is resolved using Euclidean vertex angle closure: `(3.6)^2` expands one local polygon sequence because `3.6.3.6` closes 360 degrees, while `(3^6)^2` represents two complete `3^6` vertices because `3^6` already closes 360 degrees. Repeated equivalent vertices are canonicalized to a vertex multiplicity. Published ambiguity variants use a superscript discriminator on the complete bracketed expression and canonicalize to `[... ]^N` without the insignificant space.
+### Image-driven detection
 
-GomJau-Hogg parsing follows the published construction grammar: the seed phase is exactly one polygon with `3`, `4`, `6`, `8`, or `12` sides; later shape-placement phases are hyphen-separated and can contain comma-separated polygon placements or `0` side skips; and at least two mirror/rotation transformation stages follow, with optional angles and `c`, `v`, or `h` indexed origins. Centered transformations with an omitted angle canonicalize to the published 180-degree default. Eccentric transformations retain the omitted angle because the selected origin participates in determining the construction geometry. Parsed origin indices are bounded to safe integers.
-
-### Tiling catalog
-
-`src/resources/periodic-tiling/catalog.ts` maps canonical notation to known logical tiling identities. This is where equivalence between a Cundy-Rollett form and a GomJau-Hogg form is asserted.
-
-Cundy-Rollett is intentionally indexed to a candidate set rather than a single definition because the notation is not unique for every tiling. GomJau-Hogg is indexed as a unique identity. If a future Cundy-Rollett entry maps to multiple registered definitions, C&R alone reports an ambiguous selector instead of silently choosing one; supplying GJ-H allows the catalog to intersect the candidates and resolve an exact identity.
-
-Catalog definitions must store canonical C&R and GJ-H strings. Detector registration is also an all-or-none type invariant: a definition either has both a detector ID and its detector geometry or neither. This prevents discovery from advertising a partially wired implementation.
-
-The first cataloged and implemented family is `Regular`:
-
-- `regular.triangular`: `3^6` / `3/m30/r(h2)`;
-- `regular.square`: `4^4` / `4/m45/r(h1)`;
-- `regular.hexagonal`: `6^3` / `6/m30/r(h1)`.
-
-All three identities register the `regular-lattice` detector with a geometry-specific profile. Catalog identity remains separate from detector implementation so future families can use different detector models without changing notation resolution.
-
-### Request resolution
-
-The public tiling identity boundary remains notation-only. A caller supplies `crNotation`, `gjhNotation`, or both. `periodicTilingType`, shape names, and polygon side counts are derived identity and are rejected as request selectors.
-
-Resolution distinguishes:
-
-- malformed or geometrically impossible Euclidean Cundy-Rollett notation -> `400 invalid_cr_notation`;
-- malformed GomJau-Hogg notation -> `400 invalid_gjh_notation`;
-- structurally valid but uncataloged identity -> `501 tiling_identity_unregistered`;
-- registered but ambiguous Cundy-Rollett identity -> `400 tiling_selector_ambiguous`;
-- registered but detectorless tiling -> `501 tiling_not_implemented`;
-- two registered notations resolving to different tilings -> `400 tiling_selector_conflict`;
-- registered and implemented tiling -> detector dispatch.
-
-When both notation systems are supplied, Surveyor only claims equivalence when the catalog can prove that the GJ-H identity is a member of the C&R candidate set. It does not infer identity merely because both strings parse.
+The expectedDsSymbol parameter is optional. Surveyor evaluates every supported
+candidate against the original prepared raster, using the hint only to prioritize
+execution. It reports the observed tiling as tiling.dsSymbol only when a candidate
+wins unambiguously; otherwise tiling is null. Different detector confidence values
+are not treated as calibrated probabilities. Candidate results are compared using
+confidence, support, normalized residual and an ambiguity threshold. Further
+calibration is required as detector families expand.
 
 ## Generalized Regular-lattice detector
 

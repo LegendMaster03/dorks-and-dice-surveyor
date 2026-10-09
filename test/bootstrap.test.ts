@@ -39,36 +39,13 @@ test("service identity advertises registered resources and periodic-tiling capab
         assert.deepEqual(value.resources, ["periodic-tiling"]);
         assert.equal(value.capabilities[0].id, "map.periodic-tiling.detect");
         assert.equal(value.capabilities[0].path, "/v1/periodic-tiling/detect");
-        assert.deepEqual(value.capabilities[0].notationSelectors, [
-            {
-                name: "crNotation",
-                kind: "notation",
-                notation: "Cundy-Rollett",
-                required: false,
-                preferred: true
-            },
-            {
-                name: "gjhNotation",
-                kind: "notation",
-                notation: "GomJau-Hogg",
-                required: false,
-                preferred: false
-            }
-        ]);
-        assert.deepEqual(value.capabilities[0].derivedIdentity, ["periodicTilingType", "crNotation", "gjhNotation"]);
+        assert.deepEqual(value.capabilities[0].notationHint, {
+            name: "expectedDsSymbol", notation: "Delaney-Dress", required: false
+        });
         assert.deepEqual(value.capabilities[0].implementedTilings, [
-            { periodicTilingType: "Regular", crNotation: "3^6", gjhNotation: "3/m30/r(h2)" },
-            { periodicTilingType: "Regular", crNotation: "4^4", gjhNotation: "4/m45/r(h1)" },
-            { periodicTilingType: "Regular", crNotation: "6^3", gjhNotation: "6/m30/r(h1)" }
-        ]);
-        assert.deepEqual(value.capabilities[0].recognizedTilingFamilies, [
-            { name: "Regular", implemented: true },
-            { name: "semiregular", implemented: false, subtypes: ["Archimedean", "uniform"] },
-            { name: "k-uniform", implemented: false },
-            { name: "Plane-vertex", implemented: false },
-            { name: "2-uniform", implemented: false },
-            { name: "Fractalizing", implemented: false },
-            { name: "non-edge-to-edge", implemented: false }
+            { dsSymbol: "<1:1,1,1:3,6>" },
+            { dsSymbol: "<1:1,1,1:4,4>" },
+            { dsSymbol: "<1:1,1,1:6,3>" }
         ]);
     } finally {
         server.close();

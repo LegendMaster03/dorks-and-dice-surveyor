@@ -1,57 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SurveyorRequestError } from "../src/errors.js";
 import { selectPeriodicTiling } from "../src/resources/periodic-tiling/selection.js";
+import { SurveyorRequestError } from "../src/errors.js";
 
-function selection(query: string) {
-    return () => selectPeriodicTiling(new URLSearchParams(query));
-}
+function select(query: string) { return selectPeriodicTiling(new URLSearchParams(query)); }
 
-function requestError(statusCode: number, code: string) {
-    return (error: unknown): boolean => error instanceof SurveyorRequestError
-        && error.statusCode === statusCode
-        && error.code === code;
-}
-
-test("catalog resolution is separate from notation parsing", () => {
-    assert.throws(selection("crNotation=3.4.6.4"), requestError(501, "tiling_identity_unregistered"));
-    assert.throws(
-        selection(`crNotation=${encodeURIComponent("[3^6;3^4.6]^1")}`),
-        requestError(501, "tiling_identity_unregistered"));
-    assert.throws(
-        selection(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`),
-        requestError(501, "tiling_identity_unregistered"));
-
-    assert.throws(selection("crNotation=6%5E"), requestError(400, "invalid_cr_notation"));
-    assert.throws(
-        selection(`gjhNotation=${encodeURIComponent("6/x30/r(h1)")}`),
-        requestError(400, "invalid_gjh_notation"));
+test("optional expected D-symbol changes order but not available hypotheses", () => {
+    const all = select("");
+    assert.equal(all.expectedDsSymbol, null);
+    assert.deepEqual(all.prioritizedDetectors.map(item => item.id), [
+        "regular.triangular", "regular.square", "regular.hexagonal"
+    ]);
+    const hint = select("expectedDsSymbol=" + encodeURIComponent("<1.1:1:1,1,1:6,3>"));
+    assert.equal(hint.expectedDsSymbol, "<1:1,1,1:6,3>");
+    assert.deepEqual(hint.prioritizedDetectors.map(item => item.id), [
+        "regular.hexagonal", "regular.triangular", "regular.square"
+    ]);
+    const validUnknown = select("expectedDsSymbol=" + encodeURIComponent("<1:1,1,1:3,6>"));
+    assert.equal(validUnknown.expectedDsSymbol, "<1:1,1,1:3,6>");
 });
 
-test("all three Regular tilings resolve to the generalized detector with geometry-specific profiles", () => {
-    for (const fixture of [
-        { notation: "3%5E6", id: "regular.triangular", cr: "3^6", gjh: "3/m30/r(h2)" },
-        { notation: "4%5E4", id: "regular.square", cr: "4^4", gjh: "4/m45/r(h1)" },
-        { notation: "6.6.6", id: "regular.hexagonal", cr: "6^3", gjh: "6/m30/r(h1)" }
-    ]) {
-        const resolved = selectPeriodicTiling(new URLSearchParams(`crNotation=${fixture.notation}`));
-        assert.deepEqual(resolved, {
-            id: fixture.id,
-            periodicTilingType: "Regular",
-            crNotation: fixture.cr,
-            gjhNotation: fixture.gjh,
-            detectorId: "regular-lattice",
-            detectorGeometry: fixture.id
-        });
+test("legacy selectors and malformed or repeated expected symbols are rejected", () => {
+    for (const value of ["crNotation=6%5E3", "gjhNotation=6%2Fm30%2Fr(h1)", "shape=hex", "dsSymbol=x"]) {
+        assert.throws(() => select(value), (error: unknown) =>
+            error instanceof SurveyorRequestError && error.statusCode === 400);
     }
-});
-
-test("two notation systems must resolve to the same catalog identity", () => {
-    assert.throws(
-        selection(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`),
-        requestError(400, "tiling_selector_conflict"));
-
-    assert.throws(
-        selection(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`),
-        requestError(501, "tiling_identity_unregistered"));
+    assert.throws(() => select("expectedDsSymbol=invalid"), (error: unknown) =>
+        error instanceof SurveyorRequestError && error.code === "invalid_ds_symbol");
+    assert.throws(() => select("expectedDsSymbol=x&expectedDsSymbol=y"), (error: unknown) =>
+        error instanceof SurveyorRequestError && error.code === "tiling_hint_count");
 });

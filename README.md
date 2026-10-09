@@ -20,10 +20,14 @@ Future resources can be registered beside it without adding their domain logic t
 
 ## Euclidean periodic tilings
 
-Periodic tilings are selected with standard notation rather than caller-supplied family, shape, or polygon-side discriminators.
+Periodic tilings are identified using standard Delaney-Dress symbols only.
+The optional expectedDsSymbol hint prioritizes image-analysis candidates but
+does not constrain the observed tiling returned as tiling.dsSymbol.
+When absent, Surveyor evaluates its supported candidate families automatically.
+The parser validates and canonicalizes symbols independently of detector registration.
 
-- `crNotation` accepts Cundy-Rollett notation and is the preferred selector.
-- `gjhNotation` accepts GomJau-Hogg notation as an equivalent first-class selector.
+- `expectedDsSymbol` accepts Cundy-Rollett notation and is the preferred selector.
+- `expectedDsSymbol` accepts GomJau-Hogg notation as an equivalent first-class selector.
 
 The notation parsers are independent from the detector catalog. They parse and canonicalize structurally valid notation even when Surveyor does not yet have a catalog identity or detector for that tiling. This separates malformed notation, valid but uncataloged identity, and cataloged detector support.
 
