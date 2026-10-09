@@ -97,6 +97,20 @@ test('unhinted original-raster pipeline derives T-junction topology without supp
  assert.ok(result.originalRasterEdgeSupport>=0.83);
 });
 
+test('no-hint raster exploration of staggered oblique bricks cannot invent a conflicting topology',()=>{
+  const brick=[[[0,0],[96,0],[96,32],[0,32]]];
+  const raster=rasterize(brick,{basis:[[96,0],[48,32]]});
+  const expected=deriveTranslationMotif({
+    units:'pixel',basis:[{x:96,y:0},{x:48,y:32}],
+    cells:[{id:'brick-oblique',polygon:brick[0].map(([x,y])=>({x,y}))}]
+  });
+  const result=investigatePeriodicMotif(raster,{
+    translation:{minDistance:18,maxDistance:175,maxPairVotes:300_000}
+  });
+  assert.equal(result.status,'consistent-candidate',result.reason);
+  assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+});
+
 test('T-junction reconstruction remains bounded for hostile or excessive contours',()=>{
  const invalid=splitObservedTJunctionSides([[{x:NaN,y:0},{x:0,y:1},{x:1,y:1}]]);
  assert.equal(invalid.status,'inconclusive');
