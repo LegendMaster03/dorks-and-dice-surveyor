@@ -148,6 +148,7 @@ export function recoverPrimitiveObservedLattice(
         const successful: Candidate[]=[];
         const count=current.interior.classes.length;
         const sourceSymbol=inspectDSymbol(current.topology.dsSymbol,2048);
+        let unresolvedSubperiod=false;
         if(sourceSymbol.status!=="euclidean")
             return {status:"ambiguous",reason:"Primitive search began with an invalid chamber graph"};
         for(const reduced of primeOverlattices(current.basis,count)) {
@@ -156,6 +157,11 @@ export function recoverPrimitiveObservedLattice(
             if(targetCount<1||targetCount>=count||count%targetCount!==0)continue;
             const observation=repartition(current.interior,reduced,targetCount);
             if(!observation)continue;
+            // Complete translated polygon matches establish a plausible
+            // subperiod. If its topology or unchanged-image registration
+            // cannot be certified, refuse the larger presentation instead
+            // of claiming that the lattice is necessarily primitive.
+            unresolvedSubperiod=true;
             const refined=refineRigidTranslationBasis(observation,reduced,options.refinement);
             const basis=refined.status==="refined"?refined.basis:reduced;
             const topology=deriveObservedTopology(observation,basis,options.topology);
@@ -176,7 +182,12 @@ export function recoverPrimitiveObservedLattice(
                 rasterSupport:rigid.originalRasterEdgeSupport,
                 rigidResidual:rigid.maxVertexResidualPixels});
         }
-        if(!successful.length) break;
+        if(!successful.length) {
+            if(unresolvedSubperiod)
+                return {status:"ambiguous",
+                    reason:"A shorter observed polygon period lacks complete independent topology or image proof"};
+            break;
+        }
         const first=successful[0];
         if(successful.some(next=>
             next.topology.dsSymbol!==first.topology.dsSymbol ||
