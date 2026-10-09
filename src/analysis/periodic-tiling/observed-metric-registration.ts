@@ -181,27 +181,32 @@ export function registerObservedMetric(
     }
     if(worst>maximumResidual)
         return inconclusive(`Shared periodic polygon vertices deviate by ${worst.toFixed(2)} px from one exact joint fit (limit ${maximumResidual.toFixed(2)} px)`);
-    // The source image crop can begin many whole lattice periods from the
-    // origin. Bring the ENTIRE motif into one nearby representative domain
-    // by a single integral period displacement. This changes no cell shape,
-    // adjacency, fit residual, or infinite-cover registration.
-    const centroid=mul(fitted.reduce(add,{x:0,y:0}),1/fitted.length);
-    const centerAddress=coordinates(centroid);
-    const centerU=Math.round(centerAddress.x-.5);
-    const centerV=Math.round(centerAddress.y-.5);
-    if(!Number.isSafeInteger(centerU)||!Number.isSafeInteger(centerV)
-        ||Math.abs(centerU)>2048||Math.abs(centerV)>2048)
-        return unsupported("Image-domain translation normalization exceeds bounded lattice coordinates");
-    const uniformOriginShift=shift(centerU,centerV);
+    // Each motif class can have its FIRST observed full cell in a different
+    // period of the crop. Choose a nearby representative for each class,
+    // using strictly INTEGER whole-period shifts. This changes only the
+    // arbitrary torus gauge of its class address: it does not move any
+    // physical pixel observation, refit a vertex, or alter drift residuals.
+    // The independent polygon constructor must derive every new adjacency
+    // voltage and prove non-overlap in the entire infinite periodic cover.
     const witness:PeriodicWitness={units:"pixel",basis:[a,b],
-        cells:kinds.map(kind=>({id:`observed-${kind.id}`,
-            polygon:Array.from({length:kind.sideCount},(_,i)=>
-                sub(fitted[key(kind.id,i)],uniformOriginShift))}))};
+        cells:kinds.map(kind=>{
+            const polygon=Array.from({length:kind.sideCount},(_,i)=>
+                fitted[key(kind.id,i)]);
+            const center=mul(polygon.reduce(add,{x:0,y:0}),1/polygon.length);
+            const period=coordinates(center);
+            const u=Math.round(period.x-.5),v=Math.round(period.y-.5);
+            if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
+                ||Math.abs(u)>2048||Math.abs(v)>2048)
+                throw new RangeError("Periodic motif class address exceeds bounded normalization");
+            const periodOffset=shift(u,v);
+            return {id:`observed-${kind.id}`,
+                polygon:polygon.map(p=>sub(p,periodOffset))};
+        })};
     let cover:OperationalCover;
     try{cover=deriveTranslationMotif(witness);}
     catch(error){
         if(!(error instanceof CoverValidationError))throw error;
-        return inconclusive(`Independently reconstructed periodic polygon geometry fails: ${error.message}; candidate=${JSON.stringify(witness.cells.map(cell => cell.polygon.map(p => [Math.round(p.x), Math.round(p.y)])))}`);
+        return inconclusive(`Independently reconstructed periodic polygon geometry fails: ${error.message}`);
     }
     if(cover.translationSymbol!==topology.dsSymbol)
         return inconclusive("A geometry-derived chamber graph disagrees with the original raster-derived topology");
