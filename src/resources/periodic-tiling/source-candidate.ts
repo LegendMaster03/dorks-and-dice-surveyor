@@ -41,7 +41,21 @@ export function mapExperimentalMotifToSource(
             observation.maximumRigidVertexResidualPixels / analysisScale,
         translationRefinementResidualSourcePixels:
             observation.translationRefinementResidualPixels == null ? null
-                : observation.translationRefinementResidualPixels / analysisScale
+                : observation.translationRefinementResidualPixels / analysisScale,
+        ...(observation.metricRegistration ? { metricRegistration: {
+            status: observation.metricRegistration.status,
+            reason: observation.metricRegistration.reason,
+            maximumContourResidualSourcePixels:
+                observation.metricRegistration.maximumContourResidualPixels == null ? null
+                    : observation.metricRegistration.maximumContourResidualPixels / analysisScale,
+            rmsContourResidualSourcePixels:
+                observation.metricRegistration.rmsContourResidualPixels == null ? null
+                    : observation.metricRegistration.rmsContourResidualPixels / analysisScale,
+            originalRasterEdgeSupport: observation.metricRegistration.originalRasterEdgeSupport,
+            mathematicalMetricSymmetries: observation.metricRegistration.mathematicalMetricSymmetries,
+            rasterSymmetriesChecked: observation.metricRegistration.rasterSymmetriesChecked,
+            rasterSymmetriesSupported: observation.metricRegistration.rasterSymmetriesSupported
+        }} : {})
     };
     return { candidate, evidence };
 }
