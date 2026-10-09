@@ -54,7 +54,20 @@ export function mapExperimentalMotifToSource(
             originalRasterEdgeSupport: observation.metricRegistration.originalRasterEdgeSupport,
             mathematicalMetricSymmetries: observation.metricRegistration.mathematicalMetricSymmetries,
             rasterSymmetriesChecked: observation.metricRegistration.rasterSymmetriesChecked,
-            rasterSymmetriesSupported: observation.metricRegistration.rasterSymmetriesSupported
+            rasterSymmetriesSupported: observation.metricRegistration.rasterSymmetriesSupported,
+            ...(observation.metricRegistration.sourceProjection ? {sourceProjection: {
+                status: observation.metricRegistration.sourceProjection.status,
+                reason: observation.metricRegistration.sourceProjection.status === "supported"
+                    ? null : observation.metricRegistration.sourceProjection.reason,
+                edgeSupport: observation.metricRegistration.sourceProjection.status === "supported"
+                    ? observation.metricRegistration.sourceProjection.edgeSupport : null,
+                interiorSupport: observation.metricRegistration.sourceProjection.status === "supported"
+                    ? observation.metricRegistration.sourceProjection.interiorSupport : null,
+                checkedRegions: observation.metricRegistration.sourceProjection.status === "supported"
+                    ? observation.metricRegistration.sourceProjection.checkedRegions : null,
+                supportedRegions: observation.metricRegistration.sourceProjection.status === "supported"
+                    ? observation.metricRegistration.sourceProjection.supportedRegions : null
+            }} : {})
         }} : {})
     };
     return { candidate, evidence };
