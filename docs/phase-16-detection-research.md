@@ -187,3 +187,47 @@ covers. Its `remainingBranchedOrbits` field explicitly counts cone/rotation
 and edge branching still unresolved. **This alone is not a torsion-free
 translation torus or a geometric realization.** The orientability step is
 proved and tested, but general branched-orbifold unfolding remains outstanding.
+
+## General Euclidean cone-point unfolding (cross-language proof)
+
+The additional `constructGeneralEuclideanTranslationCover` constructor no
+longer assumes uniform polygon degrees or an already expanded torus.
+After the orientation double, it constructs the oriented orbifold's
+face/edge/vertex chamber-orbit graph. For each local stabilizer of order
+`b`, it assigns finite cyclic holonomy of exact order `b`. Such charges
+must sum to zero on the closed oriented surface. A sparse spanning-tree
+flow then computes chamber-edge voltages realizing those charges.
+
+The connected lifted chamber graph is independently required to have
+**no residual face, edge, or vertex branching**, to form an orientable
+Euclidean torus, to possess primitive rank-two translational adjacency
+and to project back to the user's original D-symbol. The same method
+works for square, triangular, hexagonal, mixed square/triangle and
+non-edge-to-edge polygonal quotient test cases, with no named-pattern
+selection. Strict chamber and sheet limits still produce unsupported
+results rather than invalidating a valid mathematical symbol.
+
+The shared `generalQuotientCases` fixture checks 12 supported,
+unsupported and invalid cases across TypeScript and C#.
+
+### Image-independent harmonic metric realization
+
+`realizeGeneralEuclideanQuotient` provides an additive, bounded
+image-free realization attempt. It reconstructs every vertex orbit
+from the topology's reciprocal interfaces and exact lattice shifts.
+A periodic harmonic (minimum squared-edge) embedding solves a
+gauge-fixed Laplacian for polygon vertices. The resulting polygons
+are accepted **only if the independent complete-motif geometric
+validator proves nonoverlap, all reciprocal boundaries, the primitive
+translation basis and the original D-symbol**. Eight representative
+regular and mixed-cell quotient examples pass.
+
+Harmonic embedding is not a theorem that *every* valid Euclidean
+D-symbol will have a nondegenerate admissible embedding under these
+choices. It also does not satisfy arbitrary anisotropic constraints,
+fixed corner angles, or arbitrary polygon edge-length requirements:
+only explicit uniform period scale, rotation, and world units are
+supported so far. Degenerate, oversized or incompatible cases return
+`unresolved-geometry`. The operational Tile Crawl metric validator
+and UI remain Phase 16 work; no saved world consumes this candidate
+automatically.
