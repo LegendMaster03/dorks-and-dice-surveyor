@@ -117,9 +117,9 @@ export function unfoldUniformEuclideanQuotient(
             translationDsSymbol: cover.sourceSymbol,
             motifCells: cover.cells.map(cell => ({
                 id: `fiber-${cell.id}`,
-                boundary: cell.boundary.map(edge => ({
-                    index: edge.edge,
-                    boundarySideIndex: edge.edge,
+                boundary: cell.boundary.map((edge, index) => ({
+                    index,
+                    boundarySideIndex: index,
                     targetMotifCellId: `fiber-${edge.targetCell}`,
                     targetTranslation: { u: edge.shift[0], v: edge.shift[1] },
                     reciprocalInterfaceIndex: edge.reciprocalEdge
