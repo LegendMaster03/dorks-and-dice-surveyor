@@ -55,7 +55,14 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    const correct=actual===exact.translationSymbol;
    const record={name:e.name,correct,status:detected.status,elapsedMs,
      segmentation:detected.segmentationProvenance??null,
-     metricStatus:detected.metricRegistration?.status??null};
+     metricStatus:detected.metricRegistration?.status??null,
+     candidateSymbol:actual,expectedSymbol:exact.translationSymbol,
+     candidateBasis:detected.status==='consistent-candidate'?detected.basis:null,
+     candidateCellSides:detected.status==='consistent-candidate'
+       ?detected.motifCells.map(c=>c.polygonAnalysisPixels.length):null,
+     metricProjection:detected.metricRegistration?.sourceProjection?.status??null,
+     metricReason:detected.metricRegistration?.reason??null,
+     reason:detected.reason??null};
    observations.push(record);
    process.stdout.write('PHASE16_REGULAR '+JSON.stringify(record)+'\n');
    assert.ok(elapsedMs<=15000,e.name+' exceeded 15-second raster-analysis budget');
