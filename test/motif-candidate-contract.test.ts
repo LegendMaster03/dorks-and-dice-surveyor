@@ -25,7 +25,14 @@ test("candidate motif geometry and reciprocal interface references use source pi
         matchedHypotheses: 1, checkedHypotheses: 3, rejectedHypotheses: 2,
         minimumEdgeObservations: 8, originalRasterEdgeSupport: 0.92,
         maximumRigidVertexResidualPixels: 2.5,
-        translationRefinementResidualPixels: 1.25
+        translationRefinementResidualPixels: 1.25,
+        metricRegistration: {
+            status: "registered", reason: null,
+            maximumContourResidualPixels: 3, rmsContourResidualPixels: 1.5,
+            originalRasterEdgeSupport: 0.96,
+            mathematicalMetricSymmetries: 4,
+            rasterSymmetriesChecked: 3, rasterSymmetriesSupported: 2
+        }
     };
     const { candidate, evidence } = mapExperimentalMotifToSource(sample, 0.5);
     assert.deepEqual(candidate.translationBasisSourcePixels, [{ x: 40, y: 0 }, { x: 0, y: 40 }]);
