@@ -1,0 +1,80 @@
+{
+  "contractVersion": 1,
+  "convention": "finite 2D standard Delaney-Dress numerical symbol; chamber relabeling normal form; symmetry group explicitly selected by input; quotient identity is distinct from translation-cover identity",
+  "cases": [
+    {
+      "name": "square",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "triangle",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "hexagon",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "two-orbit square checker",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "mixed triangle square translation motif",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "rhombille three-rhombus translation motif",
+      "dsSymbol": "<24:2 7 6 10 14 16 18 20 17 19 24 23,3 5 9 12 13 15 17 19 21 22 24 23,4 6 8 11 14 15 18 21 22 19 23 24:4 4 4,3 6 3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "subdivided boundary mixed rectangular motif",
+      "dsSymbol": "<28:2 7 6 10 13 15 17 18 20 22 25 23 27 28,3 5 9 12 11 14 16 19 21 24 23 26 27 28,4 6 8 11 13 14 17 19 20 23 25 22 28 27:6 4 4,3 4 4 3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "spherical",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "classification": "non-euclidean"
+    },
+    {
+      "name": "hyperbolic",
+      "dsSymbol": "<1:1,1,1:6,6>",
+      "classification": "non-euclidean"
+    },
+    {
+      "name": "false zero curvature invalid axiom",
+      "dsSymbol": "<3:2 3,1 2 3,1 3:4 4,4 4>",
+      "classification": "structure-invalid"
+    }
+  ],
+  "commonCover": {
+    "left": "<1:1,1,1:4,4>",
+    "right": "<2:1 2,1 2,2:4 4,4>",
+    "witness": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+    "expected": "proven-equivalent"
+  },
+  "addressCases": [
+    {
+      "motifCell": "square",
+      "lattice": [
+        0,
+        0
+      ],
+      "key": "square@0,0"
+    },
+    {
+      "motifCell": "triangle-a",
+      "lattice": [
+        -9,
+        14
+      ],
+      "key": "triangle-a@-9,14"
+    }
+  ]
+}
