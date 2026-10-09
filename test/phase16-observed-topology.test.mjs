@@ -204,15 +204,16 @@ test('joint original-raster contours reconstruct exact shared polygon boundaries
    assert.equal(result.evidence,'experimental-joint-original-raster-registration');
  }
 });
-test('rotated noisy corners do not get silently coerced into overlapping periodic polygons',()=>{
+test('rotated mixed contours register a genuine exact non-overlapping periodic polygon witness',()=>{
  const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles,{angle:13,scale:1.1});
  const obs=observeMotifInteriors(raster,basis,{contourTolerancePixels:3});
  const topology=deriveObservedTopology(obs,basis,{maxInkGapPixels:8});
  assert.equal(topology.status,'derived',topology.reason);
  const result=registerObservedMetric(raster,obs,topology,basis);
- console.log('PHASE16_ROTATED_METRIC_DIAGNOSTIC',result.reason);
- assert.equal(result.status,'inconclusive');
- assert.match(result.reason,/overlap|polygon geometry|contour residual|vertex holonomy/);
+ assert.equal(result.status,'registered',result.reason);
+ assert.equal(result.cover.translationSymbol,topology.dsSymbol);
+ assert.ok(result.maximumContourResidualPixels<=6);
+ assert.equal(verifyRigidMotifFit(raster,obs,basis).status,'supported');
 });
 test('contradictory vertex constraints and drift cannot generate a shared polygon witness',()=>{
  const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
