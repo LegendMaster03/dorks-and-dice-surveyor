@@ -4,6 +4,7 @@ import { splitObservedTJunctionSides } from '../dist/src/analysis/periodic-tilin
 import { observeMotifInteriors } from '../dist/src/analysis/periodic-tiling/motif-interiors.js';
 import { deriveObservedTopology } from '../dist/src/analysis/periodic-tiling/observed-topology.js';
 import { deriveTranslationMotif } from '../dist/src/resources/periodic-tiling/topology/motif.js';
+import { investigatePeriodicMotif } from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
 
 const tJunction = [
   [[0,0],[64,0],[64,64],[0,64]],
@@ -80,6 +81,20 @@ test('unregistered staggered-brick lattice reconstructs a second T-junction topo
   assert.equal(topology.dsSymbol,expected.translationSymbol);
   assert.equal(topology.cells.length,1);
   assert.equal(topology.cells[0].boundaries.length,6);
+});
+
+test('unhinted original-raster pipeline derives T-junction topology without supplied lattice vectors',()=>{
+ const raster=rasterize(tJunction);
+ const result=investigatePeriodicMotif(raster,{
+   translation:{minDistance:20,maxDistance:200,maxPairVotes:300_000}
+ });
+ const expected=deriveTranslationMotif({
+   units:'pixel',basis:[{x:128,y:0},{x:0,y:64}],
+   cells:sourcePolys.map((polygon,i)=>({id:`free-${i}`,polygon}))
+ });
+ assert.equal(result.status,'consistent-candidate',result.reason);
+ assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+ assert.ok(result.originalRasterEdgeSupport>=0.83);
 });
 
 test('T-junction reconstruction remains bounded for hostile or excessive contours',()=>{
