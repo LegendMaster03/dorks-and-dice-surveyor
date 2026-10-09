@@ -70,7 +70,13 @@ export function evaluateOriginalRasterTranslations(
     if (nearInk.length < 500 || nearInk.length === field.samples.length)
         return original;
     const ink = discoverTranslations({ ...field, samples: nearInk },
-        { ...options, pixelTolerance: "nearby" });
+        {
+            ...options,
+            pixelTolerance: "nearby",
+            // Proposal rank only. The common multi-region and whole-motif
+            // geometry verifiers still decide whether a candidate survives.
+            minRegionSupport: Math.min(options.minRegionSupport ?? 0.65, 0.55)
+        });
     return ink.status === "candidates"
         ? { ...ink, reason: "Original-Sobel high-contrast ink-edge candidate; requires independent whole-motif verification" }
         : original;
