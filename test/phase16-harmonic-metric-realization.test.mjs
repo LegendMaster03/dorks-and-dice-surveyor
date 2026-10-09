@@ -75,6 +75,24 @@ test('anisotropic oblique period fitting preserves a verified translation topolo
    reference.cover.translationSymbol);
 });
 
+test('affine fitting also preserves unfamiliar mixed and non-edge-to-edge quotient incidences',()=>{
+ const sources=examples.filter(([name])=>name==='mixed-quotient'
+   || name==='nonedge-mixed-quotient');
+ for(const [name,source] of sources){
+   const baseline=realizeGeneralEuclideanQuotient(source,options);
+   const fitted=realizeGeneralEuclideanQuotient(source,{
+     worldUnitsPerAbstractPeriod:1,units:'world',
+     periodULength:1.25,periodVLength:1.75,
+     periodAngleDegrees:73,rotationDegrees:-22
+   });
+   assert.equal(baseline.status,'realized',name+': '+baseline.reason);
+   assert.equal(fitted.status,'realized',name+': '+fitted.reason);
+   assert.equal(fitted.cover.translationSymbol,baseline.cover.translationSymbol);
+   assert.deepEqual(fitted.cover.cells.map(c=>c.boundary.length),
+     baseline.cover.cells.map(c=>c.boundary.length));
+ }
+});
+
 test('small but nondegenerate world-unit periods remain admissible under normalized proof',()=>{
  const source='<2:1 2,1 2,2:4 4,4>';
  const result=realizeGeneralEuclideanQuotient(source,{
