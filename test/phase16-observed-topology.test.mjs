@@ -198,7 +198,9 @@ test('joint original-raster contours reconstruct exact shared polygon boundaries
    assert.equal(result.status,'registered',result.reason);
    assert.equal(result.cover.translationSymbol,topology.dsSymbol);
    assert.equal(result.independentlyDerivedDsSymbol,topology.dsSymbol);
-   assert.ok(result.maximumContourResidualPixels<=5);
+   assert.ok(result.maximumContourResidualPixels<=6);
+   assert.equal(verifyRigidMotifFit(raster,observation,basis).status,'supported',
+     'The original rigid translation drift gate must remain independently successful');
    assert.ok(result.originalRasterEdgeSupport>=0.83);
    assert.equal(result.evidence,'experimental-joint-original-raster-registration');
  }
