@@ -343,3 +343,52 @@ first expanded run exposed the half-pixel test registration defect.
 After correction, the complete **152-test suite passed with zero failures**
 and container smoke checks remained green. This evidence is for the
 research code and synthetic test corpus, not for final Phase 16 acceptance.
+
+## Experimental joint registration of source-raster polygon contours
+
+`registerObservedMetric` is an independent, bounded research step after
+the existing Sobel/periodicity pipeline, interior segmentation, reciprocal
+incidence reconstruction, and global rigid-fit analysis. It converts
+**ink-separated white-region contours** into candidate shared boundaries
+without selecting a known shape or perturbing the source image.
+
+Each pair of reciprocal atomic sides contributes translated endpoint
+equalities. A graph potential calculation checks the entire periodic
+holonomy for contradictions; one robust vertex position is estimated
+for every connected equivalence class from all repeated source-image
+contour observations, using a **single fixed lattice basis**. An observed
+corner must lie within six analysis pixels of its jointly fitted ideal
+shared vertex (to account for both sides of a three-pixel raster ink
+stroke). The earlier, independent **five-pixel maximum accumulated rigid
+translation drift** rule remains unchanged. No cell-specific geometric
+registration, snapping, or accumulated error correction is permitted.
+
+A cropped raster may show the first complete polygon of each motif class
+several whole periods apart. The constructor chooses a representative
+for each class by an **integer whole-lattice displacement only**. This is
+a translation-cover addressing convention: shapes and real pixel samples
+are not moved or modified. The exact polygon constructor then **re-derives**
+every adjacency and D-symbol from the candidate geometry, rejects
+overlapping or degenerate periodic polygons and other unsupported
+embeddings, and requires exact agreement with the independently observed
+chamber symbol. This new path does not bypass its geometric verification
+or add an authoritative return value to the v3 API.
+
+Initial synthetic closed-line checks:
+- Two independent axis-aligned mixed-polygon maps admit a globally shared
+  exact polygon witness, consistent with the independently recovered
+  D-symbol and original-image edge checks.
+- A rotated and scaled mixed map still recovers valid raster chamber
+  topology, but its noisy contour-to-exact polygon fit produces a
+  geometrically overlapping candidate. The metric result is explicitly
+  **inconclusive**; the algorithm must not report false geometric certainty.
+- Reciprocal boundary corruption, contradictory constraints, excessive
+  contour residuals and inaccurate periodic basis are refused, and no
+  database state or existing production analysis behavior changes.
+
+This closes one narrow raster-to-exact-geometry gap for the supported
+high-contrast cases, **not** the full Phase 16 generalized-detector
+acceptance requirements. Rotated/occluded/artwork-heavy polygon metric
+reconstruction, larger unfamiliar motifs, quantified image uncertainty,
+independent real-world holdouts and end-to-end image-to-metric-symmetry
+confidence calibration remain blockers.
