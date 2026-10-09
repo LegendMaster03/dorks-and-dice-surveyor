@@ -29,7 +29,7 @@ test("multi-chamber Euclidean D-symbol is accepted without catalog registration"
 
 test("rejects malformed graphs and non-Euclidean curvature", () => {
     for (const source of [
-        "", "6^3", "<1:1,1,1:4,5>", "<1:1,1,1:4>",
+        "", "6^3", "<1:1,1,1:4,5>", "<1:1,1,1:1000000000000000,2>", "<1:1,1,1:4>",
         "<2:1 2,1 2,1 2:4 4,4 4>",
         "<2:2,1 2,1 2:3,3>",
         "<1:2,1,1:4,4>"
