@@ -1,5 +1,6 @@
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { TranslationVector } from "./translations.js";
+import { splitObservedTJunctionSides } from "./raster-t-junctions.js";
 
 export type ObservedPoint = { x: number; y: number };
 export type ObservedInterior = {
@@ -170,6 +171,16 @@ export function observeMotifInteriors(
         found.push({polygon,centroid,count:comp.count,phase,classId:-1});
     }
     if(found.length<6)return empty("inconclusive","Too few complete repeating cell interiors",components.length);
+    // The closed white-region contour alone may simplify away a collinear
+    // T-junction. Restore a split only when the opposing ink-separated sides
+    // independently support it. The same normalized side count is subsequently
+    // required to repeat across distant motif instances.
+    const normalized = splitObservedTJunctionSides(found.map(cell => cell.polygon), {
+        maxInkGapPixels: 6, maxPolygonSides: 12
+    });
+    if (normalized.status !== "split")
+        return empty("inconclusive", normalized.reason, components.length);
+    for (let i = 0; i < found.length; i++) found[i].polygon = normalized.polygons[i];
     const groups:{point:Point;sides:number;examples:number}[]=[];
     for(const observation of found){
         let which=groups.findIndex(group=>group.sides===observation.polygon.length
