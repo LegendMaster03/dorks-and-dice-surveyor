@@ -64,9 +64,21 @@ const inside = (p: Point2, poly: readonly Point2[]): boolean => {
     return winding;
 };
 const properIntersection = (a: Point2, b: Point2, c: Point2, d: Point2): boolean => {
-    const x = cross(sub(b, a), sub(c, a)), y = cross(sub(b, a), sub(d, a));
-    const z = cross(sub(d, c), sub(a, c)), w = cross(sub(d, c), sub(b, c));
-    return x * y < -(EPS * EPS) && z * w < -(EPS * EPS);
+    const ab = sub(b, a), cd = sub(d, c);
+    const x = cross(ab, sub(c, a)), y = cross(ab, sub(d, a));
+    const z = cross(cd, sub(a, c)), w = cross(cd, sub(b, c));
+    // A signed cross product measures distance TIMES edge length. Multiplying
+    // opposite signs instead of checking each individually amplifies tiny
+    // floating-point endpoint errors near a translated shared vertex into a
+    // spurious "interior crossing", especially on long rotated edges.
+    // This uses the same 1e-7 absolute point tolerance as onSegment, measured
+    // in the supplied units, and still rejects genuine interior crossings.
+    const abThreshold = EPS * Math.max(1, length(ab));
+    const cdThreshold = EPS * Math.max(1, length(cd));
+    return ((x > abThreshold && y < -abThreshold) ||
+            (x < -abThreshold && y > abThreshold))
+        && ((z > cdThreshold && w < -cdThreshold) ||
+            (z < -cdThreshold && w > cdThreshold));
 };
 const intersectsInteriors = (left: readonly Point2[], right: readonly Point2[]): boolean => {
     for (let i = 0; i < left.length; i++) for (let j = 0; j < right.length; j++) {
