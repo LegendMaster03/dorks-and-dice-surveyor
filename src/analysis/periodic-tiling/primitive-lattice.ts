@@ -104,6 +104,7 @@ function repartition(source: InteriorObservation, basis: Basis,
             polygon=[...cell.polygon];
             groups.push({at:location,example:cell,count:0});
         }
+        if (!polygon) return null;
         groups[groupId].count++;
         interiors.push({...cell,motifClass:groupId,polygon});
     }
