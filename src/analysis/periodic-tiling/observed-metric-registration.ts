@@ -67,7 +67,7 @@ export function registerObservedMetric(
     });
     const anchor=kinds.map(kind=>interiors.find(x=>x.motifClass===kind.id)?.centroid);
     if(anchor.some(x=>!x))return inconclusive("A motif class lacks any observed image instance");
-    const addresses:readonly [number,number][]=[];
+    const addresses:[number,number][]=[];
     for(const obs of interiors){
         if(!Number.isSafeInteger(obs.motifClass)||obs.motifClass<0||obs.motifClass>=kinds.length
             ||obs.polygon.length!==kinds[obs.motifClass].sideCount
