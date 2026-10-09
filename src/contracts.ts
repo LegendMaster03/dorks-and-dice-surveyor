@@ -106,6 +106,8 @@ export type SurveyorPeriodicMotifInvestigation = {
         originalRasterEdgeSupport: number;
         maximumRigidVertexResidualSourcePixels: number;
         translationRefinementResidualSourcePixels: number | null;
+        /** Source pixels are always independently checked, even for Sobel-derived segmentation. */
+        segmentationProvenance?: "original-closed-line" | "original-sobel-gradient-mask";
         /** Independently fitted polygon evidence; never an accepted world geometry. */
         metricRegistration?: {
             status: "registered" | "inconclusive" | "unsupported";
