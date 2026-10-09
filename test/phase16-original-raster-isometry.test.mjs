@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topology/motif.js';
 import {verifyMetricChamberSymmetry} from '../dist/src/resources/periodic-tiling/topology/metric-chamber-symmetry.js';
-import {verifyOriginalRasterIsometry as verify} from
+import {verifyOriginalRasterIsometry as verify,
+    crossCheckMetricSymmetryWithOriginalRaster as crossCheck} from
     '../dist/src/analysis/periodic-tiling/original-raster-isometry.js';
 
 const p=(x,y)=>({x,y});
@@ -71,4 +72,23 @@ test('gridless images and invalid candidate transforms produce no symmetry claim
     assert.equal(verify({width:640,height:640,pixels:new Uint8Array(2)},quarterTurn).status,'unsupported');
     assert.equal(verify(raster(),quarterTurn,{minimumInkSupport:0.2}).status,'unsupported');
     assert.equal(verify(raster(),quarterTurn,{minimumSupportedRegions:10}).status,'unsupported');
+});
+
+test('verified exact pixel metric isometries are independently checked on original raster',()=>{
+    const exact=crossCheck(raster(),square);
+    assert.equal(exact.status,'evaluated',exact.reason);
+    assert.equal(exact.metricSymmetries,8);
+    assert.equal(exact.checkedNontrivialSymmetries,7);
+    assert.equal(exact.supportedNontrivialSymmetries,7);
+    assert.equal(exact.evidence,'non-authoritative-original-raster-cross-check');
+    const local=crossCheck(raster({local:true}),square);
+    assert.equal(local.status,'evaluated');
+    assert.equal(local.supportedNontrivialSymmetries,0,
+        'A purely local-looking square patch must not manufacture an observed global symmetry');
+    const rectangleResult=crossCheck(raster({yPitch:80}),rectangle);
+    assert.equal(rectangleResult.status,'evaluated',rectangleResult.reason);
+    assert.equal(rectangleResult.metricSymmetries,4);
+    assert.equal(rectangleResult.checkedNontrivialSymmetries,3);
+    assert.equal(rectangleResult.supportedNontrivialSymmetries,3);
+    assert.equal(crossCheck(raster(),{...square,units:'mile'}).status,'unsupported');
 });
