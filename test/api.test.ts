@@ -12,7 +12,7 @@ import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/r
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
-const regularHexQuery = "crNotation=6%5E3";
+const regularHexQuery = "expectedDsSymbol=" + encodeURIComponent("<1:1,1,1:6,3>");
 
 async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Partial<SurveyorConfig> = {}): Promise<void> {
     const config: SurveyorConfig = {
@@ -62,12 +62,8 @@ function bodyOf(buffer: Buffer): ArrayBuffer {
     return copy.buffer;
 }
 
-function regularIdentity(crNotation: string, gjhNotation: string): Record<string, unknown> {
-    return {
-        periodicTilingType: "Regular",
-        crNotation,
-        gjhNotation
-    };
+function regularIdentity(dsSymbol: string): Record<string, unknown> {
+    return { dsSymbol };
 }
 
 test("health endpoints do not require analysis authentication", async () => {
@@ -80,57 +76,147 @@ test("health endpoints do not require analysis authentication", async () => {
 test("analysis requires bearer authentication", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        const route = `${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`;
+        const route = `${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`;
         assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png" }, body })).status, 401);
         assert.equal((await fetch(route, { method: "POST", headers: { "content-type": "image/png", authorization: "Bearer wrong" }, body })).status, 401);
     });
 });
 
-test("notation selects all three implemented Regular tilings and derives periodic tiling type", async () => {
+test("automatic detection accepts no hint and does not echo expected identity", async () => {
     await withServer(async baseUrl => {
-        const headers = { "content-type": "image/png", authorization: `Bearer ${token}` };
+        const headers = { "content-type": "image/png", authorization: "Bearer " + token };
         const encoded = await plainPng();
-        const route = `${baseUrl}/v1/periodic-tiling/detect`;
-        const send = (query: string) => fetch(`${route}?${query}`, { method: "POST", headers, body: bodyOf(encoded) });
-
-        assert.equal((await send("")).status, 400);
-        assert.equal((await send("periodicTilingType=Regular&crNotation=6%5E3")).status, 400);
-        assert.equal((await send("periodicTilingType=semiregular&semiregularType=Archimedean")).status, 400);
-
-        const selectors = [
-            { query: "crNotation=3%5E6", identity: regularIdentity("3^6", "3/m30/r(h2)") },
-            { query: `gjhNotation=${encodeURIComponent("3/m30/r(h2)")}`, identity: regularIdentity("3^6", "3/m30/r(h2)") },
-            { query: "crNotation=4%5E4", identity: regularIdentity("4^4", "4/m45/r(h1)") },
-            { query: `gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`, identity: regularIdentity("4^4", "4/m45/r(h1)") },
-            { query: "crNotation=6%5E3", identity: regularIdentity("6^3", "6/m30/r(h1)") },
-            { query: "crNotation=6%5E%7B3%7D", identity: regularIdentity("6^3", "6/m30/r(h1)") },
-            { query: `crNotation=${encodeURIComponent("6³")}`, identity: regularIdentity("6^3", "6/m30/r(h1)") },
-            { query: `gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`, identity: regularIdentity("6^3", "6/m30/r(h1)") },
-            {
-                query: `crNotation=6%5E3&gjhNotation=${encodeURIComponent("6/m30/r(h1)")}`,
-                identity: regularIdentity("6^3", "6/m30/r(h1)")
-            }
-        ];
-        for (const selector of selectors) {
-            const response = await send(selector.query);
-            assert.equal(response.status, 200, selector.query);
-            const value = await response.json() as Record<string, any>;
-            assert.deepEqual(value.tiling, selector.identity, selector.query);
+        const route = baseUrl + "/v2/periodic-tiling/detect";
+        const send = (query: string) => fetch(route + (query ? "?" + query : ""),
+            { method: "POST", headers, body: bodyOf(encoded) });
+        for (const query of [
+            "",
+            "expectedDsSymbol=" + encodeURIComponent("<1:1,1,1:3,6>"),
+            "expectedDsSymbol=" + encodeURIComponent("<1:1,1,1:4,4>"),
+            "expectedDsSymbol=" + encodeURIComponent("<1.1:1:1,1,1:6,3>")
+        ]) {
+            const response = await send(query);
+            assert.equal(response.status, 200, query);
+            const result = await response.json() as Record<string, any>;
+            assert.equal(result.status, "gridless");
+            assert.equal(result.tiling, null, "A hint is not an observation");
         }
-
-        assert.equal((await send(`crNotation=${encodeURIComponent("3.4.6.4")}`)).status, 501);
-        assert.equal((await send(`gjhNotation=${encodeURIComponent("12-3/m30/r(h3)")}`)).status, 501);
+        assert.equal((await send("crNotation=6%5E3")).status, 400);
+        assert.equal((await send("gjhNotation=6%2Fm30%2Fr(h1)")).status, 400);
+        assert.equal((await send("expectedDsSymbol=invalid")).status, 400);
         assert.equal((await send("shape=hex")).status, 400);
-        assert.equal((await send("sides=6")).status, 400);
-        assert.equal((await send(`crNotation=6%5E3&gjhNotation=${encodeURIComponent("4/m45/r(h1)")}`)).status, 400);
-        assert.equal((await send("crNotation=6%5E3&crNotation=6%5E3")).status, 400);
+    });
+});
+
+async function squareGridPng(): Promise<Buffer> {
+    const width = 360, height = 280, pitch = 32;
+    const pixels = Buffer.alloc(width * height, 224);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const dx = Math.min(x % pitch, pitch - (x % pitch));
+            const dy = Math.min(y % pitch, pitch - (y % pitch));
+            if (Math.min(dx, dy) <= 2) pixels[y * width + x] = 48;
+        }
+    }
+    return sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
+}
+
+test("automatic classification reports square tiles despite a hexagonal expectation", async () => {
+    await withServer(async baseUrl => {
+        const url = baseUrl + "/v2/periodic-tiling/detect?expectedDsSymbol="
+            + encodeURIComponent("<1:1,1,1:6,3>") + "&minimumConfidence=0.24";
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "content-type": "image/png", authorization: "Bearer " + token },
+            body: bodyOf(await squareGridPng())
+        });
+        assert.equal(response.status, 200);
+        const value = await response.json() as Record<string, any>;
+        assert.equal(value.status, "detected", value.reason);
+        assert.deepEqual(value.tiling, { dsSymbol: "<1:1,1,1:4,4>" });
+        assert.equal(value.fit?.geometryId, "regular.square");
+    });
+});
+
+async function regularPatternPng(kind: "triangular" | "hexagonal"): Promise<Buffer> {
+    const width = 420, height = 320;
+    const pixels = Buffer.alloc(width * height, 224);
+    const darken = (x: number, y: number) => {
+        const ix = Math.round(x), iy = Math.round(y);
+        if (ix >= 0 && iy >= 0 && ix < width && iy < height)
+            pixels[iy * width + ix] = Math.min(pixels[iy * width + ix], 45);
+    };
+    if (kind === "triangular") {
+        const pitch = 30 * Math.sqrt(3) / 2;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let nearest = Number.POSITIVE_INFINITY;
+                for (const angle of [-4, 56, 116]) {
+                    const radians = angle * Math.PI / 180;
+                    const rho = x * Math.cos(radians) + y * Math.sin(radians);
+                    const phase = ((rho % pitch) + pitch) % pitch;
+                    nearest = Math.min(nearest, phase, pitch - phase);
+                }
+                if (nearest <= 2) pixels[y * width + x] = 48;
+            }
+        }
+    } else {
+        const spacing = 30 * Math.sqrt(3);
+        const angle = -4 * Math.PI / 180;
+        const u = { x: spacing * Math.cos(angle), y: spacing * Math.sin(angle) };
+        const v = { x: spacing * Math.cos(angle + Math.PI / 3), y: spacing * Math.sin(angle + Math.PI / 3) };
+        const radius = spacing / Math.sqrt(3);
+        const reach = Math.ceil(Math.hypot(width, height) / spacing) + 4;
+        const draw = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+            const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 1.5);
+            for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+                for (let dy = -1; dy <= 1; dy++)
+                    for (let dx = -1; dx <= 1; dx++)
+                        if (dx * dx + dy * dy <= 1) darken(x + dx, y + dy);
+            }
+        };
+        for (let i = -reach; i <= reach; i++) {
+            for (let j = -reach; j <= reach; j++) {
+                const cx = 11 + i * u.x + j * v.x, cy = 9 + i * u.y + j * v.y;
+                if (cx < -spacing || cy < -spacing || cx > width + spacing || cy > height + spacing)
+                    continue;
+                const corners = Array.from({ length: 6 }, (_, k) => {
+                    const theta = angle - Math.PI / 6 + k * Math.PI / 3;
+                    return { x: cx + radius * Math.cos(theta), y: cy + radius * Math.sin(theta) };
+                });
+                for (let edge = 0; edge < 6; edge++)
+                    draw(corners[edge], corners[(edge + 1) % 6]);
+            }
+        }
+    }
+    return sharp(pixels, { raw: { width, height, channels: 1 } }).png().toBuffer();
+}
+
+test("without hints Surveyor independently identifies triangular and hexagonal rasters", async () => {
+    await withServer(async baseUrl => {
+        for (const [kind, expected] of [
+            ["triangular", "<1:1,1,1:3,6>"],
+            ["hexagonal", "<1:1,1,1:6,3>"]
+        ] as const) {
+            const response = await fetch(baseUrl + "/v2/periodic-tiling/detect?minimumConfidence=0.22", {
+                method: "POST",
+                headers: { "content-type": "image/png", authorization: "Bearer " + token },
+                body: bodyOf(await regularPatternPng(kind))
+            });
+            assert.equal(response.status, 200, kind);
+            const value = await response.json() as Record<string, any>;
+            assert.equal(value.status, "detected", kind + ": " + value.reason);
+            assert.deepEqual(value.tiling, { dsSymbol: expected }, kind);
+        }
     });
 });
 
 test("versioned analysis returns provider-neutral contract and correlation id", async () => {
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
-        const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}&minimumConfidence=0.54`, {
+        const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}&minimumConfidence=0.54`, {
             method: "POST",
             headers: {
                 "content-type": "image/png",
@@ -143,14 +229,14 @@ test("versioned analysis returns provider-neutral contract and correlation id", 
         assert.equal(response.headers.get("x-correlation-id"), "contract-test");
         assert.match(response.headers.get("server-timing") ?? "", /detector;dur=/);
         const value = await response.json() as Record<string, any>;
-        assert.equal(value.apiVersion, "v1");
+        assert.equal(value.apiVersion, "v2");
         assert.equal(value.capability, "map.periodic-tiling.detect");
-        assert.deepEqual(value.tiling, regularIdentity("6^3", "6/m30/r(h1)"));
+        assert.equal(value.tiling, null);
         assert.ok(["detected", "inconclusive", "gridless"].includes(value.status));
         assert.deepEqual(value.source, { width: 96, height: 96, mediaType: "image/png" });
         assert.equal(value.analysis.sourceResolutionVerified, true);
-        assert.ok(value.fit === null || value.fit.geometryId === "regular.hexagonal");
-        assert.ok(value.fit === null || ["PointyTop", "FlatTop"].includes(value.fit.orientation));
+        assert.ok(value.fit === null);
+        assert.ok(value.tiling === null);
     });
 });
 
@@ -161,7 +247,7 @@ test("PNG JPEG and WebP traverse decode grayscale detector and source-coordinate
             { format: "jpeg", mediaType: "image/jpeg" },
             { format: "webp", mediaType: "image/webp" }
         ] as const) {
-            const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+            const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
                 method: "POST",
                 headers: {
                     "content-type": fixture.mediaType,
@@ -187,7 +273,7 @@ test("same encoded input produces deterministic analysis apart from timing", asy
     await withServer(async baseUrl => {
         const encoded = await plainPng();
         const analyze = async () => {
-            const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+            const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
                 method: "POST",
                 headers: { "content-type": "image/png", authorization: `Bearer ${token}` },
                 body: bodyOf(encoded)
@@ -205,13 +291,13 @@ test("invalid options, unsupported media, malformed image, and upload limit are 
     await withServer(async baseUrl => {
         const body = bodyOf(await plainPng());
         const headers = { authorization: `Bearer ${token}` };
-        const route = `${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`;
+        const route = `${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`;
         assert.equal((await fetch(`${route}&minimumConfidence=NaN`, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body })).status, 400);
         assert.equal((await fetch(route, { method: "POST", headers: { ...headers, "content-type": "image/gif" }, body })).status, 415);
         assert.equal((await fetch(route, { method: "POST", headers: { ...headers, "content-type": "image/png" }, body: bodyOf(Buffer.from("bad")) })).status, 422);
     });
     await withServer(async baseUrl => {
-        const response = await fetch(`${baseUrl}/v1/periodic-tiling/detect?${regularHexQuery}`, {
+        const response = await fetch(`${baseUrl}/v2/periodic-tiling/detect?${regularHexQuery}`, {
             method: "POST",
             headers: { authorization: `Bearer ${token}`, "content-type": "image/png" },
             body: bodyOf(Buffer.alloc(129))

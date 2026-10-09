@@ -12,7 +12,7 @@ The process hosts multiple independent headless resources behind one service bou
 
 The first resource is `periodic-tiling`, exposed through:
 
-`POST /v1/periodic-tiling/detect`
+`POST /v2/periodic-tiling/detect`
 
 Capability: `map.periodic-tiling.detect`
 
@@ -20,26 +20,30 @@ Future resources can be registered beside it without adding their domain logic t
 
 ## Euclidean periodic tilings
 
-Periodic tilings are selected with standard notation rather than caller-supplied family, shape, or polygon-side discriminators.
+Standard two-dimensional Delaney-Dress numerical symbols are Surveyor's sole tiling notation.
+The POST /v2/periodic-tiling/detect endpoint accepts an image and an optional
+expectedDsSymbol hint. The hint affects detector evaluation order, never the observed result.
+Without a hint Surveyor evaluates all currently supported periodic tiling models.
 
-- `crNotation` accepts Cundy-Rollett notation and is the preferred selector.
-- `gjhNotation` accepts GomJau-Hogg notation as an equivalent first-class selector.
+The symbol parser validates the chamber structure, orbit data and Euclidean curvature;
+valid symbols do not require a catalog registration. The detector catalog currently
+recognizes three profiles:
 
-The notation parsers are independent from the detector catalog. They parse and canonicalize structurally valid notation even when Surveyor does not yet have a catalog identity or detector for that tiling. This separates malformed notation, valid but uncataloged identity, and cataloged detector support.
+| D-symbol | Detector geometry |
+| --- | --- |
+| `<1:1,1,1:3,6>` | triangular |
+| `<1:1,1,1:4,4>` | square |
+| `<1:1,1,1:6,3>` | hexagonal |
 
-The Regular Euclidean family is the first implemented tiling family. All three Regular tilings use the generalized `regular-lattice` detector:
+When an image supports a unique model, Surveyor returns its canonical tiling.dsSymbol
+along with the measured fit. For inconclusive or gridless images, tiling is null and
+no fitted identity is asserted. A future detector can be registered independently
+of the D-symbol parser.
 
-| Cundy-Rollett | GomJau-Hogg | Geometry |
-| --- | --- | --- |
-| `3^6` | `3/m30/r(h2)` | triangular |
-| `4^4` | `4/m45/r(h1)` | square |
-| `6^3` | `6/m30/r(h1)` | hexagonal |
-
-The existing extracted hexagonal detector remains the proven three-family implementation and is not rewritten. The generalized detector delegates `6^3` to it directly. `3^6` uses the same three 60-degree line-family analysis with triangular spacing/output semantics. `4^4` uses a two-family perpendicular profile with the same global gradient, periodicity, phase, and distant-region consistency principles.
-
-The detector returns a common Regular fit with `geometryId`, `rotationDegrees`, `edgeLengthPixels`, anchor, confidence, residual, support, and periodicity metrics. `rotationDegrees` and `anchorPixel` describe the selected geometry profile's lattice orientation and phase; they are not defined as one universal polygon-centroid convention across all three geometries. Hexagonal results additionally retain the legacy `PointyTop`/`FlatTop` orientation and `centerSpacingPixels` fields for compatibility.
-
-The service retains classification vocabulary for additional periodic-tiling families, including `semiregular`, `k-uniform`, `Plane-vertex`, `2-uniform`, `Fractalizing`, and `non-edge-to-edge`. `semiregular` also retains `Archimedean` and `uniform` classification vocabulary. These are derived values, not request selectors.
+Surveyor continues using the existing two-family square and three-family
+triangular/hexagonal image-fitting algorithms. The shared geometric fit exposes
+rotation, edge length, pixel anchor, confidence and residual measurements.
+Hexagonal fits additionally include orientation and center spacing.
 
 ## Local development
 
