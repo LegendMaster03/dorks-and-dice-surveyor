@@ -7,6 +7,8 @@ import { deriveObservedTopology, type ObservedTopologyOptions, type ObservedBoun
 import type { ObservedPoint } from "./motif-interiors.js";
 import { verifyRigidMotifFit, type RigidFitOptions } from "./global-motif-fit.js";
 import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigid-basis-refinement.js";
+import { registerObservedMetric } from "./observed-metric-registration.js";
+import { crossCheckMetricSymmetryWithOriginalRaster } from "./original-raster-isometry.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
 
 /**
@@ -24,6 +26,18 @@ export type ExperimentalMotifCell = {
     boundaries: readonly ObservedBoundary[];
 };
 
+export type ExperimentalMetricEvidence = {
+    status: "registered" | "inconclusive" | "unsupported";
+    reason: string | null;
+    maximumContourResidualPixels: number | null;
+    rmsContourResidualPixels: number | null;
+    originalRasterEdgeSupport: number | null;
+    mathematicalMetricSymmetries: number | null;
+    rasterSymmetriesChecked: number;
+    rasterSymmetriesSupported: number;
+};
+
+/** An exact polygon witness is distinct from a noisy raster geometry observation. */
 export type ExperimentalMotifResult =
     | {
         status: "consistent-candidate";
@@ -37,6 +51,7 @@ export type ExperimentalMotifResult =
         originalRasterEdgeSupport: number;
         maximumRigidVertexResidualPixels: number;
         translationRefinementResidualPixels: number | null;
+        metricRegistration: ExperimentalMetricEvidence;
     }
     | { status: "inconclusive" | "ambiguous"; reason: string; checkedHypotheses: number };
 
@@ -63,6 +78,8 @@ export function investigatePeriodicMotif(
         rigidResidual: number;
         refinementResidual: number | null;
         motifCells: readonly ExperimentalMotifCell[];
+        interior: import("./motif-interiors.js").InteriorObservation;
+        topology: Extract<ReturnType<typeof deriveObservedTopology>, { status: "derived" }>;
     }[] = [];
     for (const hypothesis of translations.hypotheses) {
         const interior = observeMotifInteriors(raster, hypothesis.basis, options.interiors);
@@ -84,7 +101,8 @@ export function investigatePeriodicMotif(
             minimum: topology.minimumEdgeObservations,
             rasterSupport: globalFit.originalRasterEdgeSupport,
             rigidResidual: globalFit.maxVertexResidualPixels,
-            refinementResidual: refined.status === "refined" ? refined.residualPixels : null });
+            refinementResidual: refined.status === "refined" ? refined.residualPixels : null,
+            interior, topology });
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
@@ -108,6 +126,30 @@ export function investigatePeriodicMotif(
         if (symbol.status !== "euclidean" || !projectChambers(symbol.symbol, base.symbol))
             return { status: "ambiguous", reason: "Complete motif hypotheses are not proven covers of one common observed quotient", checkedHypotheses: checked };
     }
+    // Independently try to obtain a complete *metric* realization from
+    // original raster contours. This is bounded research evidence only:
+    // an inconclusive metric fit MUST NOT turn a valid topology observation
+    // into a false authoritative result or silently alter its D-symbol.
+    const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology, preferred.basis);
+    const crossCheck = geometry.status === "registered"
+        ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
+        : null;
+    const metricRegistration: ExperimentalMetricEvidence = {
+        status: geometry.status,
+        reason: geometry.status === "registered" ? null : geometry.reason,
+        maximumContourResidualPixels: geometry.status === "registered"
+            ? geometry.maximumContourResidualPixels : null,
+        rmsContourResidualPixels: geometry.status === "registered"
+            ? geometry.rmsContourResidualPixels : null,
+        originalRasterEdgeSupport: geometry.status === "registered"
+            ? geometry.originalRasterEdgeSupport : null,
+        mathematicalMetricSymmetries: crossCheck?.status === "evaluated"
+            ? crossCheck.metricSymmetries : null,
+        rasterSymmetriesChecked: crossCheck?.status === "evaluated"
+            ? crossCheck.checkedNontrivialSymmetries : 0,
+        rasterSymmetriesSupported: crossCheck?.status === "evaluated"
+            ? crossCheck.supportedNontrivialSymmetries : 0
+    };
     // Retain an observed minimal presentation, never assert that the absolute
     // maximal symmetry quotient was reconstructed from this evidence alone.
     return {
@@ -121,6 +163,7 @@ export function investigatePeriodicMotif(
         minimumEdgeObservations: Math.min(...verified.map(h => h.minimum)),
         originalRasterEdgeSupport: preferred.rasterSupport,
         maximumRigidVertexResidualPixels: preferred.rigidResidual,
-        translationRefinementResidualPixels: preferred.refinementResidual
+        translationRefinementResidualPixels: preferred.refinementResidual,
+        metricRegistration
     };
 }
