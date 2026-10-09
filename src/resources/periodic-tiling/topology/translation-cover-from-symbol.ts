@@ -168,19 +168,30 @@ export function constructTranslationCoverFromSymbol(source: string, limit = 1024
         if(x!==0||y!==0)return inconclusive("The inferred torus voltages do not close around a vertex");
     }
 
+    // Use the same oriented chamber parity for every face. A locally chosen
+    // arbitrary first flag may reverse some face cycles, breaking the global
+    // start-to-end convention for reciprocal boundary interfaces.
+    const parity=new Int8Array(n+1), orientationQueue=[1]; parity[1]=1;
+    for(let p=0;p<orientationQueue.length;p++) for(const map of symbol.involutions){
+        const next=map[orientationQueue[p]],expected=-parity[orientationQueue[p]];
+        if(!parity[next]){parity[next]=expected;orientationQueue.push(next);}
+        else if(parity[next]!==expected)return unsupported("Torus presentation has inconsistent chamber orientation");
+    }
     // Enumerate each face boundary in combinatorial cyclic order, not edge-id
     // order, and derive the opposite cell and signed periodic displacement.
     const cells:AbstractTranslationCell[]=[];
     for(const orbit of faces.orbits){
         const face=faces.which[orbit[0]],sides=orbit.length/2;
         const sideFlags:number[]=[];
-        let chamber=orbit[0];
+        let chamber=orbit.find(c=>parity[c]===1);
+        if(chamber===undefined)return unsupported("Face has no consistently oriented chamber");
+        const firstChamber=chamber;
         for(let i=0;i<sides;i++){
             if(faces.which[chamber]!==face) return inconclusive("A face walk left its source orbit");
             sideFlags.push(chamber);
             chamber=s1[s0[chamber]];
         }
-        if(chamber!==orbit[0])
+        if(chamber!==firstChamber)
             return unsupported("A face's ordered boundary is ambiguous");
         const boundary=sideFlags.map((flag,side):AbstractTranslationAdjacency=>{
             const edge=graph[edges.which[flag]],positive=edge.source.has(flag);

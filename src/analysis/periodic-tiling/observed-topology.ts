@@ -1,4 +1,5 @@
 import { canonicalDSymbol, inspectDSymbol } from "../../resources/periodic-tiling/topology/d-symbol.js";
+import { validateWireTopologyWitness, PeriodicWitnessValidationError } from "../../resources/periodic-tiling/topology/witness-validation.js";
 import type { TranslationVector } from "./translations.js";
 import type { InteriorObservation, ObservedPoint } from "./motif-interiors.js";
 
@@ -215,6 +216,29 @@ export function deriveObservedTopology(
     const result = inspectDSymbol(canonicalDSymbol([s0, s1, s2], m01, m12), 2048);
     if (result.status !== "euclidean")
         return inconclusive(`Observed chamber graph failed independent D-symbol validation (${result.status})`);
+    // Reciprocal side matches alone cannot certify a connected primitive Z²
+    // cover. Verify every vertex's periodic holonomy and reconstruct the exact
+    // chamber graph rather than trusting its asserted D-symbol.
+    try {
+        validateWireTopologyWitness({
+            contractVersion: 1, provenance: "observed-original-raster",
+            quotientDsSymbol: result.symbol.canonical,
+            translationDsSymbol: result.symbol.canonical,
+            motifCells: cells.map(cell => ({
+                id: `observed-${cell.classId}`,
+                boundary: cell.boundaries.map(edge => ({
+                    index: edge.sideIndex,
+                    boundarySideIndex: edge.sideIndex,
+                    targetMotifCellId: `observed-${edge.targetClass}`,
+                    targetTranslation: {u: edge.translation[0], v: edge.translation[1]},
+                    reciprocalInterfaceIndex: edge.targetSide
+                }))
+            }))
+        });
+    } catch (error) {
+        if (!(error instanceof PeriodicWitnessValidationError)) throw error;
+        return inconclusive(`Observed motif failed periodic topology verification: ${error.message}`);
+    }
     // Do not elevate this to a fully detected identity until source-image
     // registration and joint global motif fit are independently verified.
     return { status: "derived", dsSymbol: result.symbol.canonical, cells,
