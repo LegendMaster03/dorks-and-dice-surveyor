@@ -176,6 +176,21 @@ test("preview reconstructs a translated mixed-cell raster and exposes provisiona
         assert.equal(value.authoritative, false);
         assert.equal(value.candidate.dsSymbol, expected.translationSymbol);
         assert.ok(value.candidate.motifCells.length >= 2);
+        assert.ok(["registered", "inconclusive", "unsupported"].includes(
+            value.evidence.metricRegistration.status));
+        assert.equal(value.authoritative, false,
+            "Metric evidence does not promote a provisional motif to an accepted tiling");
+        assert.ok(value.evidence.metricRegistration.rasterSymmetriesSupported
+            <= value.evidence.metricRegistration.rasterSymmetriesChecked);
+        if (value.evidence.metricRegistration.status === "registered") {
+            assert.ok(Number.isFinite(value.evidence.metricRegistration
+                .maximumContourResidualSourcePixels));
+            assert.ok(value.evidence.metricRegistration
+                .maximumContourResidualSourcePixels <= 6);
+        } else {
+            assert.equal(value.evidence.metricRegistration
+                .maximumContourResidualSourcePixels, null);
+        }
         const byId = new Map<string, any>(value.candidate.motifCells.map((cell: any) => [cell.provisionalId, cell]));
         for (const cell of value.candidate.motifCells) {
             assert.ok(cell.polygonSourcePixels.length >= 3);
