@@ -15,6 +15,10 @@ import {resolve} from 'node:path';
 import {performance} from 'node:perf_hooks';
 import sharp from 'sharp';
 import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
+import {evaluateOriginalRasterTranslations} from '../dist/src/analysis/periodic-tiling/original-edge-candidates.js';
+import {observeMotifInteriors} from '../dist/src/analysis/periodic-tiling/motif-interiors.js';
+import {refineRigidTranslationBasis} from '../dist/src/analysis/periodic-tiling/rigid-basis-refinement.js';
+import {deriveObservedTopology} from '../dist/src/analysis/periodic-tiling/observed-topology.js';
 
 export const PUBLIC_IMAGE_CASES=Object.freeze([
   {
@@ -124,6 +128,34 @@ async function fetchBounded(url){
   throw new Error('External original-image fetch exhausted all bounded retries');
 }
 
+/**
+ * Read-only diagnostic of which EXISTING generalized detector stage rejects
+ * an externally authored raster. No new discovery algorithm is used and these
+ * observations never change the result returned by investigatePeriodicMotif.
+ */
+function inspectFailedGeometricStages(raster){
+  const period=evaluateOriginalRasterTranslations(raster,{maxHypotheses:5});
+  if(period.status!=='candidates')
+    return {translationStatus:period.status,translationReason:period.reason,regions:[]};
+  const regions=period.hypotheses.map((candidate,index)=>{
+    const observed=observeMotifInteriors(raster,candidate.basis);
+    const stage={hypothesis:index,interiorStatus:observed.status,
+      interiorReason:observed.reason,
+      completeInteriors:observed.interiors.length,
+      motifClasses:observed.classes.length};
+    if(observed.status==='observed'){
+      const refined=refineRigidTranslationBasis(observed,candidate.basis);
+      const chosen=refined.status==='refined'?refined.basis:candidate.basis;
+      const topology=deriveObservedTopology(observed,chosen);
+      return {...stage,refinementStatus:refined.status,
+        topologyStatus:topology.status,
+        topologyReason:topology.status==='derived'?null:topology.reason};
+    }
+    return stage;
+  });
+  return {translationStatus:period.status,translationReason:period.reason,regions};
+}
+
 export async function probeIndependentPublicCase(c){
   // Pin immutable authored artwork bytes even when the redirect URL resolves
   // to a newer Commons revision. Changed checksums are explicit blockers.
@@ -145,6 +177,8 @@ export async function probeIndependentPublicCase(c){
   const elapsed=Math.round(performance.now()-start);
   const good=observed.status==='consistent-candidate';
   const metric=good?observed.metricRegistration:null;
+  const failureStages=!good&&observed.checkedHypotheses>0
+    ? inspectFailedGeometricStages({width,height,pixels:prepared.data}) : null;
   // Never treat a mathematical isometry alone as proof of one seen in pixels.
   if(metric && (metric.rasterSymmetriesSupported>metric.rasterSymmetriesChecked
     || metric.rasterSymmetriesChecked>(metric.mathematicalMetricSymmetries??0)))
@@ -154,6 +188,7 @@ export async function probeIndependentPublicCase(c){
     raster:{width,height},status:observed.status,elapsedMs:elapsed,
     failureReason:good?null:observed.reason,
     checkedTranslationHypotheses:observed.checkedHypotheses,
+    failedGeometricStages:failureStages,
     candidateSymbol:good?observed.candidateDsSymbol:null,
     polygonSides:good?observed.motifCells.map(x=>x.polygonAnalysisPixels.length):null,
     verifiedMetricStatus:metric?.status??null,
