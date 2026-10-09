@@ -286,3 +286,60 @@ corner angles, individual edge-length constraints and nonlinear coupled
 metric requirements remain unsupported. The operational Tile Crawl metric
 validator and UI integration remain Phase 16 work; no saved world consumes
 this candidate automatically.
+
+## Original-raster metric symmetry cross-check — bounded internal research seam
+
+`verifyOriginalRasterIsometry` checks a **proposed**, rigid orthogonal
+rotation/reflection against the unchanged grayscale image. It does not
+discover transformations or infer a D-symbol. A deterministic bounded sampling
+pass checks dark ink and bright negative space independently, including their
+spatial support in a 3×3 grid. A single local patch cannot qualify as a
+global-image symmetry; a candidate must have at least six supported distant
+regions spanning all three rows and columns. The conservative research
+defaults require 87% total ink correspondence, 94% bright-background
+correspondence, 72% minimum region ink correspondence, at least 200 ink
+and 600 background samples, and a maximum 1.5-million-pixel raster.
+No image is resampled, locally warped, or repeatedly aligned.
+
+`crossCheckMetricSymmetryWithOriginalRaster` joins the **already independently
+verified** exact polygon metric-chamber symmetry path to this pixel check.
+Its input must be a complete `OperationalCover` whose metric realization
+is registered directly in the analyzed image's **pixel coordinate system**.
+For each mathematically proved nonidentity rigid transform, a deterministic
+**whole integer lattice displacement** centers the isometry in the visible
+crop. This uses only the known metric basis and crop dimensions, never a
+pixel-search best fit. Every such transformation is independently measured
+against the original raster; the output records the candidate count and the
+number supported by image evidence, explicitly labeled non-authoritative.
+
+The square and unequal-sided rectangular fixtures pass their appropriate
+whole-image transformations. Rotating a rectangular lattice by 90° fails,
+as do a grid confined to one local patch, deleted distant lines, unrelated
+asymmetric strokes, and entirely gridless imagery. The test-fixture
+registration also exposed a precise half-pixel error: rotating a synthetic
+line grid around the image-box midpoint is **not** always the same as
+rotating around its true lattice center. The tests correct the supplied
+registration rather than reducing evidence thresholds.
+
+**Acceptance boundary:** a complete precise image-registered polygon witness
+is **not yet obtainable automatically from arbitrary user-supplied raster
+artwork**. The current detector observes noisy contours and provisional
+translation cells; applying this mathematical metric proof directly to
+those observations would make an unsupported identity claim. This research
+seam therefore does not alter the v3 HTTP contract, the v2 detection path, or
+authoritative world data. Production-capable raster registration,
+original-image geometric-error calibration, independent real-map corpus,
+reliable ambiguity semantics, and symmetry reduction backed by those image
+observations remain explicit Phase 16 blockers.
+
+### CI discovery regression and correction
+
+The earlier Phase 16 symmetry test files were accidentally omitted from
+the old explicitly enumerated `npm test` command, making its green result
+insufficient evidence for those new algorithms. The Surveyor script now
+executes `test/*.test.mjs` in addition to compiled TypeScript test files,
+so all new Phase 16 regression suites are automatically discovered. The
+first expanded run exposed the half-pixel test registration defect.
+After correction, the complete **152-test suite passed with zero failures**
+and container smoke checks remained green. This evidence is for the
+research code and synthetic test corpus, not for final Phase 16 acceptance.
