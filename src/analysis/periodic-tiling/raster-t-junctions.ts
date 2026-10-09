@@ -87,7 +87,12 @@ export function splitObservedTJunctionSides(
                 const t0 = dot(a, direction), t1 = dot(b, direction);
                 const covered = Math.max(0, Math.min(distance, Math.max(t0, t1)) -
                     Math.max(0, Math.min(t0, t1)));
-                if (covered < other.length * 0.8) continue;
+                // A T-junction may also be produced by two long sides that
+                // overlap only partly (e.g. staggered rectangular bricks).
+                // An actual shared segment must still be substantial; short
+                // near-tangent encounters do not count as incidence evidence.
+                if (covered < Math.max(9, Math.min(distance, other.length) * 0.30))
+                    continue;
                 for (const t of [t0, t1]) {
                     if (t > 7 && t < distance - 7) splits.push(t);
                 }
