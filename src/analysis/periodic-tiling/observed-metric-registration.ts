@@ -168,7 +168,31 @@ export function registerObservedMetric(
         roots.push({x:median(samples.map(p=>p.x)),y:median(samples.map(p=>p.y))});
     }
     const fitted=potential.map((p,i)=>add(roots[group[i]],p!));
-    let sum=0,count=0,worst=0;
+    let sum=0,count=0,worst=0,cornerExceeded=false;
+    // A contour on the inside of a thick stroke can be displaced much
+    // farther from an acute ideal corner than from either incident edge.
+    // Such excess error must point into the observed cell, near its angle
+    // bisector, and remain bounded by the stroke width and corner angle.
+    const contourCornerSupported=(polygon: readonly ObservedPoint[], index:number,
+        error:ObservedPoint,residual:number):boolean=>{
+        if(residual<=maximumResidual)return true;
+        if(options.maximumContourResidualPixels!==undefined)return false;
+        const n=polygon.length,corner=polygon[index];
+        const prev=sub(polygon[(index+n-1)%n],corner);
+        const next=sub(polygon[(index+1)%n],corner);
+        const lp=length(prev),ln=length(next);
+        if(lp<7||ln<7)return false;
+        const u=mul(prev,1/lp),v=mul(next,1/ln);
+        const cos=Math.max(-1,Math.min(1,u.x*v.x+u.y*v.y));
+        const sinHalf=Math.sqrt(Math.max(0,(1-cos)/2));
+        const inward=add(u,v),size=length(inward);
+        if(size<0.1)return false;
+        const bisector=mul(inward,1/size);
+        const along=error.x*bisector.x+error.y*bisector.y;
+        const sideways=Math.abs(error.x*bisector.y-error.y*bisector.x);
+        return along>=-1 && sideways<=maximumResidual &&
+            residual<=Math.max(maximumResidual,Math.min(12,3/Math.max(0.2,sinHalf)));
+    };
     for(let i=0;i<interiors.length;i++){
         const obs=interiors[i],offset=shift(...addresses[i]);
         for(let corner=0;corner<obs.polygon.length;corner++){
@@ -176,11 +200,14 @@ export function registerObservedMetric(
                 add(fitted[key(obs.motifClass,corner)],offset)));
             if(!Number.isFinite(residual))
                 return unsupported("Nonfinite global contour fitting residual");
+            if(!contourCornerSupported(obs.polygon,corner,
+                sub(obs.polygon[corner],add(fitted[key(obs.motifClass,corner)],offset)),residual))
+                cornerExceeded=true;
             worst=Math.max(worst,residual);sum+=residual*residual;count++;
         }
     }
-    if(worst>maximumResidual)
-        return inconclusive(`Shared periodic polygon vertices deviate by ${worst.toFixed(2)} px from one exact joint fit (limit ${maximumResidual.toFixed(2)} px)`);
+    if(cornerExceeded)
+        return inconclusive(`Shared periodic polygon vertices deviate by ${worst.toFixed(2)} px from a geometrically justified contour bound`);
     // Each motif class can have its FIRST observed full cell in a different
     // period of the crop. Choose a nearby representative for each class,
     // using strictly INTEGER whole-period shifts. This changes only the

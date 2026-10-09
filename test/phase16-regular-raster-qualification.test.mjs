@@ -131,6 +131,12 @@ test('no-hint generalized detector classifies or explicitly refuses the four can
    assert.ok(actual===null||correct||verifiedLargerCover,
      e.name+' confidently produced a different unproved tiling topology');
    if(actual!==null){
+     if(['square','triangle','hexagon','rhombille'].includes(e.name) && correct){
+       assert.equal(detected.metricRegistration?.status,'registered',
+         e.name+' must reconstruct exact joint polygon geometry');
+       assert.equal(detected.metricRegistration?.sourceProjection?.status,'supported',
+         e.name+' must pass unchanged-image polygon and negative-space verification');
+     }
      assert.ok(detected.originalRasterEdgeSupport>=.83,
        e.name+' lacks source-raster line evidence');
      assert.ok(detected.maximumRigidVertexResidualPixels<=5,
