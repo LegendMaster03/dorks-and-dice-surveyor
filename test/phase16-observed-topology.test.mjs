@@ -6,6 +6,7 @@ import {deriveTranslationMotif} from '../dist/src/resources/periodic-tiling/topo
 import {investigatePeriodicMotif} from '../dist/src/analysis/periodic-tiling/experimental-observer.js';
 import {verifyRigidMotifFit} from '../dist/src/analysis/periodic-tiling/global-motif-fit.js';
 import {registerObservedMetric} from '../dist/src/analysis/periodic-tiling/observed-metric-registration.js';
+import {verifyProjectedPolygonsInOriginalRaster} from '../dist/src/analysis/periodic-tiling/original-polygon-projection.js';
 
 /** Rasterizes arbitrary periodic input polygons, without any detector catalog. */
 function rasterize(basis, polygons, {width=640,height=640,angle=0,scale=1,phase=[29,37]}={}){
@@ -202,6 +203,10 @@ test('joint original-raster contours reconstruct exact shared polygon boundaries
      'The original rigid translation drift gate must remain independently successful');
    assert.ok(result.originalRasterEdgeSupport>=0.83);
    assert.equal(result.evidence,'experimental-joint-original-raster-registration');
+   const projected=verifyProjectedPolygonsInOriginalRaster(raster,result.cover);
+   assert.equal(projected.status,'supported',projected.reason);
+   assert.ok(projected.edgeSupport>=0.83);
+   assert.ok(projected.supportedRegions>=7);
  }
 });
 test('rotated mixed contours register a genuine exact non-overlapping periodic polygon witness',()=>{
@@ -214,6 +219,8 @@ test('rotated mixed contours register a genuine exact non-overlapping periodic p
  assert.equal(result.cover.translationSymbol,topology.dsSymbol);
  assert.ok(result.maximumContourResidualPixels<=6);
  assert.equal(verifyRigidMotifFit(raster,obs,basis).status,'supported');
+ const projected=verifyProjectedPolygonsInOriginalRaster(raster,result.cover);
+ assert.equal(projected.status,'supported',projected.reason);
 });
 test('contradictory vertex constraints and drift cannot generate a shared polygon witness',()=>{
  const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
