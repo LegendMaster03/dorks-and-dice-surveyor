@@ -40,6 +40,7 @@ jobs:
             docker image inspect "$previous_image" >/dev/null
             docker image tag "$previous_image" dorks-and-dice-surveyor:pre-deploy
             echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "image=$previous_image" >> "$GITHUB_OUTPUT"
             echo "Retained previous running image $previous_image as dorks-and-dice-surveyor:pre-deploy"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
@@ -117,6 +118,12 @@ jobs:
         id: verify
         timeout-minutes: 5
         run: |
+          set -euo pipefail
+          actual_image_revision="$(docker inspect --type container --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          if [ "$actual_image_revision" != "$DEPLOY_SHA" ]; then
+            echo "Running image revision $actual_image_revision does not match expected $DEPLOY_SHA" >&2
+            exit 1
+          fi
           ready=false
           for i in {1..60}; do
             live=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
@@ -168,4 +175,10 @@ jobs:
             docker logs dorks-and-dice-surveyor || true
             exit 1
           fi
-          echo "Previous deployed image has been restored and verified. This deployment remains FAILED."
+          restored_image="$(docker inspect --type container --format '{{.Image}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          expected_previous_image="${{ steps.previous_image.outputs.image }}"
+          if [ "$restored_image" != "$expected_previous_image" ]; then
+            echo "Rollback started image $restored_image, expected $expected_previous_image" >&2
+            exit 1
+          fi
+          echo "Previous deployed image $restored_image has been restored and verified. This deployment remains FAILED."
