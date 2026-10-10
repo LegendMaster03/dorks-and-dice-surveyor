@@ -35,7 +35,7 @@ jobs:
         id: previous_image
         run: |
           set -euo pipefail
-          previous_image="$(docker inspect --type container --format '{{.Image}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          previous_image="$(docker inspect --type container --format '{{if .State.Running}}{{.Image}}{{end}}' dorks-and-dice-surveyor 2>/dev/null || true)"
           if [ -n "$previous_image" ]; then
             docker image inspect "$previous_image" >/dev/null
             docker image tag "$previous_image" dorks-and-dice-surveyor:pre-deploy
