@@ -100,7 +100,7 @@ def verify(service, desired_env, snapshot_dir):
     for configuration in (desired, frozen):
         service_config = configuration["services"][service]
         if set(service_config) - allowed_service:
-            raise RuntimeError("Unmodeled Compose runtime overrides")
+            raise RuntimeError("Unmodeled Compose keys: " + str(sorted(set(service_config) - allowed_service)))
         if service_config.get("container_name") != service:
             raise RuntimeError("Compose changed the running container name")
         if service_config.get("image") != service + ":latest":
