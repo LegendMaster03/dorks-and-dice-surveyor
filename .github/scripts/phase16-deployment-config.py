@@ -31,6 +31,19 @@ def snapshot(service, github_output):
         if "\n" in value or "\r" in value or "\x00" in value:
             raise RuntimeError("Running container environment cannot be represented safely")
         environment[key] = value
+    # A Compose reconstruction cannot safely restore an unmodeled live
+    # command override, published port, privileged container or custom mount.
+    image = json.loads(docker("image", "inspect", "--format", "{{json .}}",
+                              running["Image"]))
+    for name in ("Cmd", "Entrypoint"):
+        if (running["Config"].get(name) or None) != (image["Config"].get(name) or None):
+            raise RuntimeError("Live command/entrypoint differs from the retained image")
+    host = running["HostConfig"]
+    if host.get("PortBindings") or host.get("Privileged") or host.get("ReadonlyRootfs"):
+        raise RuntimeError("Live host settings cannot be reconstructed by the bounded rollback")
+    for mount in running["Mounts"]:
+        if mount["Type"] != "volume" or not mount.get("RW", False):
+            raise RuntimeError("Live mount type/access is outside known-good rollback scope")
     networks = sorted(running["NetworkSettings"]["Networks"])
     mounts = sorted(
         [{"type": mount["Type"],
@@ -77,8 +90,21 @@ def verify(service, desired_env, snapshot_dir):
             "-f", "docker-compose.yml", "config", "--format", "json"))
     desired = config(desired_env)
     frozen = config(folder / "compose.env")
+    # The existing single-service deployment has no command, entrypoint,
+    # port publishing, bind mount or special security/network options. Refuse
+    # unmodeled fields rather than incorrectly certifying the old runtime.
+    allowed_service = {"image", "container_name", "restart", "environment",
+                       "volumes", "networks"}
+    if set(desired["services"]) != {service} or set(frozen["services"]) != {service}:
+        raise RuntimeError("Unexpected additional Compose service")
     for configuration in (desired, frozen):
         service_config = configuration["services"][service]
+        if set(service_config) - allowed_service:
+            raise RuntimeError("Unmodeled Compose runtime overrides")
+        if service_config.get("container_name") != service:
+            raise RuntimeError("Compose changed the running container name")
+        if service_config.get("image") != service + ":latest":
+            raise RuntimeError("Compose changed the expected image tag")
         values = service_config.get("environment", {})
         for key, value in values.items():
             if record["environment"].get(key) != str(value):
@@ -90,19 +116,28 @@ def verify(service, desired_env, snapshot_dir):
         for key in record["environment"]:
             if key.startswith(prefixes) and key not in keys:
                 raise RuntimeError("Deployment removed an existing application setting")
+        attachments = service_config.get("networks", {})
+        if not isinstance(attachments, dict) or any(
+                value not in (None, {}) for value in attachments.values()):
+            raise RuntimeError("Unmodeled Compose per-network options")
         wanted_networks = sorted(
-            configuration["networks"][key]["name"]
-            for key in service_config.get("networks", []))
+            configuration["networks"][key]["name"] for key in attachments)
+        if any(not configuration["networks"][key].get("external", False)
+               for key in attachments):
+            raise RuntimeError("Production backend networks must be external")
         if wanted_networks != record["networks"]:
             raise RuntimeError("Deployment network attachments differ from running service")
         wanted_mounts = []
         for mount in service_config.get("volumes", []):
-            if mount["type"] == "volume":
-                name = configuration["volumes"][mount["source"]]["name"]
-            else:
-                name = mount["source"]
+            if set(mount) - {"type", "source", "target", "read_only", "volume"}:
+                raise RuntimeError("Unmodeled Compose mount options")
+            if mount["type"] != "volume" or mount.get("read_only", False):
+                raise RuntimeError("Unsafe mount type or changed access mode")
+            if mount.get("volume") not in (None, {}, {"nocopy": False}):
+                raise RuntimeError("Unmodeled Compose volume options")
+            name = configuration["volumes"][mount["source"]]["name"]
             wanted_mounts.append({
-                "type": mount["type"], "name": name,
+                "type": "volume", "name": name,
                 "destination": mount["target"]
             })
         wanted_mounts.sort(key=lambda m: (m["destination"], m["type"], m["name"]))
@@ -110,6 +145,15 @@ def verify(service, desired_env, snapshot_dir):
             raise RuntimeError("Deployment mounts differ from the known-good container")
         if service_config.get("restart", "no") != record["restart"]:
             raise RuntimeError("Deployment restart policy differs from the running service")
+
+    # Only after BOTH configurations have been validated against the actual
+    # live runtime: retain an independent private rollback Compose definition.
+    # This is the preflight-verified source, not the mutable candidate checkout.
+    rollback_file = folder / "rollback.compose.yml"
+    frozen_source = Path("docker-compose.yml").read_bytes()
+    with rollback_file.open("xb") as output:
+        output.write(frozen_source)
+    rollback_file.chmod(0o600)
 
 
 def main():
