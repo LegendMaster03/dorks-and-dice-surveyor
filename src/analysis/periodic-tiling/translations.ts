@@ -1,7 +1,9 @@
 import type { EdgeField, EdgeSample } from "../hex-grid/detector.js";
 
 /**
- * The translation-basis search extends the existing Sobel/Hough edge evidence.
+ * The translation-basis search consumes the existing Sobel edge evidence.
+ * It uses new geometry-agnostic displacement voting; the hex-specific Hough
+ * autocorrelation fitter is not called by the experimental v3 pipeline.
  * All vectors are evaluated as ONE rigid displacement against the ORIGINAL edge
  * samples across distant regions. This stage makes no tiling-identity claim:
  * an edge lattice is neither a chamber system nor a certified polygon motif.
