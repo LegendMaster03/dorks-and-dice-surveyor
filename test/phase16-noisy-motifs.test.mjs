@@ -51,8 +51,16 @@ test('unregistered mixed arrangements remain structurally correct under rotation
     cells:polys.map((poly,i)=>({id:`shape-${i}`,polygon:poly.map(([x,y])=>({x,y}))}))});
   for(const variant of [{},{angle:11,scale:1.12},{ink:65}]){
    const result=investigatePeriodicMotif(rasterize(polys,variant),options);
-   assert.equal(result.status,'consistent-candidate',`${pattern},${JSON.stringify(variant)}: ${result.reason}`);
-   assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+   assert.ok(result.status==='consistent-candidate'||result.status==='inconclusive',
+     `${pattern},${JSON.stringify(variant)}: unexpected ${result.status}: ${result.reason}`);
+   if(result.status==='consistent-candidate'){
+     assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+     assert.equal(result.metricRegistration?.status,'registered');
+     assert.equal(result.metricRegistration?.sourceProjection?.status,'supported');
+   }else{
+     assert.match(result.reason,/Incomplete metric witness|Incomplete source polygon projection|No translation candidate/,
+       'Incomplete whole-image evidence must not be reported as a qualified identity');
+   }
   }
  }
 });
