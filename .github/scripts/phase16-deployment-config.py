@@ -98,13 +98,15 @@ def verify(service, desired_env, snapshot_dir):
     if set(desired["services"]) != {service} or set(frozen["services"]) != {service}:
         raise RuntimeError("Unexpected additional Compose service")
     for configuration in (desired, frozen):
+        if set(configuration) - {"name", "services", "networks", "volumes"}:
+            raise RuntimeError("Unmodeled top-level Compose resources")
         service_config = configuration["services"][service]
         if set(service_config) - allowed_service:
             raise RuntimeError("Unmodeled Compose keys: " + str(sorted(set(service_config) - allowed_service)))
         # Compose emits null command and entrypoint even when not overridden.
         # Only those defaults are supported; explicit changes fail closed.
         for field in ("command", "entrypoint"):
-            if service_config.get(field) not in (None, [], ""):
+            if service_config.get(field) is not None:
                 raise RuntimeError("Explicit Compose process override is unsupported")
         if service_config.get("container_name") != service:
             raise RuntimeError("Compose changed the running container name")
