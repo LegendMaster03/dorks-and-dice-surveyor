@@ -194,8 +194,10 @@ production jobs without mid-deploy cancellation, and attempt a verified
 previous-image restoration after failed deploy or readiness. The independent
 [isolated deployment rehearsal](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38016975981)
 ran the actual workflow shell blocks against ephemeral Compose services and
-retained volumes. Both services passed success, failed-readiness restoration,
-revision-mismatch restoration, and absence-of-prior-image checks. Neither
+retained volumes. Both services passed successful deployment, failed-readiness restoration,
+revision-mismatch restoration, an actual Compose failure after container removal,
+and absence-of-prior-image checks. Existing disposable volume contents
+survived every tested recovery. Neither
 workflow has been run against production with these changes; the
 production-specific rollback gate remains open. A future migration can
 invalidate binary rollback unless backward compatibility is established.
