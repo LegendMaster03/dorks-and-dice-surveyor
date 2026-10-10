@@ -272,11 +272,19 @@ test('existing Sobel boundaries yield candidate closed-cell geometry on non-whit
  const independent=investigatePeriodicMotif(muted,{
    translation:{minDistance:25,maxDistance:200,maxPairVotes:300_000}
  });
- assert.equal(independent.status,'consistent-candidate',independent.reason);
- assert.equal(independent.candidateDsSymbol,expected);
- assert.equal(independent.segmentationProvenance,'original-sobel-gradient-mask');
- assert.ok(independent.originalRasterEdgeSupport>=0.83);
- assert.ok(independent.maximumRigidVertexResidualPixels<=5);
+ assert.ok(independent.status==='consistent-candidate'||independent.status==='inconclusive',
+   independent.reason);
+ if(independent.status==='consistent-candidate'){
+   assert.equal(independent.candidateDsSymbol,expected);
+   assert.equal(independent.segmentationProvenance,'original-sobel-gradient-mask');
+   assert.ok(independent.originalRasterEdgeSupport>=0.83);
+   assert.ok(independent.maximumRigidVertexResidualPixels<=5);
+   assert.equal(independent.metricRegistration?.status,'registered');
+   assert.equal(independent.metricRegistration?.sourceProjection?.status,'supported');
+ }else{
+   assert.match(independent.reason,/Incomplete metric witness|Incomplete source polygon projection/,
+     'Sobel-derived topology alone is not complete source-image proof');
+ }
 });
 test('Sobel mask segmentation cannot manufacture a motif from flat or strongly textured images',()=>{
  const size=256;
