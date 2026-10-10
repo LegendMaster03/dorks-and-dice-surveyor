@@ -5,8 +5,9 @@ import {
 import { discoverTranslations, type TranslationOptions, type TranslationSearch } from "./translations.js";
 
 /**
- * Additive Phase 16 research kernel, reusing the current detector's Sobel edge
- * samples, Hough orientation evidence and multiregion rigid-shift checks.
+ * Additive Phase 16 research kernel, reusing the current detector's Sobel edge samples and normals.
+ * The generalized translation votes and multiregion rigid checks are new
+ * kernels, not calls to the hex-specific Hough/autocorrelation fitter.
  * No production API or D-symbol identity is changed here. If noise obscures the
  * ordinary edge field, retry with only the strongest original gradients. This
  * neither transforms the input image nor corrects individual cell positions;
