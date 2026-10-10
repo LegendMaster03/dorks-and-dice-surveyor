@@ -7,7 +7,7 @@ workflows remain authoritative and unchanged. The v3 API is explicitly
 experimental and non-authoritative. No schema or asset migration is part of
 Phase 16. Do not merge or deploy either feature branch without authorization.
 
-**Current Surveyor head at this checkpoint:** `eafc46ee4592f7262598d54229b22257a748ee1e`.
+**Historical Surveyor head at the original qualification checkpoint:** `eafc46ee4592f7262598d54229b22257a748ee1e`.
 [Successful CI run 38003815381](https://github.com/LegendMaster03/dorks-and-dice-surveyor/actions/runs/38003815381):
 **171 tests passed, 0 failed**, including TypeScript build, the full bounded
 qualification and existing v2 suite, container build, and endpoint smoke tests.
@@ -213,3 +213,48 @@ operational checks and authorization.
 
 No authority switch, production deployment or merge is authorized by these
 research and qualification tests.
+
+## Independent-review remediation checkpoint — October 10, 2026
+
+An independent review of the feature branches identified gaps in complete
+metric evidence, downstream geometry validation, production configuration
+recovery, and experimental worker resource bounds. See Hex Crawl
+[`docs/phase-16-review-remediation.md`](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/blob/feature/tile-crawl-phase-16/docs/phase-16-review-remediation.md)
+for the cross-repository F1–F6 matrix.
+
+The **current experimental observer** now reports a
+`consistent-candidate` **only after both** jointly registered metric
+polygon evidence and an independent supported unchanged-image
+polygon/negative-space projection. Otherwise it returns
+`inconclusive` without a candidate. The declared frozen synthetic
+held-out benchmark retains three of four exact supported mixed cases,
+the rotated/scaled and cropped required cases, and four of four
+regular raster identities with complete metric/projection proof.
+Topology-only intermediate reconstruction remains useful research
+evidence but is not mislabeled as a fully supported v3 candidate.
+
+The v3 opt-in service now has a **separate single-worker, zero-queue
+lane**. The request admission guard is acquired before body buffering or
+Sharp decoding, and a request-wide deadline bounds the upload, raster
+preparation and worker stages. Aborts propagate through supported stages
+and concurrent v3 calls receive `503 overloaded`; a stalled worker
+receives `504 analysis_timeout`. The deployed v2 worker allocation is
+not consumed by v3 jobs. Image format metadata operations remain
+bounded by encoded/pixel limits and are not preemptible at every native
+Sharp instruction, so an ordinary HTTP timer is not a hard wall-clock
+guarantee against a blocked native decoder. Tests cover v2 availability
+during saturated experimental admission and an expired v3 worker.
+
+The deployment workflow retains the image AND the **actual running
+configuration** privately, compares proposed configuration to the
+known-good runtime, and uses frozen values during deployment/rollback
+even if the on-host `.env` is modified later. Recovery rehearsal:
+[real Docker cross-service run 38020927282](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38020927282).
+This never accessed production credentials or existing tester records.
+
+**Open release gates:** independent re-review of the repairs and the
+documented distinction between shared Sobel and new generalized
+non-Hough translation fitting; authenticated existing-record and actual
+running-image inspection; validated operator backup/rollback readiness;
+post-authorized-deployment signed-in verification. No merge/deploy or
+destructive production data operation has been authorized.
