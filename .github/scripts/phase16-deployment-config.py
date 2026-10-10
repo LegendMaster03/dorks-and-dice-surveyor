@@ -83,11 +83,24 @@ def verify(service, desired_env, snapshot_dir):
     assert folder.is_dir() and folder.stat().st_mode & 0o077 == 0, (
         "Previous-runtime snapshot is unavailable or not private")
     record = json.loads((folder / "runtime.json").read_text())
+    # Freeze the bytes BEFORE evaluating either environment. The exact
+    # private file that will later be used for restoration is the one
+    # validated below; a checkout edit between validation and copying
+    # cannot silently swap in a different rollback definition.
+    rollback_file = folder / "rollback.compose.yml"
+    frozen_source = Path("docker-compose.yml").read_bytes()
+    if rollback_file.exists():
+        if rollback_file.read_bytes() != frozen_source:
+            raise RuntimeError("The previously verified rollback definition changed")
+    else:
+        with rollback_file.open("xb") as output:
+            output.write(frozen_source)
+        rollback_file.chmod(0o600)
     project = service
     def config(env_path):
         return json.loads(docker(
             "compose", "--project-name", project, "--env-file", str(env_path),
-            "-f", "docker-compose.yml", "config", "--format", "json"))
+            "-f", str(rollback_file), "config", "--format", "json"))
     desired = config(desired_env)
     frozen = config(folder / "compose.env")
     # The existing single-service deployment has no command, entrypoint,
@@ -153,18 +166,6 @@ def verify(service, desired_env, snapshot_dir):
         if service_config.get("restart", "no") != record["restart"]:
             raise RuntimeError("Deployment restart policy differs from the running service")
 
-    # Only after BOTH configurations have been validated against the actual
-    # live runtime: retain an independent private rollback Compose definition.
-    # This is the preflight-verified source, not the mutable candidate checkout.
-    rollback_file = folder / "rollback.compose.yml"
-    frozen_source = Path("docker-compose.yml").read_bytes()
-    if rollback_file.exists():
-        if rollback_file.read_bytes() != frozen_source:
-            raise RuntimeError("The previously verified rollback definition changed")
-    else:
-        with rollback_file.open("xb") as output:
-            output.write(frozen_source)
-        rollback_file.chmod(0o600)
 
 
 def main():
