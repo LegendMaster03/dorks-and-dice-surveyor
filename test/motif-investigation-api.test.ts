@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { deriveTranslationMotif } from "../src/resources/periodic-tiling/topology/motif.js";
 import type { AnalysisWorkerRequest, AnalysisWorkerResult } from "../src/analysis/periodic-tiling/worker-contract.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
+import { WorkerJobCancelledError } from "../src/errors.js";
 import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
 import { createPeriodicMotifInvestigationResource } from "../src/resources/periodic-tiling/investigation-resource.js";
 import { createSurveyorServer } from "../src/server.js";
@@ -89,6 +90,92 @@ test("preview is opt-in, discoverable as experimental, and never a detected iden
         assert.equal(legacy.status, "gridless");
         assert.equal(legacy.tiling, null);
     });
+});
+
+test("saturated experimental admission cannot consume the legacy v2 worker lane", async () => {
+    const legacy = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
+        new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 10_000);
+    let release!: (value: AnalysisWorkerResult) => void;
+    let entered!: () => void;
+    const working = new Promise<void>(resolve => { entered = resolve; });
+    const isolated = {
+        run: async () => new Promise<AnalysisWorkerResult>(resolve => {
+            release = resolve;
+            entered();
+        })
+    } as unknown as BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>;
+    const server = createSurveyorServer({
+        resources: [
+            createPeriodicTilingResource({ config, pool: legacy }),
+            createPeriodicMotifInvestigationResource({ config, pool: isolated })
+        ], readiness: legacy
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const addr = server.address();
+    if (!addr || typeof addr === "string") throw Error("Expected TCP port");
+    const base = `http://127.0.0.1:${addr.port}`;
+    const image = await whiteImage();
+    const headers = { authorization: "Bearer " + token, "content-type": "image/png" };
+    try {
+        const first = fetch(base + path, { method: "POST", headers, body: image });
+        await working;
+        const blocked = await fetch(base + path, { method: "POST", headers, body: image });
+        assert.equal(blocked.status, 503);
+        assert.equal((await blocked.json() as any).error.code, "overloaded");
+        const old = await fetch(base + "/v2/periodic-tiling/detect", {
+            method: "POST", headers, body: image
+        });
+        assert.equal(old.status, 200);
+        assert.equal((await old.json() as any).status, "gridless");
+        release({
+            mode: "periodic-motif-investigation",
+            observation: { status: "inconclusive", reason: "bounded test",
+                checkedHypotheses: 0 }, detectorTotalMs: 0
+        });
+        assert.equal((await (await first).json() as any).status, "inconclusive");
+    } finally {
+        server.close();
+        await once(server, "close");
+        await legacy.close();
+    }
+});
+
+test("experimental deadline includes stalled worker rather than extending to queue time", async () => {
+    const legacy = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
+        new URL("../src/analysis/worker.js", import.meta.url), 1, 1, 10_000);
+    const short = { ...config, analysisTimeoutMs: 900 };
+    const stalled = {
+        run: async (_request: AnalysisWorkerRequest, options: { signal?: AbortSignal }) =>
+            new Promise<AnalysisWorkerResult>((_resolve, reject) => {
+                if (options.signal?.aborted) return reject(new WorkerJobCancelledError());
+                options.signal?.addEventListener("abort",
+                    () => reject(new WorkerJobCancelledError()), { once: true });
+            })
+    } as unknown as BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>;
+    const server = createSurveyorServer({
+        resources: [createPeriodicTilingResource({ config, pool: legacy }),
+            createPeriodicMotifInvestigationResource({ config: short, pool: stalled })],
+        readiness: legacy
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const addr = server.address();
+    if (!addr || typeof addr === "string") throw Error("Expected TCP port");
+    try {
+        const image = await whiteImage();
+        const response = await fetch(`http://127.0.0.1:${addr.port}` + path, {
+            method: "POST",
+            headers: { authorization: "Bearer " + token, "content-type": "image/png" },
+            body: image
+        });
+        assert.equal(response.status, 504);
+        assert.equal((await response.json() as any).error.code, "analysis_timeout");
+    } finally {
+        server.close();
+        await once(server, "close");
+        await legacy.close();
+    }
 });
 
 test("preview rejects hints, unauthenticated requests, and unsupported images with versioned errors", async () => {
