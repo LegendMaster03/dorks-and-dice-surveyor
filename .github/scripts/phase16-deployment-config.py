@@ -151,9 +151,13 @@ def verify(service, desired_env, snapshot_dir):
     # This is the preflight-verified source, not the mutable candidate checkout.
     rollback_file = folder / "rollback.compose.yml"
     frozen_source = Path("docker-compose.yml").read_bytes()
-    with rollback_file.open("xb") as output:
-        output.write(frozen_source)
-    rollback_file.chmod(0o600)
+    if rollback_file.exists():
+        if rollback_file.read_bytes() != frozen_source:
+            raise RuntimeError("The previously verified rollback definition changed")
+    else:
+        with rollback_file.open("xb") as output:
+            output.write(frozen_source)
+        rollback_file.chmod(0o600)
 
 
 def main():
