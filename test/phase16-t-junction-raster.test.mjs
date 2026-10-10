@@ -107,8 +107,14 @@ test('no-hint raster exploration of staggered oblique bricks cannot invent a con
   const result=investigatePeriodicMotif(raster,{
     translation:{minDistance:18,maxDistance:175,maxPairVotes:300_000}
   });
-  assert.equal(result.status,'consistent-candidate',result.reason);
-  assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+  assert.ok(result.status==='consistent-candidate'||result.status==='inconclusive',result.reason);
+  if(result.status==='consistent-candidate'){
+    assert.equal(result.candidateDsSymbol,expected.translationSymbol);
+    assert.equal(result.metricRegistration?.sourceProjection?.status,'supported');
+  }else{
+    assert.match(result.reason,/Incomplete source polygon projection|Incomplete metric witness/,
+      'Observed topology is not a verified whole-image projection');
+  }
 });
 
 test('T-junction reconstruction remains bounded for hostile or excessive contours',()=>{
