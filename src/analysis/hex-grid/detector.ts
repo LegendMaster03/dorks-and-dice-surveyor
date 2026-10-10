@@ -35,8 +35,8 @@ export type HexLatticeDetectionOptions = {
     timingSink?: (stage: "edge-field", durationMs: number) => void;
 };
 
-type EdgeSample = { x: number; y: number; normal: number };
-type EdgeField = {
+export type EdgeSample = { x: number; y: number; normal: number };
+export type EdgeField = {
     width: number;
     height: number;
     strength: Float32Array;
@@ -228,7 +228,7 @@ function validateRaster(raster: GrayscaleRaster): void {
     }
 }
 
-function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): EdgeField {
+export function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): EdgeField {
     const { width, height, pixels } = raster;
     const rawMagnitude = new Float32Array(width * height);
     const rawNormal = new Float32Array(width * height);

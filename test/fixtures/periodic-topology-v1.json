@@ -1,0 +1,352 @@
+{
+  "contractVersion": 1,
+  "convention": "finite 2D standard Delaney-Dress numerical symbol; chamber relabeling normal form; symmetry group explicitly selected by input; quotient identity is distinct from translation-cover identity",
+  "cases": [
+    {
+      "name": "square",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "triangle",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "hexagon",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "two-orbit square checker",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "mixed triangle square translation motif",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "rhombille three-rhombus translation motif",
+      "dsSymbol": "<24:2 7 6 10 14 16 18 20 17 19 24 23,3 5 9 12 13 15 17 19 21 22 24 23,4 6 8 11 14 15 18 21 22 19 23 24:4 4 4,3 6 3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "subdivided boundary mixed rectangular motif",
+      "dsSymbol": "<28:2 7 6 10 13 15 17 18 20 22 25 23 27 28,3 5 9 12 11 14 16 19 21 24 23 26 27 28,4 6 8 11 13 14 17 19 20 23 25 22 28 27:6 4 4,3 4 4 3>",
+      "classification": "euclidean"
+    },
+    {
+      "name": "spherical",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "classification": "non-euclidean"
+    },
+    {
+      "name": "hyperbolic",
+      "dsSymbol": "<1:1,1,1:6,6>",
+      "classification": "non-euclidean"
+    },
+    {
+      "name": "false zero curvature invalid axiom",
+      "dsSymbol": "<3:2 3,1 2 3,1 3:4 4,4 4>",
+      "classification": "structure-invalid"
+    }
+  ],
+  "commonCover": {
+    "left": "<1:1,1,1:4,4>",
+    "right": "<2:1 2,1 2,2:4 4,4>",
+    "witness": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+    "expected": "proven-equivalent"
+  },
+  "addressCases": [
+    {
+      "motifCell": "square",
+      "lattice": [
+        0,
+        0
+      ],
+      "key": "square@0,0"
+    },
+    {
+      "motifCell": "triangle-a",
+      "lattice": [
+        -9,
+        14
+      ],
+      "key": "triangle-a@-9,14"
+    }
+  ],
+  "symbolCoverCases": [
+    {
+      "name": "square torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed",
+      "sideCounts": [
+        4
+      ]
+    },
+    {
+      "name": "checkerboard torus",
+      "dsSymbol": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4
+      ]
+    },
+    {
+      "name": "unlisted mixed square triangle torus",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "constructed",
+      "sideCounts": [
+        3,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "rhombille three rhombi torus",
+      "dsSymbol": "<24:2 7 6 10 14 16 18 20 17 19 24 23,3 5 9 12 13 15 17 19 21 22 24 23,4 6 8 11 14 15 18 21 22 19 23 24:4 4 4,3 6 3>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "name": "non edge to edge torus",
+      "dsSymbol": "<28:2 7 6 10 13 15 17 18 20 22 25 23 27 28,3 5 9 12 11 14 16 19 21 24 23 26 27 28,4 6 8 11 13 14 17 19 20 23 25 22 28 27:6 4 4,3 4 4 3>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4,
+        6
+      ]
+    },
+    {
+      "name": "square symmetry quotient needs unfolding",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "unsupported"
+    },
+    {
+      "name": "two chamber nontranslation quotient needs unfolding",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "unsupported"
+    },
+    {
+      "name": "non Euclidean symbol",
+      "dsSymbol": "<1:1,1,1:6,6>",
+      "status": "invalid"
+    },
+    {
+      "name": "unbranched-square-36-face-torus",
+      "dsSymbol": "<288:2 7 6 10 14 16 19 21 18 25 28 31 34 29 36 39 33 43 46 49 52 51 47 56 58 61 60 65 68 69 72 74 76 78 79 82 84 86 77 90 92 94 96 101 103 105 107 98 110 112 114 116 106 120 123 125 127 129 133 135 137 139 138 143 131 146 148 149 151 153 152 157 160 162 164 168 166 171 173 174 176 179 183 181 186 188 189 191 178 195 198 200 185 202 204 206 210 213 215 217 219 221 208 223 225 212 227 216 230 232 234 235 237 239 242 244 246 247 238 250 241 253 254 256 259 262 263 265 258 268 261 270 272 275 277 279 274 276 282 283 286 284 285 288,3 5 9 12 13 15 18 20 24 27 26 30 33 32 35 38 41 42 45 48 51 50 54 55 60 59 63 64 67 70 71 72 75 77 80 81 82 85 88 89 93 95 97 99 100 104 106 108 109 110 113 115 117 119 122 123 126 128 130 132 136 138 140 142 145 146 144 150 152 154 156 159 160 158 163 165 167 170 171 175 177 178 180 182 185 186 190 192 194 197 198 196 201 203 193 205 209 212 213 211 216 218 208 220 223 226 228 229 224 230 233 235 238 240 241 236 242 245 248 249 252 247 255 257 258 261 256 264 265 267 269 266 272 274 276 273 280 279 281 284 283 285 287 288,4 6 8 11 14 17 19 22 23 26 28 29 32 34 37 39 40 44 46 47 50 52 53 57 59 61 62 66 68 69 73 75 76 78 79 83 85 86 87 91 93 94 96 98 102 104 105 107 111 113 114 116 118 121 124 126 127 129 131 134 136 137 139 141 144 147 148 150 151 153 155 158 161 162 164 166 169 172 173 175 176 179 181 184 187 188 190 191 193 196 199 200 201 202 204 207 208 211 214 215 216 217 219 222 224 225 226 227 231 233 234 236 237 238 239 243 245 246 247 251 252 253 254 256 260 261 262 263 266 267 268 271 273 274 275 278 279 281 282 283 285 286 287 288:4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4,4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4>",
+      "status": "constructed",
+      "sideCounts": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ]
+    }
+  ],
+  "uniformQuotientCases": [
+    {
+      "name": "triangular-reflection",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-reflection",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "hexagonal-reflection",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-two-chamber-symmetry",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-unbranched-torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-checkerboard-torus",
+      "dsSymbol": "<16:2 7 6 10 12 11 15 16,3 5 9 12 13 14 15 16,4 6 8 11 12 10 16 15:4 4,4 4>",
+      "status": "constructed"
+    },
+    {
+      "name": "mixed-square-triangle-quotient",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "unsupported"
+    },
+    {
+      "name": "non-euclidean-reflection",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "status": "invalid"
+    },
+    {
+      "name": "bounded-two-chamber-symmetry",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "chamberLimit": 8,
+      "status": "unsupported"
+    }
+  ],
+  "orientationCoverCases": [
+    {
+      "name": "square-reflection",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "constructed",
+      "isTrivial": false
+    },
+    {
+      "name": "triangle-reflection",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "status": "constructed",
+      "isTrivial": false
+    },
+    {
+      "name": "two-chamber-mirror-quotient",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "constructed",
+      "isTrivial": false
+    },
+    {
+      "name": "square-torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed",
+      "isTrivial": true
+    },
+    {
+      "name": "mixed-square-triangle-torus",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "constructed",
+      "isTrivial": true
+    },
+    {
+      "name": "non-euclidean",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-grammar",
+      "dsSymbol": "garbage",
+      "status": "invalid"
+    },
+    {
+      "name": "insufficient-double-capacity",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "chamberLimit": 1,
+      "status": "unsupported"
+    }
+  ],
+  "generalQuotientCases": [
+    {
+      "name": "square-reflection-442",
+      "dsSymbol": "<1:1,1,1:4,4>",
+      "status": "constructed",
+      "cyclicSheets": 4
+    },
+    {
+      "name": "triangle-reflection-632",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "status": "constructed",
+      "cyclicSheets": 6
+    },
+    {
+      "name": "hexagon-reflection-632",
+      "dsSymbol": "<1:1,1,1:6,3>",
+      "status": "constructed",
+      "cyclicSheets": 6
+    },
+    {
+      "name": "two-chamber-square",
+      "dsSymbol": "<2:1 2,1 2,2:4 4,4>",
+      "status": "constructed",
+      "cyclicSheets": 4
+    },
+    {
+      "name": "square-torus",
+      "dsSymbol": "<8:2 7 6 8,3 5 7 8,4 6 5 8:4,4>",
+      "status": "constructed",
+      "cyclicSheets": 1
+    },
+    {
+      "name": "mixed-square-triangle-torus",
+      "dsSymbol": "<20:2 7 6 10 12 13 15 17 20 19,3 5 9 12 10 13 16 18 19 20,4 6 8 11 12 14 15 17 19 20:3 3 4,5 5>",
+      "status": "constructed",
+      "cyclicSheets": 1
+    },
+    {
+      "name": "square-triangle-quotient-A",
+      "dsSymbol": "<10:2 5 4 6 7 8 10,1 4 6 5 9 10,3 5 7 8 9 10:3 3 4,5 5>",
+      "status": "constructed"
+    },
+    {
+      "name": "square-triangle-quotient-B",
+      "dsSymbol": "<10:2 5 6 8 10,3 4 6 9 10,2 5 7 8 10:3 4,5>",
+      "status": "constructed"
+    },
+    {
+      "name": "non-edge-to-edge-mixed-quotient",
+      "dsSymbol": "<14:2 5 7 9 11 13 14,1 4 6 8 10 12 14 13,3 5 4 6 7 8 9 14 11 13:6 4,3 4 4 3>",
+      "status": "constructed"
+    },
+    {
+      "name": "non-euclidean",
+      "dsSymbol": "<1:1,1,1:3,3>",
+      "status": "invalid"
+    },
+    {
+      "name": "invalid-syntax",
+      "dsSymbol": "garbage",
+      "status": "invalid"
+    },
+    {
+      "name": "capacity-too-small",
+      "dsSymbol": "<1:1,1,1:3,6>",
+      "chamberLimit": 8,
+      "status": "unsupported"
+    }
+  ]
+}

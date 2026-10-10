@@ -1,0 +1,106 @@
+{
+  "experiment": "Phase 16 / early Phase 20 mixed square+triangle motif",
+  "original_raster": "phase16_mixed_ground_truth.png",
+  "ground_truth": {
+    "image_size": [
+      768,
+      768
+    ],
+    "translation_vectors_px": [
+      [
+        128,
+        0
+      ],
+      [
+        0,
+        64
+      ]
+    ],
+    "motif_cell_side_counts": [
+      4,
+      3,
+      3
+    ],
+    "motif_cell_count": 3
+  },
+  "detected_translation_vectors_px": [
+    [
+      0,
+      -64
+    ],
+    [
+      -128,
+      0
+    ]
+  ],
+  "translation_f1_on_original_raster": [
+    1.0,
+    1.0
+  ],
+  "leading_candidates": [
+    [
+      0,
+      64,
+      1.0
+    ],
+    [
+      0,
+      -64,
+      1.0
+    ],
+    [
+      0,
+      128,
+      1.0
+    ],
+    [
+      0,
+      -128,
+      1.0
+    ],
+    [
+      -128,
+      0,
+      1.0
+    ],
+    [
+      128,
+      0,
+      1.0
+    ],
+    [
+      128,
+      -64,
+      1.0
+    ],
+    [
+      -128,
+      64,
+      1.0
+    ],
+    [
+      128,
+      64,
+      1.0
+    ],
+    [
+      -128,
+      -64,
+      1.0
+    ]
+  ],
+  "segmented_interior_components": 176,
+  "segmented_side_histogram": {
+    "3": 110,
+    "4": 66
+  },
+  "reconstructed_incidence": false,
+  "reconstructed_d_symbol": null,
+  "limitations": [
+    "No robust polygon edge-intersection graph",
+    "No certified chamber quotient derivation from noisy observed incidence",
+    "No rotation, occlusion, severe-noise, or scale robustness study"
+  ],
+  "runtime_seconds": 0.1664,
+  "max_rss_kib": 130880
+}

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import type {
-    RegularTilingWorkerRequest,
-    RegularTilingWorkerResult
-} from "../src/analysis/regular-tiling/worker-contract.js";
+    AnalysisWorkerRequest,
+    AnalysisWorkerResult
+} from "../src/analysis/periodic-tiling/worker-contract.js";
 import type { SurveyorConfig } from "../src/config.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
@@ -22,7 +22,7 @@ const config: SurveyorConfig = {
 };
 
 test("service identity advertises registered resources and periodic-tiling capability metadata", async () => {
-    const pool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
+    const pool = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
         new URL("../src/analysis/worker.js", import.meta.url),
         1,
         1,

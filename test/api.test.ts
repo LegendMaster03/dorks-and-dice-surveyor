@@ -3,12 +3,12 @@ import { once } from "node:events";
 import test from "node:test";
 import sharp from "sharp";
 import type {
-    RegularTilingWorkerRequest,
-    RegularTilingWorkerResult
-} from "../src/analysis/regular-tiling/worker-contract.js";
+    AnalysisWorkerRequest, AnalysisWorkerResult
+} from "../src/analysis/periodic-tiling/worker-contract.js";
 import type { SurveyorConfig } from "../src/config.js";
 import { BoundedWorkerPool } from "../src/infrastructure/worker-pool.js";
 import { createPeriodicTilingResource } from "../src/resources/periodic-tiling/resource.js";
+import { createPeriodicMotifInvestigationResource } from "../src/resources/periodic-tiling/investigation-resource.js";
 import { createSurveyorServer } from "../src/server.js";
 
 const token = "test-surveyor-token-123456789";
@@ -26,12 +26,12 @@ async function withServer(run: (baseUrl: string) => Promise<void>, overrides: Pa
         analysisMaximumDimension: 2048,
         ...overrides
     };
-    const pool = new BoundedWorkerPool<RegularTilingWorkerRequest, RegularTilingWorkerResult>(
+    const pool = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
         new URL("../src/analysis/worker.js", import.meta.url),
         config.workerCount,
         config.queueLimit,
         config.analysisTimeoutMs);
-    const resources = [createPeriodicTilingResource({ config, pool })];
+    const resources = [createPeriodicTilingResource({ config, pool }), createPeriodicMotifInvestigationResource({ config, pool })];
     const server = createSurveyorServer({ resources, readiness: pool });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");

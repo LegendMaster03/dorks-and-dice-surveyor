@@ -8,7 +8,16 @@ import {
     WorkerPoolOverloadedError
 } from "./errors.js";
 
-export async function readBodyBounded(request: IncomingMessage, limit: number): Promise<Buffer> {
+export async function readBodyBounded(
+    request: IncomingMessage, limit: number, signal?: AbortSignal
+): Promise<Buffer> {
+    if (signal?.aborted) throw new WorkerJobCancelledError();
+    // A timed-out/disconnected experimental request must not retain a
+    // buffered upload slot while awaiting the next body chunk. Leave the
+    // legacy v2 call path untouched when no signal was supplied.
+    const abort = () => request.destroy();
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
     const declared = Number(request.headers["content-length"] ?? "0");
     if (Number.isFinite(declared) && declared > limit) {
         throw new SurveyorRequestError(413, "upload_too_large", `Encoded raster exceeds the configured ${limit} byte limit.`);
@@ -17,6 +26,7 @@ export async function readBodyBounded(request: IncomingMessage, limit: number): 
     const chunks: Buffer[] = [];
     let total = 0;
     for await (const chunk of request) {
+        if (signal?.aborted) throw new WorkerJobCancelledError();
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         total += buffer.length;
         if (total > limit) {
@@ -28,7 +38,14 @@ export async function readBodyBounded(request: IncomingMessage, limit: number): 
     if (total === 0) {
         throw new SurveyorRequestError(400, "empty_image", "A non-empty encoded raster body is required.");
     }
+    if (signal?.aborted) throw new WorkerJobCancelledError();
     return Buffer.concat(chunks, total);
+    } catch (error) {
+        if (signal?.aborted) throw new WorkerJobCancelledError();
+        throw error;
+    } finally {
+        signal?.removeEventListener("abort", abort);
+    }
 }
 
 export function requireServiceToken(request: IncomingMessage, expected: string): void {
@@ -44,7 +61,10 @@ export function correlationIdentifier(value: string | string[] | undefined): str
     return candidate && /^[A-Za-z0-9._:-]{1,128}$/.test(candidate) ? candidate : randomUUID();
 }
 
-export function writeError(response: ServerResponse, error: unknown, capability: string): void {
+export function writeError(
+    response: ServerResponse, error: unknown, capability: string,
+    apiVersion: SurveyorErrorResponse["apiVersion"] = SurveyorApiVersion
+): void {
     let status = 500;
     let code = "internal_failure";
     let message = "Surveyor failed to process the request.";
@@ -70,7 +90,7 @@ export function writeError(response: ServerResponse, error: unknown, capability:
 
     if (status === 401) response.setHeader("www-authenticate", "Bearer");
     const body: SurveyorErrorResponse = {
-        apiVersion: SurveyorApiVersion,
+        apiVersion,
         capability,
         error: { code, message }
     };

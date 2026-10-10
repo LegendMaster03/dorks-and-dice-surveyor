@@ -10,7 +10,11 @@ on:
 
 concurrency:
   group: dorks-and-dice-surveyor
-  cancel-in-progress: true
+  # Never interrupt a host deployment between container replacement and verification.
+  cancel-in-progress: false
+
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   deploy:
@@ -27,9 +31,48 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Retain the actual running image before overwriting latest
+        id: previous_image
+        run: |
+          set -euo pipefail
+          previous_image="$(docker inspect --type container --format '{{if .State.Running}}{{.Image}}{{end}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          if [ -n "$previous_image" ]; then
+            docker image inspect "$previous_image" >/dev/null
+            docker image tag "$previous_image" dorks-and-dice-surveyor:pre-deploy
+            python3 .github/scripts/phase16-deployment-config.py snapshot dorks-and-dice-surveyor "$GITHUB_OUTPUT"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "image=$previous_image" >> "$GITHUB_OUTPUT"
+            echo "Retained previous running image $previous_image as dorks-and-dice-surveyor:pre-deploy"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "BLOCKED: dorks-and-dice-surveyor has no running container to retain as a verified rollback image. Existing-tester deployment requires an operator to investigate and authorize recovery." >&2
+            exit 1
+          fi
+
+      - name: Validate production deployment configuration
+        id: preflight
+        timeout-minutes: 3
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
+        run: |
+          set -euo pipefail
+          ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Surveyor deployment configuration is missing: $ENV_FILE"
+            exit 1
+          fi
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f docker-compose.yml config >/dev/null
+          python3 .github/scripts/phase16-deployment-config.py verify dorks-and-dice-surveyor "$ENV_FILE" "$DEPLOY_SNAPSHOT_DIR"
+
       - name: Build image
         timeout-minutes: 10
-        run: docker build -t dorks-and-dice-surveyor:latest .
+        run: |
+          docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
+            -t dorks-and-dice-surveyor:latest -t "dorks-and-dice-surveyor:$DEPLOY_SHA" \
+            .
 
       - name: Smoke test container
         timeout-minutes: 5
@@ -73,17 +116,13 @@ jobs:
           docker network rm dorks-and-dice-surveyor-test 2>/dev/null || true
 
       - name: Deploy
+        id: deploy
         timeout-minutes: 5
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
         run: |
-          ENV_FILE=/mnt/HDDs/www/dorks-and-dice-surveyor/.env
-          if [ ! -f "$ENV_FILE" ]; then
-            echo "Surveyor deployment configuration is missing: $ENV_FILE"
-            exit 1
-          fi
-          docker compose \
-            --project-name dorks-and-dice-surveyor \
-            --env-file "$ENV_FILE" \
-            -f docker-compose.yml config >/dev/null
+          set -euo pipefail
+          ENV_FILE="$DEPLOY_SNAPSHOT_DIR/compose.env"
           docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
           docker compose \
             --project-name dorks-and-dice-surveyor \
@@ -91,10 +130,17 @@ jobs:
             -f docker-compose.yml up -d --force-recreate --remove-orphans
 
       - name: Verify deployed service
+        id: verify
         timeout-minutes: 5
         run: |
+          set -euo pipefail
+          actual_image_revision="$(docker inspect --type container --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          if [ "$actual_image_revision" != "$DEPLOY_SHA" ]; then
+            echo "Running image revision $actual_image_revision does not match expected $DEPLOY_SHA" >&2
+            exit 1
+          fi
           ready=false
-          for i in {1..60}; do
+          for i in $(seq 1 "${DEPLOY_HEALTH_ATTEMPTS:-60}"); do
             live=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
               -fsS http://dorks-and-dice-surveyor:8080/health/live 2>/dev/null || true)
             readiness=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
@@ -111,3 +157,54 @@ jobs:
             docker logs dorks-and-dice-surveyor || true
             exit 1
           fi
+
+      - name: Restore previous running image after failed deploy or verification
+        id: restore
+        if: ${{ failure() && steps.previous_image.outputs.available == 'true' && (steps.deploy.outcome == 'failure' || steps.verify.outcome == 'failure') }}
+        timeout-minutes: 5
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
+        run: |
+          set -euo pipefail
+          ENV_FILE="$DEPLOY_SNAPSHOT_DIR/compose.env"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Rollback configuration is missing; previous image was retained as dorks-and-dice-surveyor:pre-deploy" >&2
+            exit 1
+          fi
+          docker image inspect dorks-and-dice-surveyor:pre-deploy >/dev/null
+          docker image tag dorks-and-dice-surveyor:pre-deploy dorks-and-dice-surveyor:latest
+          docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f "$DEPLOY_SNAPSHOT_DIR/rollback.compose.yml" up -d --force-recreate --remove-orphans
+          restored=false
+          for i in $(seq 1 "${DEPLOY_HEALTH_ATTEMPTS:-60}"); do
+            readiness=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor:8080/health/ready 2>/dev/null || true)
+            if echo "$readiness" | grep -q '"status":"ready"'; then
+              restored=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$restored" != true ]; then
+            echo "ALERT: previous image could not be verified; immediate operator intervention required" >&2
+            docker logs dorks-and-dice-surveyor || true
+            exit 1
+          fi
+          restored_image="$(docker inspect --type container --format '{{.Image}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          expected_previous_image="${{ steps.previous_image.outputs.image }}"
+          if [ "$restored_image" != "$expected_previous_image" ]; then
+            echo "Rollback started image $restored_image, expected $expected_previous_image" >&2
+            exit 1
+          fi
+          echo "Previous deployed image $restored_image has been restored and verified. This deployment remains FAILED."
+
+      - name: Erase private known-good configuration after safe completion
+        if: ${{ always() && steps.previous_image.outputs.available == 'true' && (steps.verify.outcome == 'success' || steps.restore.outcome == 'success' || (steps.deploy.outcome == 'skipped' && steps.verify.outcome == 'skipped')) }}
+        timeout-minutes: 1
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
+        run: |
+          python3 .github/scripts/phase16-deployment-config.py cleanup "$DEPLOY_SNAPSHOT_DIR"

@@ -27,7 +27,10 @@ jobs:
       - name: Detector, encoded-image, API, auth, resource, worker, cancellation, and contract tests
         run: npm test
       - name: Build container
-        run: docker build -t dorks-and-dice-surveyor:test .
+        # Use the official Docker Hub image through the public Google mirror in
+        # ephemeral CI runners, where unauthenticated Hub pulls get HTTP 429.
+        # The Dockerfile's production/deployment default remains unchanged.
+        run: docker build --build-arg NODE_BASE_IMAGE=mirror.gcr.io/library/node:24-bookworm-slim -t dorks-and-dice-surveyor:test .
       - name: Container liveness, readiness, and analysis smoke
         run: |
           set -euo pipefail
