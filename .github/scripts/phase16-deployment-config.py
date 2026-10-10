@@ -94,13 +94,18 @@ def verify(service, desired_env, snapshot_dir):
     # port publishing, bind mount or special security/network options. Refuse
     # unmodeled fields rather than incorrectly certifying the old runtime.
     allowed_service = {"image", "container_name", "restart", "environment",
-                       "volumes", "networks"}
+                       "volumes", "networks", "command", "entrypoint"}
     if set(desired["services"]) != {service} or set(frozen["services"]) != {service}:
         raise RuntimeError("Unexpected additional Compose service")
     for configuration in (desired, frozen):
         service_config = configuration["services"][service]
         if set(service_config) - allowed_service:
             raise RuntimeError("Unmodeled Compose keys: " + str(sorted(set(service_config) - allowed_service)))
+        # Compose emits null command and entrypoint even when not overridden.
+        # Only those defaults are supported; explicit changes fail closed.
+        for field in ("command", "entrypoint"):
+            if service_config.get(field) not in (None, [], ""):
+                raise RuntimeError("Explicit Compose process override is unsupported")
         if service_config.get("container_name") != service:
             raise RuntimeError("Compose changed the running container name")
         if service_config.get("image") != service + ":latest":
