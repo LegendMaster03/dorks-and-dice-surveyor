@@ -12,9 +12,15 @@ const periodicTilingPool = new BoundedWorkerPool<AnalysisWorkerRequest, Analysis
     config.workerCount,
     config.queueLimit,
     config.analysisTimeoutMs);
+// Opt-in v3 cannot consume a v2 worker slot or wait behind v2 jobs.
+// The experimental lane has one worker, no queue, and separate admission.
+// The current deployed v2 lane retains its full configured worker capacity.
+const experimentalMotifPool = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
+    new URL("./analysis/worker.js", import.meta.url),
+    1, 0, config.analysisTimeoutMs);
 const resources = [
     createPeriodicTilingResource({ config, pool: periodicTilingPool }),
-    createPeriodicMotifInvestigationResource({ config, pool: periodicTilingPool })
+    createPeriodicMotifInvestigationResource({ config, pool: experimentalMotifPool })
 ] as const;
 const server = createSurveyorServer({ resources, readiness: periodicTilingPool });
 
@@ -35,7 +41,7 @@ async function shutdown(signal: string): Promise<void> {
     stopping = true;
     log("info", "surveyor.stopping", { signal });
     server.close();
-    await periodicTilingPool.close();
+    await Promise.all([periodicTilingPool.close(), experimentalMotifPool.close()]);
 }
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
