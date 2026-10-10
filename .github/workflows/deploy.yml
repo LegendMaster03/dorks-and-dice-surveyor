@@ -10,7 +10,11 @@ on:
 
 concurrency:
   group: dorks-and-dice-surveyor
-  cancel-in-progress: true
+  # Never interrupt a host deployment between container replacement and verification.
+  cancel-in-progress: false
+
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   deploy:
@@ -27,9 +31,25 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Retain the actual running image before overwriting latest
+        id: previous_image
+        run: |
+          set -euo pipefail
+          previous_image="$(docker inspect --type container --format '{{.Image}}' dorks-and-dice-surveyor 2>/dev/null || true)"
+          if [ -n "$previous_image" ]; then
+            docker image inspect "$previous_image" >/dev/null
+            docker image tag "$previous_image" dorks-and-dice-surveyor:pre-deploy
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Retained previous running image $previous_image as dorks-and-dice-surveyor:pre-deploy"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "No running dorks-and-dice-surveyor container; no rollback image for a first deployment"
+          fi
+
       - name: Build image
         timeout-minutes: 10
-        run: docker build -t dorks-and-dice-surveyor:latest .
+        run: docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
+          -t dorks-and-dice-surveyor:latest -t "dorks-and-dice-surveyor:$DEPLOY_SHA" .
 
       - name: Smoke test container
         timeout-minutes: 5
@@ -73,6 +93,7 @@ jobs:
           docker network rm dorks-and-dice-surveyor-test 2>/dev/null || true
 
       - name: Deploy
+        id: deploy
         timeout-minutes: 5
         run: |
           ENV_FILE=/mnt/HDDs/www/dorks-and-dice-surveyor/.env
@@ -91,6 +112,7 @@ jobs:
             -f docker-compose.yml up -d --force-recreate --remove-orphans
 
       - name: Verify deployed service
+        id: verify
         timeout-minutes: 5
         run: |
           ready=false
@@ -111,3 +133,37 @@ jobs:
             docker logs dorks-and-dice-surveyor || true
             exit 1
           fi
+
+      - name: Restore previous running image after failed deploy or verification
+        if: ${{ failure() && steps.previous_image.outputs.available == 'true' && (steps.deploy.outcome == 'failure' || steps.verify.outcome == 'failure') }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          ENV_FILE=/mnt/HDDs/www/dorks-and-dice-surveyor/.env
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Rollback configuration is missing; previous image was retained as dorks-and-dice-surveyor:pre-deploy" >&2
+            exit 1
+          fi
+          docker image inspect dorks-and-dice-surveyor:pre-deploy >/dev/null
+          docker image tag dorks-and-dice-surveyor:pre-deploy dorks-and-dice-surveyor:latest
+          docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f docker-compose.yml up -d --force-recreate --remove-orphans
+          restored=false
+          for i in {1..60}; do
+            readiness=$(docker run --rm --network dorks-and-dice-backend curlimages/curl:8.12.1 \
+              -fsS http://dorks-and-dice-surveyor:8080/health/ready 2>/dev/null || true)
+            if echo "$readiness" | grep -q '"status":"ready"'; then
+              restored=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$restored" != true ]; then
+            echo "ALERT: previous image could not be verified; immediate operator intervention required" >&2
+            docker logs dorks-and-dice-surveyor || true
+            exit 1
+          fi
+          echo "Previous deployed image has been restored and verified. This deployment remains FAILED."
