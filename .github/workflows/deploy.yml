@@ -39,6 +39,7 @@ jobs:
           if [ -n "$previous_image" ]; then
             docker image inspect "$previous_image" >/dev/null
             docker image tag "$previous_image" dorks-and-dice-surveyor:pre-deploy
+            python3 .github/scripts/phase16-deployment-config.py snapshot dorks-and-dice-surveyor "$GITHUB_OUTPUT"
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "image=$previous_image" >> "$GITHUB_OUTPUT"
             echo "Retained previous running image $previous_image as dorks-and-dice-surveyor:pre-deploy"
@@ -51,6 +52,8 @@ jobs:
       - name: Validate production deployment configuration
         id: preflight
         timeout-minutes: 3
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
         run: |
           set -euo pipefail
           ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
@@ -62,6 +65,7 @@ jobs:
             --project-name dorks-and-dice-surveyor \
             --env-file "$ENV_FILE" \
             -f docker-compose.yml config >/dev/null
+          python3 .github/scripts/phase16-deployment-config.py verify dorks-and-dice-surveyor "$ENV_FILE" "$DEPLOY_SNAPSHOT_DIR"
 
       - name: Build image
         timeout-minutes: 10
@@ -114,9 +118,11 @@ jobs:
       - name: Deploy
         id: deploy
         timeout-minutes: 5
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
         run: |
           set -euo pipefail
-          ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
+          ENV_FILE="$DEPLOY_SNAPSHOT_DIR/compose.env"
           docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
           docker compose \
             --project-name dorks-and-dice-surveyor \
@@ -153,11 +159,14 @@ jobs:
           fi
 
       - name: Restore previous running image after failed deploy or verification
+        id: restore
         if: ${{ failure() && steps.previous_image.outputs.available == 'true' && (steps.deploy.outcome == 'failure' || steps.verify.outcome == 'failure') }}
         timeout-minutes: 5
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
         run: |
           set -euo pipefail
-          ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
+          ENV_FILE="$DEPLOY_SNAPSHOT_DIR/compose.env"
           if [ ! -f "$ENV_FILE" ]; then
             echo "Rollback configuration is missing; previous image was retained as dorks-and-dice-surveyor:pre-deploy" >&2
             exit 1
@@ -191,3 +200,11 @@ jobs:
             exit 1
           fi
           echo "Previous deployed image $restored_image has been restored and verified. This deployment remains FAILED."
+
+      - name: Erase private known-good configuration after safe completion
+        if: ${{ always() && steps.previous_image.outputs.available == 'true' && (success() || steps.restore.outcome == 'success' || (steps.deploy.outcome != 'failure' && steps.verify.outcome != 'failure')) }}
+        timeout-minutes: 1
+        env:
+          DEPLOY_SNAPSHOT_DIR: ${{ steps.previous_image.outputs.snapshot_dir }}
+        run: |
+          python3 .github/scripts/phase16-deployment-config.py cleanup "$DEPLOY_SNAPSHOT_DIR"
