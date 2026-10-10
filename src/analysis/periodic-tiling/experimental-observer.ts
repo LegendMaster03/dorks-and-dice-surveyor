@@ -218,6 +218,19 @@ export function investigatePeriodicMotif(
             ? crossCheck.supportedNontrivialSymmetries : 0,
         sourceProjection
     };
+    // A topology-only observation is not a complete qualified raster result.
+    // The candidate contract requires a jointly registered metric and a
+    // separately supported projection back onto the unchanged source image.
+    // Returning an identity without either proof would let clients mistake
+    // a plausible chamber graph for a fully evidenced image observation.
+    if (geometry.status !== "registered" || sourceProjection.status !== "supported")
+        return {
+            status: "inconclusive",
+            reason: geometry.status !== "registered"
+                ? `Incomplete metric witness: ${geometry.reason}`
+                : `Incomplete source polygon projection: ${sourceProjection.reason}`,
+            checkedHypotheses: checked
+        };
     // Retain an observed minimal presentation, never assert that the absolute
     // maximal symmetry quotient was reconstructed from this evidence alone.
     return {
