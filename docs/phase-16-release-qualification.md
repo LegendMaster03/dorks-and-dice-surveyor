@@ -140,16 +140,23 @@ rate. The external-image research workflow is again manual-only.
    and explicit uncertainty. The research support threshold is not calibrated
    statistical confidence. Current API results remain `consistent-candidate`,
    `ambiguous`, or `inconclusive`, never an authoritative world mutation.
-4. **OPEN — Coordinated release acceptance.** Execute the four actual
-   old/new service-client combinations, including authenticated v2 detection,
-   ordinary existing map import, and safe v3 capability fallback. Perform
-   signed-in read-only checks on representative **existing tester** worlds,
-   source assets and persisted expeditions, including reloads and rollback.
-   Current CI has provider-contract stubs and service smoke checks, but it
-   has **not** run those live cross-deployment or signed-in existing-record
-   gates. Do not claim their success from green CI. The existing v2 endpoint
-   and schema remain unchanged; no database reset or asset migration is
-   permitted.
+4. **PASS — Isolated four-version real-HTTP compatibility and rollback
+   rehearsal; OPEN — deployed existing-tester qualification.** On pinned
+   baseline and feature revisions, a separate disposable-container matrix
+   passed old Hex Crawl + old Surveyor, old Hex Crawl + augmented Surveyor,
+   new Hex Crawl + old Surveyor, and new Hex Crawl + augmented Surveyor.
+   It exercised positive authenticated v2 hex detection, saved PNG import,
+   the opt-in v3 old-provider fallback and new-provider candidate, and
+   retained world/map/expedition state. An actual old Hex Crawl image also
+   reopened the exact same ephemeral CI database and map-asset volume after
+   new Hex Crawl was stopped. The independent
+   [four-way CI run 38015153101](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38015153101)
+   is evidence for these **isolated** contracts, not for deployed login,
+   production assets or existing tester data. Still perform signed-in,
+   read-only checks on representative existing tester worlds, source assets
+   and persisted expeditions, confirm actual deployed versions, and verify
+   operational rollback. The v2 endpoint and schema remain unchanged;
+   no database reset or asset migration is permitted.
 
 No perspective-rectification, new tiling-specific algorithms, generalized
 world rendering/movement, schema migration, or user-facing authority switch
