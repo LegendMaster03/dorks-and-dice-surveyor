@@ -6,7 +6,7 @@ import {
     PeriodicMotifInvestigationCapability,
     type SurveyorPeriodicMotifInvestigation
 } from "../../contracts.js";
-import { SurveyorRequestError } from "../../errors.js";
+import { SurveyorRequestError, WorkerJobTimeoutError, WorkerJobCancelledError, WorkerPoolOverloadedError } from "../../errors.js";
 import {
     correlationIdentifier, errorCategory, readBodyBounded,
     requireServiceToken, writeError, writeJson
@@ -38,6 +38,10 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
     config: SurveyorConfig;
     pool: BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>;
 }): SurveyorResource {
+    // The decoded buffer and Sharp raster are larger than the encoded upload.
+    // Admit before buffering: one expensive v3 request may be in preparation,
+    // execution or response serialization at any time.
+    let inFlight = 0;
     return {
         id: "periodic-motif-investigation",
         capabilities: [capability],
@@ -47,6 +51,9 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
             const correlationId = correlationIdentifier(request.headers["x-correlation-id"]);
             response.setHeader("x-correlation-id", correlationId);
             const controller = new AbortController();
+            let admitted = false;
+            let deadlineExpired = false;
+            let deadlineTimer: NodeJS.Timeout | null = null;
             const abortRequest = () => controller.abort();
             const abortDisconnectedResponse = () => {
                 if (!response.writableEnded) controller.abort();
@@ -60,16 +67,36 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                 if (url.searchParams.size !== 0)
                     throw new SurveyorRequestError(400, "unsupported_investigation_options",
                         "Motif investigation does not accept expectedDsSymbol or other query parameters.");
+                if (inFlight >= 1) throw new WorkerPoolOverloadedError();
+                inFlight++;
+                admitted = true;
+                const deadline = performance.now() + dependencies.config.analysisTimeoutMs;
+                deadlineTimer = setTimeout(() => {
+                    deadlineExpired = true;
+                    controller.abort();
+                }, dependencies.config.analysisTimeoutMs);
+                const ensureActive = () => {
+                    if (deadlineExpired || performance.now() >= deadline)
+                        throw new WorkerJobTimeoutError();
+                    if (controller.signal.aborted) throw new WorkerJobCancelledError();
+                };
+                ensureActive();
                 const contentType = request.headers["content-type"] ?? "";
-                const encoded = await readBodyBounded(request, dependencies.config.maxUploadBytes);
+                const encoded = await readBodyBounded(
+                    request, dependencies.config.maxUploadBytes, controller.signal);
+                ensureActive();
                 const prepared = await prepareRaster(
                     encoded, contentType,
                     dependencies.config.maxPixels,
-                    dependencies.config.analysisMaximumDimension);
+                    dependencies.config.analysisMaximumDimension,
+                    controller.signal);
+                ensureActive();
+                const remainingMs = Math.max(1, Math.floor(deadline - performance.now()));
                 const workerResult = await dependencies.pool.run({
                     mode: "periodic-motif-investigation",
                     raster: prepared.raster
-                }, { signal: controller.signal, timeoutMs: dependencies.config.analysisTimeoutMs });
+                }, { signal: controller.signal, timeoutMs: remainingMs });
+                ensureActive();
                 if (!("mode" in workerResult) || workerResult.mode !== "periodic-motif-investigation")
                     throw new Error("Unexpected regular detection result for motif investigation.");
                 const observation = workerResult.observation;
@@ -122,13 +149,17 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                 });
                 writeJson(response, 200, result);
             } catch (error) {
+                const failure = deadlineExpired ? new WorkerJobTimeoutError() : error;
                 log("error", "surveyor.motif-investigation.failed", {
-                    correlationId, errorCategory: errorCategory(error),
+                    correlationId, errorCategory: errorCategory(failure),
                     durationMs: performance.now() - started
                 });
-                if (!response.headersSent && !controller.signal.aborted)
-                    writeError(response, error, PeriodicMotifInvestigationCapability, PeriodicMotifInvestigationApiVersion);
+                if (!response.headersSent && !response.destroyed
+                    && (!controller.signal.aborted || deadlineExpired))
+                    writeError(response, failure, PeriodicMotifInvestigationCapability, PeriodicMotifInvestigationApiVersion);
             } finally {
+                if (deadlineTimer !== null) clearTimeout(deadlineTimer);
+                if (admitted) inFlight--;
                 request.removeListener("aborted", abortRequest);
                 response.removeListener("close", abortDisconnectedResponse);
             }
