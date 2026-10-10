@@ -33,11 +33,11 @@ def snapshot(service, github_output):
         environment[key] = value
     networks = sorted(running["NetworkSettings"]["Networks"])
     mounts = sorted(
-        ({"type": mount["Type"],
+        [{"type": mount["Type"],
           "name": mount.get("Name", "") if mount["Type"] == "volume" else mount["Source"],
-          "destination": mount["Destination"]})
-        for mount in running["Mounts"]
-    , key=lambda m: (m["destination"], m["type"], m["name"]))
+          "destination": mount["Destination"]}
+         for mount in running["Mounts"]],
+        key=lambda m: (m["destination"], m["type"], m["name"]))
     record = {
         "environment": environment,
         "networks": networks,
