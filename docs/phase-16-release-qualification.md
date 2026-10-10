@@ -191,7 +191,8 @@ The feature-branch deployment definitions now retain the **running** previous
 image before overwriting `:latest`, attach an immutable Git SHA tag and image
 revision label to each new build, verify the deployed revision, serialize
 production jobs without mid-deploy cancellation, fail before building if no
-running previous image can be preserved, and attempt a verified
+running previous image can be preserved or deployment configuration preflight
+fails, and attempt a verified
 previous-image restoration after failed deploy or readiness. The independent
 [isolated deployment rehearsal](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38016975981)
 ran the actual workflow shell blocks against ephemeral Compose services and
