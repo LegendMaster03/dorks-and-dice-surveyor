@@ -121,6 +121,10 @@ function inspectSample(label,raster,expected){
       `${label} claimed image topology without sufficient source ink`);
     assert.ok(result.maximumRigidVertexResidualPixels<=5,
       `${label} claimed geometry despite accumulated distant-region drift`);
+    assert.equal(result.metricRegistration?.status,'registered',
+      `${label} claimed a complete candidate without a registered metric`);
+    assert.equal(result.metricRegistration?.sourceProjection?.status,'supported',
+      `${label} claimed a complete candidate without unchanged-source polygon projection`);
     assert.ok(result.matchedHypotheses>=1&&result.matchedHypotheses<=result.checkedHypotheses,
       `${label} counted a segmentation retry as an independently checked lattice hypothesis`);
   }
