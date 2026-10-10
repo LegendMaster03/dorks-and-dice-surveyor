@@ -2,7 +2,7 @@ import { performance } from "node:perf_hooks";
 import sharp from "sharp";
 import type { GrayscaleRaster } from "./raster.js";
 import { SupportedRasterMediaTypes, type SupportedRasterMediaType } from "../contracts.js";
-import { SurveyorRequestError } from "../errors.js";
+import { SurveyorRequestError, WorkerJobCancelledError } from "../errors.js";
 
 export type PreparedRaster = {
     raster: GrayscaleRaster;
@@ -36,7 +36,12 @@ export async function prepareRaster(
     encoded: Buffer,
     declaredMediaType: string,
     maxPixels: number,
-    maximumDimension: number): Promise<PreparedRaster> {
+    maximumDimension: number,
+    signal?: AbortSignal): Promise<PreparedRaster> {
+    const cancelled = () => {
+        if (signal?.aborted) throw new WorkerJobCancelledError();
+    };
+    cancelled();
     const mediaType = normalizeMediaType(declaredMediaType);
     const preparationStarted = performance.now();
     let metadata: ImageMetadata;
@@ -70,6 +75,7 @@ export async function prepareRaster(
     const analysisHeight = Math.max(1, Math.round(sourceHeight * analysisScale));
     const preparationMs = performance.now() - preparationStarted;
 
+    cancelled();
     const decodeStarted = performance.now();
     let decoded: RawImageResult;
     try {
@@ -84,10 +90,20 @@ export async function prepareRaster(
                 kernel: sharp.kernel.lanczos3
             });
         }
-        decoded = await pipeline.raw().toBuffer({ resolveWithObject: true });
+        const running = pipeline.raw();
+        const abortDecode = () => running.destroy();
+        signal?.addEventListener("abort", abortDecode, { once: true });
+        try {
+            cancelled();
+            decoded = await running.toBuffer({ resolveWithObject: true });
+        } finally {
+            signal?.removeEventListener("abort", abortDecode);
+        }
     } catch (error) {
+        cancelled();
         throw invalidImage(error);
     }
+    cancelled();
     const decodeMs = performance.now() - decodeStarted;
     if (decoded.info.width !== analysisWidth || decoded.info.height !== analysisHeight || decoded.info.channels < 3) {
         throw new SurveyorRequestError(422, "decode_shape_mismatch", "Decoded raster did not produce the expected bounded RGB analysis raster.");
