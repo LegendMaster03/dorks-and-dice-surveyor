@@ -191,10 +191,14 @@ The feature-branch deployment definitions now retain the **running** previous
 image before overwriting `:latest`, attach an immutable Git SHA tag and image
 revision label to each new build, verify the deployed revision, serialize
 production jobs without mid-deploy cancellation, and attempt a verified
-previous-image restoration after failed deploy or readiness. Neither workflow
-has been run against production with these changes. Those failure/rollback
-paths remain operationally untested; a future migration can invalidate binary
-rollback unless backward compatibility is established.
+previous-image restoration after failed deploy or readiness. The independent
+[isolated deployment rehearsal](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38016975981)
+ran the actual workflow shell blocks against ephemeral Compose services and
+retained volumes. Both services passed success, failed-readiness restoration,
+revision-mismatch restoration, and absence-of-prior-image checks. Neither
+workflow has been run against production with these changes; the
+production-specific rollback gate remains open. A future migration can
+invalidate binary rollback unless backward compatibility is established.
 
 The [read-only production acceptance and rollback runbook](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/blob/feature/tile-crawl-phase-16/docs/phase-16-release-runbook.md)
 specifies authenticated existing-record checks, running-image proof and
