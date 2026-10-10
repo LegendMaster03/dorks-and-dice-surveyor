@@ -228,7 +228,7 @@ export function investigatePeriodicMotif(
             status: "inconclusive",
             reason: geometry.status !== "registered"
                 ? `Incomplete metric witness: ${geometry.reason}`
-                : `Incomplete source polygon projection: ${sourceProjection.reason}`,
+                : `Incomplete source polygon projection: ${sourceProjection.status === "supported" ? "Proof unavailable" : sourceProjection.reason}`,
             checkedHypotheses: checked
         };
     // Retain an observed minimal presentation, never assert that the absolute
