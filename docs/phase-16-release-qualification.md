@@ -258,3 +258,40 @@ non-Hough translation fitting; authenticated existing-record and actual
 running-image inspection; validated operator backup/rollback readiness;
 post-authorized-deployment signed-in verification. No merge/deploy or
 destructive production data operation has been authorized.
+
+## Second independent-review follow-up — isolated rollback recovery
+
+WorkChat's second review (October 10, 2026) confirmed that the previously
+reproduced detector, mathematical, protocol, scale and resource-admission
+failures were corrected. It withheld release authorization for two remaining
+operational defects: R1 (unfrozen Compose runtime overrides) and R2
+(cancelled/unknown outcomes deleting the recovery snapshot).
+
+The Surveyor feature deployment workflow and shared
+`.github/scripts/phase16-deployment-config.py` now fail closed on
+unmodeled Compose fields (including explicit or empty command/entrypoint,
+published port, changed volume access, special container/security flags,
+and per-network aliases). Preflight privately retains the verified old
+Compose definition alongside the live runtime environment and image ID.
+Rollback explicitly reads the private frozen Compose, **not** the candidate
+checkout, so later corruption of the candidate file does not prevent
+independent old-image recovery. The workflow deletes this secret-bearing
+snapshot only after successful verification, successfully verified
+restoration, or proof that no deploy was attempted; cancellation during
+replacement retains it for an authorized operator.
+
+Hex Crawl's matrix workflow exercises the **actual Surveyor deploy shell
+steps** in disposable Docker and tests these exact production workflow
+conditions across cancelled/skipped/failed outcomes. The [expanded
+rehearsal](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/38024042740)
+recovers from persistent bad command, host port and read-only volume
+definitions without repairing the hostile Compose file, preserving the
+prior image ID and a retained test volume record.
+
+**Limitations remain:** manual GitHub cancellation and runner loss
+were not induced; the actual production image IDs, backups, environment
+and existing signed-in tester records have not been verified. This work
+is strictly feature branch only, with no merge, production deploy,
+destructive migration or modification of tester data. The
+numerical-kernel reuse deviation remains a separately documented
+scope decision.
