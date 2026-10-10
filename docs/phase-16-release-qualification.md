@@ -175,5 +175,31 @@ bounded held-out gates now pass. **A green run is necessary but not sufficient**
 while the actual old/new cross-deployment and signed-in existing-tester
 workflow/rollback checks remain incomplete.
 
+
+### Operational deploy safety checkpoint (feature-branch only)
+
+The latest successful baseline production workflows deployed Surveyor
+[`e9ad1cc9`](https://github.com/LegendMaster03/dorks-and-dice-surveyor/actions/runs/37877969080)
+and Hex Crawl
+[`afb4760f`](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/actions/runs/37889199540),
+matching the exact old revisions in the four-way matrix. Both workflows
+completed deployed-service health verification. Those records do not prove
+the host's **current** image IDs or that signed-in existing tester data is
+accessible.
+
+The feature-branch deployment definitions now retain the **running** previous
+image before overwriting `:latest`, attach an immutable Git SHA tag and image
+revision label to each new build, verify the deployed revision, serialize
+production jobs without mid-deploy cancellation, and attempt a verified
+previous-image restoration after failed deploy or readiness. Neither workflow
+has been run against production with these changes. Those failure/rollback
+paths remain operationally untested; a future migration can invalidate binary
+rollback unless backward compatibility is established.
+
+The [read-only production acceptance and rollback runbook](https://github.com/LegendMaster03/dorks-and-dice-hex-crawl/blob/feature/tile-crawl-phase-16/docs/phase-16-release-runbook.md)
+specifies authenticated existing-record checks, running-image proof and
+release ordering. **Deployment and merge remain NO-GO** pending those
+operational checks and authorization.
+
 No authority switch, production deployment or merge is authorized by these
 research and qualification tests.
