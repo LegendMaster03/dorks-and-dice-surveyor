@@ -575,3 +575,38 @@ remain mandatory before an authoritative generalized detector can be shipped.
 The external-image workflow was returned to **manual-only**
 (`workflow_dispatch`) after those bounded research runs. Ordinary feature
 branch pushes and production deployment do not fetch Commons assets.
+
+## Post-independent-review disposition — detector reuse and complete evidence
+
+The Phase 16 independent review distinguished **retaining the original v2
+detector** from **directly reusing its Hough/autocorrelation fitting code**.
+Both are important, but they are not equivalent claims:
+
+| Established v2 stage | Phase 16 v3 behavior | Disposition |
+| --- | --- | --- |
+| Original Sobel strength and edge normals (`buildEdgeField`) | Calls the existing exported kernel without transforming the source | Directly reused |
+| Hexagon-specific three-line Hough families and scalar autocorrelation pitch | Proposes a general two-vector translation lattice from displacement votes on the same Sobel samples | New generalized kernel; **not** the old Hough/autocorrelation implementation |
+| Hex orientation/phase and center-spacing fitter | Jointly refines both translation vectors, observes whole polygons, and requires reciprocal incidence | New geometry-agnostic basis/motif fitting; no hex orientation assumption |
+| Distant original-raster evidence and drift resistance | Uses shared global rigid basis, multi-region checks and unchanged-image projection, without locally corrected intermediate images | Same safety invariant, implemented for general polygons |
+| Triangle/square/hex shape selection | No selected geometry hint or catalog authority; polygons produce chambers/D-symbols | Replaced by genuine geometry-derived topology |
+
+The numerical generalizations are **not** mechanically identical to the hex
+Hough and phase routines. Those original routines assume three specific line
+families and a carrier pitch tied to hex center spacing; applying them directly
+to asymmetric or mixed-polygon motifs would impose an unsupported shape prior.
+This represents a **limited departure from the literal kernel-reuse preference**
+in PR #66 and must be explicitly accepted or remediated during release review.
+The v2 implementation remains unchanged and is checked in the old/new HTTP
+matrix. Do not describe v3 as calling the Hough/autocorrelation kernel when it
+does not.
+
+Following the independent review, the experimental result now reports
+`consistent-candidate` **only when** the source-derived chamber graph also
+has a separately registered shared metric and a supported whole-image
+unchanged-source polygon/negative-space projection. A plausible topology
+with failed registration or projection returns `inconclusive` without a
+D-symbol candidate. The bounded 3-of-4 held-out positives and the four
+regular no-hint fixtures retain their complete proofs; several previous
+topology-only exploratory positives correctly become inconclusive. Hex Crawl
+now validates and retains the metric/projection evidence at the HTTP boundary.
+Neither status is authoritative or modifies a tester world.
