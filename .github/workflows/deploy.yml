@@ -48,6 +48,21 @@ jobs:
             exit 1
           fi
 
+      - name: Validate production deployment configuration
+        id: preflight
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Surveyor deployment configuration is missing: $ENV_FILE"
+            exit 1
+          fi
+          docker compose \
+            --project-name dorks-and-dice-surveyor \
+            --env-file "$ENV_FILE" \
+            -f docker-compose.yml config >/dev/null
+
       - name: Build image
         timeout-minutes: 10
         run: |
@@ -100,15 +115,8 @@ jobs:
         id: deploy
         timeout-minutes: 5
         run: |
+          set -euo pipefail
           ENV_FILE="${DEPLOY_ENV_FILE:-/mnt/HDDs/www/dorks-and-dice-surveyor/.env}"
-          if [ ! -f "$ENV_FILE" ]; then
-            echo "Surveyor deployment configuration is missing: $ENV_FILE"
-            exit 1
-          fi
-          docker compose \
-            --project-name dorks-and-dice-surveyor \
-            --env-file "$ENV_FILE" \
-            -f docker-compose.yml config >/dev/null
           docker rm -f dorks-and-dice-surveyor 2>/dev/null || true
           docker compose \
             --project-name dorks-and-dice-surveyor \
