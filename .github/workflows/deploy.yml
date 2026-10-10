@@ -48,8 +48,10 @@ jobs:
 
       - name: Build image
         timeout-minutes: 10
-        run: docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
-          -t dorks-and-dice-surveyor:latest -t "dorks-and-dice-surveyor:$DEPLOY_SHA" .
+        run: |
+          docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
+            -t dorks-and-dice-surveyor:latest -t "dorks-and-dice-surveyor:$DEPLOY_SHA" \
+            .
 
       - name: Smoke test container
         timeout-minutes: 5
