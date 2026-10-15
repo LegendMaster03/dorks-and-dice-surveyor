@@ -238,7 +238,7 @@ export function investigatePeriodicMotif(
     // original image projection and independent metric closure remain mandatory.
     const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology,
         preferred.basis, preferred.contourRecovered
-            ? {maximumContourResidualPixels:7} : {});
+            ? {maximumContourResidualPixels:7,useRobustObservedAnchor:true} : {});
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;
