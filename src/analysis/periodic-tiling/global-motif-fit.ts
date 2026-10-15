@@ -10,6 +10,8 @@ export type RigidMotifFit =
 export type RigidFitOptions = {
     maxVertexResidualPixels?: number;
     minimumRasterEdgeSupport?: number;
+    /** Internal: choose one least-drift observed reference when contour simplification was independently retried. */
+    useRobustObservedAnchor?: boolean;
 };
 
 /**
@@ -40,7 +42,35 @@ export function verifyRigidMotifFit(
     if (!Number.isFinite(det) || Math.abs(det) < 4)
         return unsupported("Invalid translation basis");
     const p = (x: number, y: number): ObservedPoint => ({ x, y });
-    const representative = observation.classes.map(kind => observation.interiors.find(cell => cell.motifClass === kind.id));
+    const representative = observation.classes.map(kind => {
+        const copies = observation.interiors.filter(cell => cell.motifClass === kind.id);
+        if (!options.useRobustObservedAnchor || copies.length < 3) return copies[0];
+        // Retain ONE actual observed polygon as the global rigid template.
+        // The bounded medoid search never adjusts an individual cell's
+        // position, vertices, lattice address, or original-image evidence.
+        const candidates = copies.length <= 24 ? copies
+            : Array.from({ length: 24 }, (_, i) => copies[Math.floor(i * copies.length / 24)]);
+        let best = copies[0], minimumWorst = Infinity;
+        for (const example of candidates) {
+            let worst = 0;
+            for (const cell of copies) {
+                if (cell.polygon.length !== example.polygon.length) { worst = Infinity; break; }
+                const dx = cell.centroid.x - example.centroid.x;
+                const dy = cell.centroid.y - example.centroid.y;
+                const u = Math.round((dx * b.y - dy * b.x) / det);
+                const v = Math.round((a.x * dy - a.y * dx) / det);
+                for (let i = 0; i < cell.polygon.length; i++) {
+                    const point = cell.polygon[i], reference = example.polygon[i];
+                    worst = Math.max(worst, Math.hypot(
+                        point.x - reference.x - u * a.x - v * b.x,
+                        point.y - reference.y - u * a.y - v * b.y));
+                }
+                if (worst >= minimumWorst) break;
+            }
+            if (worst < minimumWorst) { minimumWorst = worst; best = example; }
+        }
+        return best;
+    });
     if (representative.some(x => !x)) return inconclusive("Unknown observed motif class");
     let worst = 0, sumSq = 0, vertexCount = 0, supported = 0, tested = 0;
     const seenRegions = new Set<number>();

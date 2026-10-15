@@ -17,6 +17,8 @@ export type ObservedMetricRegistration =
 export type ObservedMetricRegistrationOptions = {
     maximumContourResidualPixels?: number;
     minimumOriginalRasterEdgeSupport?: number;
+    /** Internal original-contour recovery mode; does not relax the rigid residual limit. */
+    useRobustObservedAnchor?: boolean;
 };
 
 /**
@@ -240,7 +242,8 @@ export function registerObservedMetric(
         return inconclusive("A geometry-derived chamber graph disagrees with the original raster-derived topology");
     const original=verifyRigidMotifFit(raster,observation,basis,{
         maxVertexResidualPixels:Math.min(5,maximumResidual),
-        minimumRasterEdgeSupport:minimumEdgeSupport
+        minimumRasterEdgeSupport:minimumEdgeSupport,
+        useRobustObservedAnchor:options.useRobustObservedAnchor
     });
     if(original.status!=="supported")
         return inconclusive(`Global original-raster verification fails: ${original.reason}`);

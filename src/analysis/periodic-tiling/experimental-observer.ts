@@ -79,6 +79,7 @@ export function investigatePeriodicMotif(
         symbol: string;
         hypothesisIndex: number;
         segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
+        contourRecovered: boolean;
         basis: TranslationHypothesis["basis"];
         minimum: number;
         rasterSupport: number;
@@ -88,6 +89,12 @@ export function investigatePeriodicMotif(
         interior: import("./motif-interiors.js").InteriorObservation;
         topology: Extract<ReturnType<typeof deriveObservedTopology>, { status: "derived" }>;
     }[] = [];
+    // Report the deepest failed proof stage when no candidate can be verified.
+    // This remains advisory; a partial contour or topology is never promoted.
+    let deepestFailure = { stage: 0, reason: "No repeated contour observations" };
+    const noteFailure = (stage: number, reason: string): void => {
+        if (stage > deepestFailure.stage) deepestFailure = { stage, reason };
+    };
     // Source-image gradient contours are only a segmentation FALLBACK when
     // the older white-interior probe cannot operate on multitone cells.
     // The existing Sobel/translation detector and unchanged-raster metric
@@ -99,6 +106,18 @@ export function investigatePeriodicMotif(
             interior: import("./motif-interiors.js").InteriorObservation;
             segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
         }[]=[{interior:ordinary,segmentationProvenance:"original-closed-line"}];
+        // A rasterized junction may simplify differently in repeated copies
+        // near the default contour tolerance. Retry generic contour fitting
+        // without weakening the independent topology and ink-proof gates.
+        if(ordinary.status==="inconclusive"
+            &&ordinary.reason==="Repeated cell contours disagree on junction subdivision"
+            && options.interiors?.contourTolerancePixels===undefined)
+            observations.push({
+                interior:observeMotifInteriors(raster,hypothesis.basis,{
+                    ...options.interiors,contourTolerancePixels:6
+                }),
+                segmentationProvenance:"original-closed-line"
+            });
         if(ordinary.status==="inconclusive"
             &&ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")){
             if(fallbackMasks===null){
@@ -118,7 +137,10 @@ export function investigatePeriodicMotif(
         }
         for(const observed of observations){
             const {interior,segmentationProvenance}=observed;
-            if(interior.status!=="observed")continue;
+            if(interior.status!=="observed"){
+                noteFailure(1,interior.reason);
+                continue;
+            }
             // All positions share the same integral lattice addresses and one
             // rigid period fit. Sobel-derived masks cannot vote as source ink.
             const refined=refineRigidTranslationBasis(interior,hypothesis.basis,options.refinement);
@@ -129,16 +151,30 @@ export function investigatePeriodicMotif(
                     && options.topology?.maxInkGapPixels === undefined
                     ? {maxInkGapPixels:12} : {})
             });
-            if(topology.status!=="derived")continue;
-            const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,options.globalFit);
-            if(globalFit.status!=="supported")continue;
+            if(topology.status!=="derived"){
+                noteFailure(2,topology.reason);
+                continue;
+            }
+            // A higher contour simplification tolerance can stabilize a
+            // genuinely repeated polygon but move its arbitrary first anchor.
+            // Use an actual least-drift raster contour only for this retry.
+            const contourRecovered=segmentationProvenance==="original-closed-line"
+                && interior!==ordinary;
+            const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,{
+                ...options.globalFit,
+                ...(contourRecovered ? {useRobustObservedAnchor:true} : {})
+            });
+            if(globalFit.status!=="supported"){
+                noteFailure(3,globalFit.reason);
+                continue;
+            }
             const motifCells:ExperimentalMotifCell[]=topology.cells.map(cell=>({
                 classId:cell.classId,
                 polygonAnalysisPixels:interior.interiors.find(example=>example.motifClass===cell.classId)!.polygon,
                 boundaries:cell.boundaries
             }));
             verified.push({symbol:topology.dsSymbol,hypothesisIndex,
-                segmentationProvenance,basis:chosenBasis,motifCells,
+                segmentationProvenance,contourRecovered,basis:chosenBasis,motifCells,
                 minimum:topology.minimumEdgeObservations,
                 rasterSupport:globalFit.originalRasterEdgeSupport,
                 rigidResidual:globalFit.maxVertexResidualPixels,
@@ -148,7 +184,9 @@ export function investigatePeriodicMotif(
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
-        return { status: "inconclusive", reason: "No translation candidate reconstructed a complete reciprocal chamber graph", checkedHypotheses: checked };
+        return { status: "inconclusive",
+            reason: `No translation candidate reconstructed a complete reciprocal chamber graph. Deepest failed verification: ${deepestFailure.reason}`,
+            checkedHypotheses: checked };
     // A nonprimitive translation sublattice repeats a larger motif and has a
     // different D-symbol *presentation*. Select the smallest independently
     // reconstructed quotient only if every other complete candidate projects
@@ -194,7 +232,13 @@ export function investigatePeriodicMotif(
     // original raster contours. This is bounded research evidence only:
     // an inconclusive metric fit MUST NOT turn a valid topology observation
     // into a false authoritative result or silently alter its D-symbol.
-    const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology, preferred.basis);
+    // A six-pixel source-contour simplification and three-pixel line stroke
+    // have a geometric corner uncertainty below sqrt(6²+3²) + rounding.
+    // Allow a seven-pixel bound only for this measured contour-recovery path;
+    // original image projection and independent metric closure remain mandatory.
+    const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology,
+        preferred.basis, preferred.contourRecovered
+            ? {maximumContourResidualPixels:7,useRobustObservedAnchor:true} : {});
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;
