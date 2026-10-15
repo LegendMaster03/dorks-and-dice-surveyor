@@ -88,6 +88,12 @@ export function investigatePeriodicMotif(
         interior: import("./motif-interiors.js").InteriorObservation;
         topology: Extract<ReturnType<typeof deriveObservedTopology>, { status: "derived" }>;
     }[] = [];
+    // Report the deepest failed proof stage when no candidate can be verified.
+    // This remains advisory; a partial contour or topology is never promoted.
+    let deepestFailure = { stage: 0, reason: "No repeated contour observations" };
+    const noteFailure = (stage: number, reason: string): void => {
+        if (stage > deepestFailure.stage) deepestFailure = { stage, reason };
+    };
     // Source-image gradient contours are only a segmentation FALLBACK when
     // the older white-interior probe cannot operate on multitone cells.
     // The existing Sobel/translation detector and unchanged-raster metric
@@ -130,7 +136,10 @@ export function investigatePeriodicMotif(
         }
         for(const observed of observations){
             const {interior,segmentationProvenance}=observed;
-            if(interior.status!=="observed")continue;
+            if(interior.status!=="observed"){
+                noteFailure(1,interior.reason);
+                continue;
+            }
             // All positions share the same integral lattice addresses and one
             // rigid period fit. Sobel-derived masks cannot vote as source ink.
             const refined=refineRigidTranslationBasis(interior,hypothesis.basis,options.refinement);
@@ -141,9 +150,15 @@ export function investigatePeriodicMotif(
                     && options.topology?.maxInkGapPixels === undefined
                     ? {maxInkGapPixels:12} : {})
             });
-            if(topology.status!=="derived")continue;
+            if(topology.status!=="derived"){
+                noteFailure(2,topology.reason);
+                continue;
+            }
             const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,options.globalFit);
-            if(globalFit.status!=="supported")continue;
+            if(globalFit.status!=="supported"){
+                noteFailure(3,globalFit.reason);
+                continue;
+            }
             const motifCells:ExperimentalMotifCell[]=topology.cells.map(cell=>({
                 classId:cell.classId,
                 polygonAnalysisPixels:interior.interiors.find(example=>example.motifClass===cell.classId)!.polygon,
@@ -160,7 +175,9 @@ export function investigatePeriodicMotif(
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
-        return { status: "inconclusive", reason: "No translation candidate reconstructed a complete reciprocal chamber graph", checkedHypotheses: checked };
+        return { status: "inconclusive",
+            reason: `No translation candidate reconstructed a complete reciprocal chamber graph. Deepest failed verification: ${deepestFailure.reason}`,
+            checkedHypotheses: checked };
     // A nonprimitive translation sublattice repeats a larger motif and has a
     // different D-symbol *presentation*. Select the smallest independently
     // reconstructed quotient only if every other complete candidate projects
