@@ -19,10 +19,10 @@ function line(raster, x0, y0, x1, y1) {
     }
 }
 function squareBoard() {
-    const r=image(1584,1584),cell=176;
+    const r=image(1152,1152),cell=128;
     for(let i=0;i<=9;i++){
-        line(r,i*cell,0,i*cell,1583);
-        line(r,0,i*cell,1583,i*cell);
+        line(r,i*cell,0,i*cell,1151);
+        line(r,0,i*cell,1151,i*cell);
     }
     return r;
 }

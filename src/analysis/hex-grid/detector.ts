@@ -41,6 +41,8 @@ export type EdgeField = {
     height: number;
     strength: Float32Array;
     samples: EdgeSample[];
+    /** Original Sobel normals at all qualified edges, including unsampled pixels. */
+    denseNormals?: Float32Array;
 };
 type HoughProfile = Float64Array;
 type HoughCandidate = {
@@ -266,6 +268,7 @@ export function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): Edg
     const normalizer = Math.max(threshold, quantile(sampledMagnitudes, 0.90));
     const strength = new Float32Array(width * height);
     const candidates: EdgeSample[] = [];
+    const denseNormals = new Float32Array(width * height).fill(-1);
 
     for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
@@ -273,13 +276,14 @@ export function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): Edg
             const magnitude = rawMagnitude[i];
             strength[i] = Math.min(1, magnitude / normalizer);
             if (magnitude >= threshold) {
+                denseNormals[i] = rawNormal[i];
                 candidates.push({ x, y, normal: rawNormal[i] });
             }
         }
     }
 
     if (candidates.length <= maxSamples) {
-        return { width, height, strength, samples: candidates };
+        return { width, height, strength, samples: candidates, denseNormals };
     }
 
     // Keep a deterministic, spatially distributed sample. Sorting by magnitude would
@@ -289,7 +293,7 @@ export function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): Edg
     for (let index = 0; index < maxSamples; index++) {
         samples.push(candidates[Math.floor(index * step)]);
     }
-    return { width, height, strength, samples };
+    return { width, height, strength, samples, denseNormals };
 }
 
 function fitHoughLattice(

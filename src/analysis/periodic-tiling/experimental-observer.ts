@@ -99,6 +99,18 @@ export function investigatePeriodicMotif(
             interior: import("./motif-interiors.js").InteriorObservation;
             segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
         }[]=[{interior:ordinary,segmentationProvenance:"original-closed-line"}];
+        // A rasterized junction may simplify differently in repeated copies
+        // near the default contour tolerance. Retry generic contour fitting
+        // without weakening the independent topology and ink-proof gates.
+        if(ordinary.status==="inconclusive"
+            &&ordinary.reason==="Repeated cell contours disagree on junction subdivision"
+            && options.interiors?.contourTolerancePixels===undefined)
+            observations.push({
+                interior:observeMotifInteriors(raster,hypothesis.basis,{
+                    ...options.interiors,contourTolerancePixels:4
+                }),
+                segmentationProvenance:"original-closed-line"
+            });
         if(ordinary.status==="inconclusive"
             &&ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")){
             if(fallbackMasks===null){

@@ -112,8 +112,12 @@ export function discoverTranslations(field: EdgeField, options: TranslationOptio
     }
     const votes = [...frequencies].sort((a,b) => b[1] - a[1]).slice(0, 40);
     const testing = uniformSamples(field.samples, 5_000);
-    const orientation = new Float32Array(field.width * field.height).fill(-1);
-    for (const sample of field.samples) orientation[sample.y * field.width + sample.x] = sample.normal;
+    // Spatial sample caps are for bounded voting cost, not for measuring
+    // translation support. Looking up only the thinned samples aliases one
+    // lattice direction on large, regular printed grids.
+    const orientation = field.denseNormals ?? new Float32Array(field.width * field.height).fill(-1);
+    if (!field.denseNormals)
+        for (const sample of field.samples) orientation[sample.y * field.width + sample.x] = sample.normal;
     const ranked: TranslationEvidence[] = [];
     for (const [key] of votes) {
         const [qx, qy] = key.split(",").map(Number);
