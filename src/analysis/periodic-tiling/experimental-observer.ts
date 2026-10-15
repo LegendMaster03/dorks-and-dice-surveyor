@@ -79,6 +79,7 @@ export function investigatePeriodicMotif(
         symbol: string;
         hypothesisIndex: number;
         segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
+        contourRecovered: boolean;
         basis: TranslationHypothesis["basis"];
         minimum: number;
         rasterSupport: number;
@@ -154,7 +155,15 @@ export function investigatePeriodicMotif(
                 noteFailure(2,topology.reason);
                 continue;
             }
-            const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,options.globalFit);
+            // A higher contour simplification tolerance can stabilize a
+            // genuinely repeated polygon but move its arbitrary first anchor.
+            // Use an actual least-drift raster contour only for this retry.
+            const contourRecovered=segmentationProvenance==="original-closed-line"
+                && interior!==ordinary;
+            const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,{
+                ...options.globalFit,
+                ...(contourRecovered ? {useRobustObservedAnchor:true} : {})
+            });
             if(globalFit.status!=="supported"){
                 noteFailure(3,globalFit.reason);
                 continue;
@@ -165,7 +174,7 @@ export function investigatePeriodicMotif(
                 boundaries:cell.boundaries
             }));
             verified.push({symbol:topology.dsSymbol,hypothesisIndex,
-                segmentationProvenance,basis:chosenBasis,motifCells,
+                segmentationProvenance,contourRecovered,basis:chosenBasis,motifCells,
                 minimum:topology.minimumEdgeObservations,
                 rasterSupport:globalFit.originalRasterEdgeSupport,
                 rigidResidual:globalFit.maxVertexResidualPixels,
@@ -223,7 +232,13 @@ export function investigatePeriodicMotif(
     // original raster contours. This is bounded research evidence only:
     // an inconclusive metric fit MUST NOT turn a valid topology observation
     // into a false authoritative result or silently alter its D-symbol.
-    const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology, preferred.basis);
+    // A six-pixel source-contour simplification and three-pixel line stroke
+    // have a geometric corner uncertainty below sqrt(6²+3²) + rounding.
+    // Allow a seven-pixel bound only for this measured contour-recovery path;
+    // original image projection and independent metric closure remain mandatory.
+    const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology,
+        preferred.basis, preferred.contourRecovered
+            ? {maximumContourResidualPixels:7} : {});
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;
