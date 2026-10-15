@@ -113,7 +113,7 @@ export function investigatePeriodicMotif(
             && options.interiors?.contourTolerancePixels===undefined)
             observations.push({
                 interior:observeMotifInteriors(raster,hypothesis.basis,{
-                    ...options.interiors,contourTolerancePixels:5
+                    ...options.interiors,contourTolerancePixels:6
                 }),
                 segmentationProvenance:"original-closed-line"
             });

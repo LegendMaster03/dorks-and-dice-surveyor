@@ -40,43 +40,7 @@ export function verifyRigidMotifFit(
     if (!Number.isFinite(det) || Math.abs(det) < 4)
         return unsupported("Invalid translation basis");
     const p = (x: number, y: number): ObservedPoint => ({ x, y });
-    // A first-in-raster contour can have the worst pixel staircase error in
-    // a class. Select ONE observed contour per class that minimizes the
-    // maximum rigid residual against distant copies. This is not an affine
-    // correction, image warp, per-cell fit, or an invented polygon.
-    const representative = observation.classes.map(kind => {
-        const copies = observation.interiors.filter(cell => cell.motifClass === kind.id)
-            .sort((a, b) => a.centroid.y - b.centroid.y || a.centroid.x - b.centroid.x);
-        let best = copies[0], bestResidual = Infinity;
-        if (!best) return undefined;
-        const possible = copies.length <= 24 ? copies
-            : Array.from({ length: 24 }, (_, i) => copies[Math.floor(i * copies.length / 24)]);
-        for (const example of possible) {
-            let worst = 0;
-            for (const cell of copies) {
-                if (cell.polygon.length !== example.polygon.length) {
-                    worst = Infinity;
-                    break;
-                }
-                const dx = cell.centroid.x - example.centroid.x;
-                const dy = cell.centroid.y - example.centroid.y;
-                const u = Math.round((dx * b.y - dy * b.x) / det);
-                const v = Math.round((a.x * dy - a.y * dx) / det);
-                for (let i = 0; i < cell.polygon.length; i++) {
-                    const observed = cell.polygon[i], vertex = example.polygon[i];
-                    worst = Math.max(worst, Math.hypot(
-                        observed.x - vertex.x - u * a.x - v * b.x,
-                        observed.y - vertex.y - u * a.y - v * b.y));
-                }
-                if (worst >= bestResidual) break;
-            }
-            if (worst < bestResidual) {
-                bestResidual = worst;
-                best = example;
-            }
-        }
-        return best;
-    });
+    const representative = observation.classes.map(kind => observation.interiors.find(cell => cell.motifClass === kind.id));
     if (representative.some(x => !x)) return inconclusive("Unknown observed motif class");
     let worst = 0, sumSq = 0, vertexCount = 0, supported = 0, tested = 0;
     const seenRegions = new Set<number>();
