@@ -42,22 +42,8 @@ for(const [name,fixture] of [
     ["9x9 square printed-grid fixture",squareBoard],
     ["regular hex printed-grid fixture",hexBoard]
 ]){
-    test(`experimentally observes the ${name} without supplied geometry`,async()=>{
-        const raster=fixture();
-        const {evaluateOriginalRasterTranslations}=await import("../dist/src/analysis/periodic-tiling/original-edge-candidates.js");
-        const {observeMotifInteriors}=await import("../dist/src/analysis/periodic-tiling/motif-interiors.js");
-        const found=evaluateOriginalRasterTranslations(raster);
-        console.log("PR86_TRANSLATIONS",name,JSON.stringify({reason:found.reason,vectors:found.vectors.slice(0,12),hypotheses:found.hypotheses}));
-        for(const hypothesis of found.hypotheses){
-            const interiors=observeMotifInteriors(raster,hypothesis.basis);
-            console.log("PR86_INTERIORS",name,JSON.stringify({basis:hypothesis.basis,status:interiors.status,reason:interiors.reason,classes:interiors.classes?.map(x=>x.sideCount)}));
-            if(name.includes("hex") && found.hypotheses.indexOf(hypothesis)===0)
-                for(const tolerance of [3,4,5,6,8,10]){
-                    const probe=observeMotifInteriors(raster,hypothesis.basis,{contourTolerancePixels:tolerance});
-                    console.log("PR86_TOLERANCE",tolerance,probe.status,probe.reason,probe.classes.map(x=>x.sideCount));
-                }
-        }
-        const result=investigatePeriodicMotif(raster);
+    test(`experimentally observes the ${name} without supplied geometry`,()=>{
+        const result=investigatePeriodicMotif(fixture());
         assert.equal(result.status,"consistent-candidate",
             `${name}: ${result.reason}; checked=${result.checkedHypotheses}`);
         assert.equal(result.metricRegistration.status,"registered");
