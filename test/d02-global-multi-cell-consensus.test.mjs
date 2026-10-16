@@ -38,7 +38,7 @@ test("D02 one locally displaced first contour cannot determine global motif alig
     const fit=verifyRigidMotifFit(raster,observation,basis);
     assert.equal(fit.status,"supported",fit.reason);
     assert.ok(fit.originalRasterEdgeSupport>=.83);
-    assert.ok(fit.maximumRigidVertexResidualPixels<=5);
+    assert.ok(fit.maxVertexResidualPixels<=5);
     assert.ok(fit.supportedRegions>=4);
     assert.equal(fit.checkedCells,49);
 });
