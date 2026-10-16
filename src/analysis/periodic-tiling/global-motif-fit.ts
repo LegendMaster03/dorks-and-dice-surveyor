@@ -6,21 +6,24 @@ import type { TranslationVector } from "./translations.js";
 
 export type RigidMotifFit =
     | { status: "supported"; maxVertexResidualPixels: number; rmsVertexResidualPixels: number;
-        originalRasterEdgeSupport: number; supportedRegions: number; checkedCells: number }
+        originalRasterEdgeSupport: number; supportedRegions: number; checkedCells: number;
+        /** Local contour traces excluded from median geometry ONLY.
+         * They still contribute to the unchanged-source ink evidence. */
+        excludedContourObservations: number }
     | { status: "inconclusive" | "unsupported"; reason: string };
 
 export type RigidFitOptions = {
     maxVertexResidualPixels?: number;
     minimumRasterEdgeSupport?: number;
-    /** Internal: choose one least-drift observed reference when contour simplification was independently retried. */
-    useRobustObservedAnchor?: boolean;
 };
 
 /**
  * Check an entire proposed translation motif against the untouched image.
- * One representative per motif class fixes every translated polygon vertex:
- * NO local refits, cumulative corrections, or synthetic image transformations.
- * This checks rigid registration, NOT full probabilistic image interpretation.
+ * Fit ONE polygon per motif class from the coordinate-wise median of
+ * independently observed, lattice-aligned source cell contours. No one
+ * scanned cell determines the image alignment. Retain an independent
+ * long-baseline drift test so centering cannot conceal wrong periods.
+ * Check every predicted boundary against unchanged source-image ink.
  */
 export function verifyRigidMotifFit(
     raster: GrayscaleRaster,
@@ -46,37 +49,59 @@ export function verifyRigidMotifFit(
     if (!Number.isFinite(det) || Math.abs(det) < 4)
         return unsupported("Invalid translation basis");
     const p = (x: number, y: number): ObservedPoint => ({ x, y });
-    const representative = observation.classes.map(kind => {
-        const copies = observation.interiors.filter(cell => cell.motifClass === kind.id);
-        if (!options.useRobustObservedAnchor || copies.length < 3) return copies[0];
-        // Retain ONE actual observed polygon as the global rigid template.
-        // The bounded medoid search never adjusts an individual cell's
-        // position, vertices, lattice address, or original-image evidence.
-        const candidates = copies.length <= 24 ? copies
-            : Array.from({ length: 24 }, (_, i) => copies[Math.floor(i * copies.length / 24)]);
-        let best = copies[0], minimumWorst = Infinity;
-        for (const example of candidates) {
-            let worst = 0;
-            for (const cell of copies) {
-                if (cell.polygon.length !== example.polygon.length) { worst = Infinity; break; }
-                const dx = cell.centroid.x - example.centroid.x;
-                const dy = cell.centroid.y - example.centroid.y;
-                const u = Math.round((dx * b.y - dy * b.x) / det);
-                const v = Math.round((a.x * dy - a.y * dx) / det);
-                for (let i = 0; i < cell.polygon.length; i++) {
-                    const point = cell.polygon[i], reference = example.polygon[i];
-                    worst = Math.max(worst, Math.hypot(
-                        point.x - reference.x - u * a.x - v * b.x,
-                        point.y - reference.y - u * a.y - v * b.y));
-                }
-                if (worst >= minimumWorst) break;
-            }
-            if (worst < minimumWorst) { minimumWorst = worst; best = example; }
+
+    type CellWitness = {
+        cell: (typeof observation.interiors)[number];
+        shift: ObservedPoint;
+        centroidPhase: ObservedPoint;
+    };
+    const median = (values: number[]): number => {
+        values.sort((x,y)=>x-y);
+        const n=values.length, i=Math.floor(n/2);
+        return n%2?values[i]!:(values[i-1]!+values[i]!)/2;
+    };
+    const percentile=(sorted:readonly number[], q:number):number=>
+        sorted[Math.floor((sorted.length-1)*q)]!;
+    const consensus: {polygon:ObservedPoint[];witnesses:CellWitness[]}[]=[];
+    for(const kind of observation.classes){
+        const copies=observation.interiors.filter(c=>c.motifClass===kind.id);
+        if(copies.length<3||copies.some(c=>
+            c.polygon.length!==kind.sideCount ||
+            !Number.isFinite(c.centroid.x)||!Number.isFinite(c.centroid.y)))
+            return inconclusive("Insufficient repeated cell geometry for a global motif");
+        // A scanned observation fixes only the INTEGRAL ADDRESS gauge,
+        // not the geometry. The template itself is fitted from ALL copies.
+        const gauge=copies[0]!.centroid;
+        const witnesses:CellWitness[]=[];
+        for(const cell of copies){
+            const dx=cell.centroid.x-gauge.x,dy=cell.centroid.y-gauge.y;
+            const fu=(dx*b.y-dy*b.x)/det,fv=(a.x*dy-a.y*dx)/det;
+            const u=Math.round(fu),v=Math.round(fv);
+            if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
+                ||Math.max(Math.abs(fu-u),Math.abs(fv-v))>.12)
+                return inconclusive("Distant cell addresses disagree with the proposed translation basis");
+            const shift=p(u*a.x+v*b.x,u*a.y+v*b.y);
+            witnesses.push({cell,shift,
+                centroidPhase:p(cell.centroid.x-shift.x,cell.centroid.y-shift.y)});
         }
-        return best;
-    });
-    if (representative.some(x => !x)) return inconclusive("Unknown observed motif class");
+        const xs=witnesses.map(w=>w.centroidPhase.x).sort((x,y)=>x-y);
+        const ys=witnesses.map(w=>w.centroidPhase.y).sort((x,y)=>x-y);
+        const baseline=Math.hypot(percentile(xs,.9)-percentile(xs,.1),
+            percentile(ys,.9)-percentile(ys,.1));
+        if(baseline>maxResidual)
+            return inconclusive(`Distant repeated cells drift ${baseline.toFixed(2)} pixels under the proposed translation basis`);
+        const polygon=Array.from({length:kind.sideCount},(_,corner)=>p(
+            median(witnesses.map(w=>w.cell.polygon[corner]!.x-w.shift.x)),
+            median(witnesses.map(w=>w.cell.polygon[corner]!.y-w.shift.y))));
+        if(polygon.some(pt=>!Number.isFinite(pt.x)||!Number.isFinite(pt.y)))
+            return unsupported("Nonfinite original-image motif consensus");
+        consensus[kind.id]={polygon,witnesses};
+    }
+    if(consensus.length!==observation.classes.length||consensus.some(x=>!x))
+        return inconclusive("Global motif class consensus is incomplete");
     let worst = 0, sumSq = 0, vertexCount = 0, supported = 0, tested = 0;
+    let outlierCells=0;
+    const retainedPerClass=new Array<number>(consensus.length).fill(0);
     const seenRegions = new Set<number>();
     // Use samples distributed along every predicted side. Pixels within three
     // of its white-region contour should contain part of the original ink stroke.
@@ -89,42 +114,54 @@ export function verifyRigidMotifFit(
         }
         return false;
     };
-    for (const cell of observation.interiors) {
-        const example = representative[cell.motifClass];
-        if (!example || cell.polygon.length !== example.polygon.length)
-            return inconclusive("A motif class has inconsistent polygon corners");
-        const dx = cell.centroid.x - example.centroid.x, dy = cell.centroid.y - example.centroid.y;
-        const u = Math.round((dx * b.y - dy * b.x) / det);
-        const v = Math.round((a.x * dy - a.y * dx) / det);
-        const shift = p(u * a.x + v * b.x, u * a.y + v * b.y);
-        for (let i = 0; i < cell.polygon.length; i++) {
-            const predicted = p(example.polygon[i].x + shift.x, example.polygon[i].y + shift.y);
-            const actual = cell.polygon[i];
-            const residual = Math.hypot(actual.x - predicted.x, actual.y - predicted.y);
-            if (!Number.isFinite(residual)) return unsupported("Nonfinite contour coordinate");
-            worst = Math.max(worst, residual); sumSq += residual * residual; vertexCount++;
-            const next = example.polygon[(i + 1) % example.polygon.length];
-            // Do not mistake missing image evidence for a successful rigid fit.
-            for (const t of [0.25, 0.5, 0.75]) {
-                const x = predicted.x + (next.x - example.polygon[i].x) * t;
-                const y = predicted.y + (next.y - example.polygon[i].y) * t;
-                if (x < 4 || x >= width - 4 || y < 4 || y >= height - 4) continue;
-                tested++;
-                if (darkNear(x, y)) supported++;
+
+    for(let classId=0;classId<consensus.length;classId++){
+        const template=consensus[classId]!;
+        for(const {cell,shift} of template.witnesses){
+            let cellWorst=0,cellSumSq=0;
+            for(let i=0;i<cell.polygon.length;i++){
+                const actual=cell.polygon[i]!;
+                const predicted=p(template.polygon[i]!.x+shift.x,
+                    template.polygon[i]!.y+shift.y);
+                const residual=Math.hypot(actual.x-predicted.x,actual.y-predicted.y);
+                if(!Number.isFinite(residual))return unsupported("Nonfinite contour coordinate");
+                cellWorst=Math.max(cellWorst,residual);
+                cellSumSq+=residual*residual;
+                const next=template.polygon[(i+1)%template.polygon.length]!;
+                // Outlying contours are not allowed to erase source evidence:
+                // still check EVERY predicted edge at the ORIGINAL pixels.
+                for(const t of [.25,.5,.75]){
+                    const x=predicted.x+(next.x-template.polygon[i]!.x)*t;
+                    const y=predicted.y+(next.y-template.polygon[i]!.y)*t;
+                    if(x<4||x>=width-4||y<4||y>=height-4)continue;
+                    tested++;
+                    if(darkNear(x,y))supported++;
+                }
             }
+            if(cellWorst>maxResidual)outlierCells++;
+            else {
+                retainedPerClass[classId]++;
+                worst=Math.max(worst,cellWorst);
+                sumSq+=cellSumSq;
+                vertexCount+=cell.polygon.length;
+            }
+            const region=Math.min(2,Math.floor(3*cell.centroid.x/width))+
+                3*Math.min(2,Math.floor(3*cell.centroid.y/height));
+            seenRegions.add(region);
         }
-        const region = Math.min(2, Math.floor(3 * cell.centroid.x / width)) +
-            3 * Math.min(2, Math.floor(3 * cell.centroid.y / height));
-        seenRegions.add(region);
     }
+    // A wrong lattice normally displaces an entire rank, not a few damaged
+    // image contours. Permit at most 10% individual outlier observations.
+    if(outlierCells>Math.floor(observation.interiors.length*.10)
+        ||retainedPerClass.some(n=>n<3))
+        return inconclusive("Too many repeated cells contradict one global rigid motif");
     if (tested < 100 || vertexCount < 24 || seenRegions.size < 4)
         return inconclusive("Too few distant original-image motif samples");
-    if (worst > maxResidual)
-        return inconclusive(`One rigid repeated motif drifts ${worst.toFixed(2)} pixels against the original raster`);
     const support = supported / tested;
     if (support < minRasterSupport)
         return inconclusive("Rigid motif edges are not consistently supported by source raster ink");
     return { status: "supported", maxVertexResidualPixels: worst,
         rmsVertexResidualPixels: Math.sqrt(sumSq / vertexCount), originalRasterEdgeSupport: support,
-        supportedRegions: seenRegions.size, checkedCells: observation.interiors.length };
+        supportedRegions: seenRegions.size, checkedCells: observation.interiors.length,
+        excludedContourObservations: outlierCells };
 }
