@@ -1,3 +1,4 @@
+import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { OperationalCover, Point2 } from "../../resources/periodic-tiling/topology/motif.js";
 
@@ -33,7 +34,7 @@ export function verifyProjectedPolygonsInOriginalRaster(
     const inconclusive=(reason:string):SourcePolygonProjection=>({status:"inconclusive",reason});
     const {width,height,pixels}=raster;
     if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)
-        ||width<96||height<96||width*height>1_500_000
+        ||width<96||height<96||width*height>PERIODIC_ANALYSIS_MAX_PIXELS
         ||pixels.length!==width*height)
         return unsupported("Invalid or oversized original raster");
     if(registeredPixelCover.kind!=="witness-verified"

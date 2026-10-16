@@ -1,3 +1,4 @@
+import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { ObservedPoint } from "./motif-interiors.js";
 import type { OperationalCover } from "../../resources/periodic-tiling/topology/motif.js";
@@ -44,14 +45,14 @@ export function verifyOriginalRasterIsometry(
     const unsupported = (reason: string): OriginalRasterIsometryCheck => ({status:"unsupported",reason});
     const inconclusive = (reason: string): OriginalRasterIsometryCheck => ({status:"inconclusive",reason});
     const {width,height,pixels}=raster;
-    const maxPixels=options.maxRasterPixels??1_500_000;
+    const maxPixels=options.maxRasterPixels??PERIODIC_ANALYSIS_MAX_PIXELS;
     const minInk=options.minimumInkSupport??0.87;
     const minBackground=options.minimumBackgroundSupport??0.94;
     const minRegional=options.minimumRegionInkSupport??0.72;
     const minRegions=options.minimumSupportedRegions??6;
     if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)
         ||width<96||height<96||width*height!==pixels.length
-        ||!Number.isSafeInteger(maxPixels)||maxPixels<100_000||maxPixels>1_500_000
+        ||!Number.isSafeInteger(maxPixels)||maxPixels<100_000||maxPixels>PERIODIC_ANALYSIS_MAX_PIXELS
         ||width*height>maxPixels
         ||![minInk,minBackground,minRegional].every(x=>Number.isFinite(x)&&x>=0.5&&x<=1)
         ||!Number.isSafeInteger(minRegions)||minRegions<4||minRegions>9)

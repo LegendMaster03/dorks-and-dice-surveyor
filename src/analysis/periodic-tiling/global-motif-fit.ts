@@ -1,3 +1,4 @@
+import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { InteriorObservation, ObservedPoint } from "./motif-interiors.js";
 import type { TranslationVector } from "./translations.js";
@@ -36,7 +37,7 @@ export function verifyRigidMotifFit(
     const { width, height, pixels } = raster;
     if (observation.status !== "observed" || !observation.interiors.length ||
         !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || pixels.length !== width * height ||
-        width * height > 1_500_000 || observation.interiors.length > 600)
+        width * height > PERIODIC_ANALYSIS_MAX_PIXELS || observation.interiors.length > 600)
         return unsupported("No bounded original raster and complete geometric observations");
     const [a, b] = basis, det = a.x * b.y - a.y * b.x;
     if (!Number.isFinite(det) || Math.abs(det) < 4)

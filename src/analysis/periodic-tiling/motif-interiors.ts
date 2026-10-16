@@ -1,3 +1,4 @@
+import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { TranslationVector } from "./translations.js";
 import { splitObservedTJunctionSides } from "./raster-t-junctions.js";
@@ -149,7 +150,10 @@ export function observeMotifInteriors(
     options:InteriorOptions={}
 ):InteriorObservation {
     const {width,height,pixels}=raster;
-    const maxPixels=options.maxPixels??1_500_000,maxComponents=options.maxComponents??3000;
+    // The preprocessing contract retains images up to 2048 x 2048 pixels.
+    // Reconstruct at that bounded analysis size rather than rejecting otherwise
+    // valid 1584 x 1584 original-resolution grid references.
+    const maxPixels=options.maxPixels??PERIODIC_ANALYSIS_MAX_PIXELS,maxComponents=options.maxComponents??3000;
     const maxInteriors=options.maxInteriors??600,minArea=options.minAreaPixels??100;
     const tolerance=options.contourTolerancePixels??2.5;
     const empty=(status:InteriorObservation["status"],reason:string,consideredComponents=0):InteriorObservation=>({
