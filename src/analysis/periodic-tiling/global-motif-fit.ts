@@ -1,3 +1,4 @@
+import { originalRasterContrast } from "./original-raster-contrast.js";
 import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { InteriorObservation, ObservedPoint } from "./motif-interiors.js";
@@ -35,10 +36,12 @@ export function verifyRigidMotifFit(
         !Number.isFinite(minRasterSupport) || minRasterSupport < 0.5 || minRasterSupport > 1)
         return unsupported("Invalid bounded metric verification options");
     const { width, height, pixels } = raster;
+    const contrast = originalRasterContrast(raster);
     if (observation.status !== "observed" || !observation.interiors.length ||
         !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || pixels.length !== width * height ||
         width * height > PERIODIC_ANALYSIS_MAX_PIXELS || observation.interiors.length > 600)
         return unsupported("No bounded original raster and complete geometric observations");
+    if (!contrast) return inconclusive("Original source raster lacks separately supported ink and background");
     const [a, b] = basis, det = a.x * b.y - a.y * b.x;
     if (!Number.isFinite(det) || Math.abs(det) < 4)
         return unsupported("Invalid translation basis");
@@ -81,7 +84,7 @@ export function verifyRigidMotifFit(
         const cx = Math.round(x), cy = Math.round(y);
         for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
             const xx = cx + dx, yy = cy + dy;
-            if (xx >= 0 && xx < width && yy >= 0 && yy < height && pixels[yy * width + xx] < 100)
+            if (xx >= 0 && xx < width && yy >= 0 && yy < height && pixels[yy * width + xx] < contrast.inkUpperExclusive)
                 return true;
         }
         return false;

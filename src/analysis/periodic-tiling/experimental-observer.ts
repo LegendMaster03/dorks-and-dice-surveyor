@@ -119,7 +119,8 @@ export function investigatePeriodicMotif(
                 segmentationProvenance:"original-closed-line"
             });
         if(ordinary.status==="inconclusive"
-            &&ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")){
+            &&(ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")
+                || ordinary.reason.includes("does not separate printed grid lines"))){
             if(fallbackMasks===null){
                 const masks:GrayscaleRaster[]=[];
                 for(const radius of [0,1]){
