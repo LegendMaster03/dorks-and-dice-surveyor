@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { investigatePeriodicMotif } from "../dist/src/analysis/periodic-tiling/experimental-observer.js";
+import { deriveTranslationMotif } from "../dist/src/resources/periodic-tiling/topology/motif.js";
+import { verifyProjectedPolygonsInOriginalRaster } from "../dist/src/analysis/periodic-tiling/original-polygon-projection.js";
 
 // Independent raster fixtures: the observer only receives pixels, not cell
 // counts, vertices, shape names, or lattice vectors.
@@ -43,10 +45,38 @@ for(const [name,fixture] of [
     ["regular hex printed-grid fixture",hexBoard]
 ]){
     test(`experimentally observes the ${name} without supplied geometry`,()=>{
-        const result=investigatePeriodicMotif(fixture());
+        const raster=fixture();
+        const result=investigatePeriodicMotif(raster);
         assert.equal(result.status,"consistent-candidate",
             `${name}: ${result.reason}; checked=${result.checkedHypotheses}`);
         assert.equal(result.metricRegistration.status,"registered");
         assert.equal(result.metricRegistration.sourceProjection.status,"supported");
+        // The public candidate must be the exact same polygon cover whose
+        // source projection passed. Independent reconstruction from ONLY
+        // returned candidate coordinates must remain a valid Euclidean tiling.
+        const rebuilt=deriveTranslationMotif({
+            units:"pixel",
+            basis:result.basis,
+            cells:result.motifCells.map(cell=>({
+                id:`observed-${cell.classId}`,polygon:cell.polygonAnalysisPixels
+            }))
+        });
+        assert.equal(rebuilt.translationSymbol,result.candidateDsSymbol);
+        const projected=verifyProjectedPolygonsInOriginalRaster(raster,rebuilt);
+        assert.equal(projected.status,"supported",projected.reason);
+        const originals=new Map(rebuilt.cells.map(cell=>[cell.id,cell]));
+        for(const candidate of result.motifCells){
+            const source=originals.get(`observed-${candidate.classId}`);
+            assert.ok(source);
+            assert.equal(source.boundary.length,candidate.boundaries.length);
+            for(const [i,edge] of candidate.boundaries.entries()){
+                const matched=source.boundary[i];
+                assert.equal(edge.sideIndex,matched.sideIndex);
+                assert.equal(edge.targetClass,
+                    Number(matched.target.motifCell.slice("observed-".length)));
+                assert.equal(edge.targetSide,matched.reciprocalEdgeIndex);
+                assert.deepEqual([...edge.translation],[...matched.target.lattice]);
+            }
+        }
     });
 }
