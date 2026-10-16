@@ -286,6 +286,35 @@ test("preview reconstructs a translated mixed-cell raster and exposes provisiona
             assert.equal(value.evidence.metricRegistration
                 .maximumContourResidualSourcePixels, null);
         }
+        // A candidate must carry the SAME image-verified, shared-vertex
+        // polygon realization used for Surveyor's independent source proof.
+        // Its published geometry must itself be a complete exact periodic
+        // witness, not a set of individually traced white-region contours.
+        const independentlyReconstructed = deriveTranslationMotif({
+            units: "pixel",
+            basis: value.candidate.translationBasisSourcePixels,
+            cells: value.candidate.motifCells.map((cell: any) => ({
+                id: cell.provisionalId,
+                polygon: cell.polygonSourcePixels
+            }))
+        });
+        assert.equal(independentlyReconstructed.translationSymbol,
+            value.candidate.dsSymbol);
+        for (const verified of independentlyReconstructed.cells) {
+            const reported = value.candidate.motifCells.find((cell: any) =>
+                cell.provisionalId === verified.id);
+            assert.ok(reported);
+            assert.equal(verified.boundary.length, reported.boundaries.length);
+            for (let i = 0; i < verified.boundary.length; i++) {
+                const expected = verified.boundary[i];
+                const actual = reported.boundaries[i];
+                assert.equal(actual.sideIndex, expected.sideIndex);
+                assert.equal(actual.targetProvisionalId, expected.target.motifCell);
+                assert.equal(actual.targetSideIndex, expected.reciprocalEdgeIndex);
+                assert.deepEqual([actual.translation.u, actual.translation.v],
+                    [...expected.target.lattice]);
+            }
+        }
         const byId = new Map<string, any>(value.candidate.motifCells.map((cell: any) => [cell.provisionalId, cell]));
         for (const cell of value.candidate.motifCells) {
             assert.ok(cell.polygonSourcePixels.length >= 3);
