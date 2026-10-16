@@ -240,11 +240,15 @@ test('contradictory vertex constraints and drift cannot generate a shared polygo
 
 test('existing Sobel boundaries yield candidate closed-cell geometry on non-white multitone mixed motifs',()=>{
  const {raster,basis}=rasterize([[128,0],[0,64]],squareTriangles);
- // Keep all tile interiors below the old >=180 white-region threshold.
  // The source has neither black strokes nor a bright white background.
+ // Its unchanged source pixels now qualify for a strictly separable dark-gray
+ // printed-line class. Keep the Sobel fallback checked independently below.
  const muted={width:raster.width,height:raster.height,
    pixels:Uint8Array.from(raster.pixels,value=>value===0?92:163)};
- assert.equal(observeMotifInteriors(muted,basis).status,'inconclusive');
+ const direct=observeMotifInteriors(muted,basis);
+ assert.equal(direct.status,'observed',direct.reason);
+ const directTopology=deriveObservedTopology(direct,basis);
+ assert.equal(directTopology.status,'derived',directTopology.reason);
  const symbols=[],diagnostics=[];
  for(const radius of [0,1]){
  const masks=deriveInteriorMasksFromOriginalEdges(muted,{dilationRadius:radius});
@@ -276,7 +280,7 @@ test('existing Sobel boundaries yield candidate closed-cell geometry on non-whit
    independent.reason);
  if(independent.status==='consistent-candidate'){
    assert.equal(independent.candidateDsSymbol,expected);
-   assert.equal(independent.segmentationProvenance,'original-sobel-gradient-mask');
+   assert.ok(['original-closed-line','original-sobel-gradient-mask'].includes(independent.segmentationProvenance));
    assert.ok(independent.originalRasterEdgeSupport>=0.83);
    assert.ok(independent.maximumRigidVertexResidualPixels<=5);
    assert.equal(independent.metricRegistration?.status,'registered');

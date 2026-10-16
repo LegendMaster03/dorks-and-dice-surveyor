@@ -1,3 +1,4 @@
+import { originalRasterContrast } from "./original-raster-contrast.js";
 import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { OperationalCover, Point2 } from "../../resources/periodic-tiling/topology/motif.js";
@@ -33,10 +34,12 @@ export function verifyProjectedPolygonsInOriginalRaster(
     const unsupported=(reason:string):SourcePolygonProjection=>({status:"unsupported",reason});
     const inconclusive=(reason:string):SourcePolygonProjection=>({status:"inconclusive",reason});
     const {width,height,pixels}=raster;
+    const contrast=originalRasterContrast(raster);
     if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)
         ||width<96||height<96||width*height>PERIODIC_ANALYSIS_MAX_PIXELS
         ||pixels.length!==width*height)
         return unsupported("Invalid or oversized original raster");
+    if(!contrast)return inconclusive("Original image has no independently separable source ink and background");
     if(registeredPixelCover.kind!=="witness-verified"
         ||registeredPixelCover.units!=="pixel"
         ||registeredPixelCover.cells.length<1||registeredPixelCover.cells.length>24)
@@ -78,7 +81,7 @@ export function verifyProjectedPolygonsInOriginalRaster(
         for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){
             const xx=cx+dx,yy=cy+dy;
             if(xx>=0&&yy>=0&&xx<width&&yy<height
-                &&pixels[yy*width+xx]<100)return true;
+                &&pixels[yy*width+xx]<contrast.inkUpperExclusive)return true;
         }
         return false;
     };
@@ -136,7 +139,7 @@ export function verifyProjectedPolygonsInOriginalRaster(
                     segmentDistance(center,p,poly[(i+1)%poly.length])>=5)){
                 const slot=region(center.x,center.y);
                 interiors[slot]++;
-                if(pixels[Math.round(center.y)*width+Math.round(center.x)]>180)
+                if(pixels[Math.round(center.y)*width+Math.round(center.x)]>=contrast.verificationInteriorFloor)
                     interiorsMatched[slot]++;
             }
         }

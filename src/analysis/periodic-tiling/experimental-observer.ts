@@ -119,7 +119,8 @@ export function investigatePeriodicMotif(
                 segmentationProvenance:"original-closed-line"
             });
         if(ordinary.status==="inconclusive"
-            &&ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")){
+            &&(ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")
+                || ordinary.reason.includes("does not separate printed grid lines"))){
             if(fallbackMasks===null){
                 const masks:GrayscaleRaster[]=[];
                 for(const radius of [0,1]){
@@ -185,7 +186,7 @@ export function investigatePeriodicMotif(
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
         return { status: "inconclusive",
-            reason: `No translation candidate reconstructed a complete reciprocal chamber graph. Deepest failed verification: ${deepestFailure.reason}`,
+            reason: `Automatic grid registration could not be verified. ${deepestFailure.reason}. Use manual image placement, or provide an image with clearly separated, unbroken printed boundaries and cell interiors.`,
             checkedHypotheses: checked };
     // A nonprimitive translation sublattice repeats a larger motif and has a
     // different D-symbol *presentation*. Select the smallest independently

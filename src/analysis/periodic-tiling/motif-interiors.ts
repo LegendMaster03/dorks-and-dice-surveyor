@@ -1,3 +1,4 @@
+import { originalRasterContrast } from "./original-raster-contrast.js";
 import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { TranslationVector } from "./translations.js";
@@ -170,15 +171,18 @@ export function observeMotifInteriors(
     const [a,b]=basis,det=a.x*b.y-a.y*b.x;
     if(![a.x,a.y,b.x,b.y].every(Number.isFinite)||Math.abs(det)<1)
         return empty("unsupported","No independent periodic translation basis");
-    let dark=0,light=0;
-    for(const value of pixels){if(value<100)dark++;if(value>220)light++;}
-    if(dark/pixels.length<.005||dark/pixels.length>.3||light/pixels.length<.6)
-        return empty("inconclusive","The image is not a sufficiently high-contrast closed-line raster");
+    // Detect the image's own ink/background contrast when printed grid strokes
+    // are dark gray, not black. The exact same source-pixel interpretation is
+    // used by both independent final verification stages; no mask counts as ink.
+    const contrast=originalRasterContrast(raster);
+    if(!contrast)
+        return empty("inconclusive",
+            "The source image does not separate printed grid lines from cell interiors; use a clearer grid image or manual placement");
     // White connected regions; four-neighbor traversal never jumps a black stroke.
     const labels=new Int32Array(pixels.length), components:Component[]=[];
     const queue=new Int32Array(pixels.length);
     for(let start=0;start<pixels.length;start++){
-        if(pixels[start]<180||labels[start])continue;
+        if(pixels[start]<contrast.segmentationFloor||labels[start])continue;
         if(components.length>=maxComponents)return empty("unsupported","Too many connected raster components",components.length);
         const id=components.length+1,comp:Component={count:0,sumX:0,sumY:0,pixels:[],boundary:false};
         let head=0,tail=1;queue[0]=start;labels[start]=id;
@@ -188,7 +192,7 @@ export function observeMotifInteriors(
             if(x===0||x===width-1||y===0||y===height-1)comp.boundary=true;
             comp.pixels.push(p);
             for(const neighbor of [x? p-1:-1,x<width-1?p+1:-1,y?p-width:-1,y<height-1?p+width:-1]){
-                if(neighbor>=0&&!labels[neighbor]&&pixels[neighbor]>=180){labels[neighbor]=id;queue[tail++]=neighbor;}
+                if(neighbor>=0&&!labels[neighbor]&&pixels[neighbor]>=contrast.segmentationFloor){labels[neighbor]=id;queue[tail++]=neighbor;}
             }
         }
         components.push(comp);
