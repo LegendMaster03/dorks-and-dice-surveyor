@@ -10,7 +10,8 @@ import { refineRigidTranslationBasis, type BasisRefinementOptions } from "./rigi
 import { registerObservedMetric } from "./observed-metric-registration.js";
 import { crossCheckMetricSymmetryWithOriginalRaster } from "./original-raster-isometry.js";
 import { verifyProjectedPolygonsInOriginalRaster, type SourcePolygonProjection } from "./original-polygon-projection.js";
-import { deriveInteriorMasksFromOriginalEdges } from "./edge-derived-interiors.js";
+import { deriveInteriorMasksFromOriginalEdges, derivePeriodicallyCorroboratedInteriorMask } from "./edge-derived-interiors.js";
+import { buildEdgeField, type EdgeField } from "../hex-grid/detector.js";
 import type { TranslationOptions, TranslationHypothesis } from "./translations.js";
 import { recoverPrimitiveObservedLattice } from "./primitive-lattice.js";
 
@@ -95,52 +96,22 @@ export function investigatePeriodicMotif(
     const noteFailure = (stage: number, reason: string): void => {
         if (stage > deepestFailure.stage) deepestFailure = { stage, reason };
     };
-    // Source-image gradient contours are only a segmentation FALLBACK when
-    // the older white-interior probe cannot operate on multitone cells.
-    // The existing Sobel/translation detector and unchanged-raster metric
-    // verification remain the only sources of periodicity and image support.
-    let fallbackMasks: readonly GrayscaleRaster[] | null = null;
-    for (const [hypothesisIndex,hypothesis] of translations.hypotheses.entries()) {
+    // Periodicity supported by the original image must not be discarded only
+    // because one contour substrate cannot reconstruct individual cells.
+    // Every successful branch still validates topology, rigid geometry, and
+    // held-out original-image projection before reporting a candidate.
+    let sharedEdgeField:EdgeField|null=null;
+    let globalMasks:readonly GrayscaleRaster[]|null=null;
+    const edgeField=():EdgeField=>sharedEdgeField??=buildEdgeField(raster,60_000);
+    for(const [hypothesisIndex,hypothesis] of translations.hypotheses.entries()){
         const ordinary=observeMotifInteriors(raster,hypothesis.basis,options.interiors);
-        const observations: {
-            interior: import("./motif-interiors.js").InteriorObservation;
-            segmentationProvenance: "original-closed-line" | "original-sobel-gradient-mask";
-        }[]=[{interior:ordinary,segmentationProvenance:"original-closed-line"}];
-        // A rasterized junction may simplify differently in repeated copies
-        // near the default contour tolerance. Retry generic contour fitting
-        // without weakening the independent topology and ink-proof gates.
-        if(ordinary.status==="inconclusive"
-            &&ordinary.reason==="Repeated cell contours disagree on junction subdivision"
-            && options.interiors?.contourTolerancePixels===undefined)
-            observations.push({
-                interior:observeMotifInteriors(raster,hypothesis.basis,{
-                    ...options.interiors,contourTolerancePixels:6
-                }),
-                segmentationProvenance:"original-closed-line"
-            });
-        if(ordinary.status==="inconclusive"
-            &&(ordinary.reason.includes("not a sufficiently high-contrast closed-line raster")
-                || ordinary.reason.includes("does not separate printed grid lines"))){
-            if(fallbackMasks===null){
-                const masks:GrayscaleRaster[]=[];
-                for(const radius of [0,1]){
-                    const generated=deriveInteriorMasksFromOriginalEdges(raster,{dilationRadius:radius});
-                    if(generated.status==="generated")
-                        masks.push(...generated.masks.map(m=>m.raster));
-                }
-                fallbackMasks=masks;
-            }
-            for(const mask of fallbackMasks)
-                observations.push({
-                    interior:observeMotifInteriors(mask,hypothesis.basis,options.interiors),
-                    segmentationProvenance:"original-sobel-gradient-mask"
-                });
-        }
-        for(const observed of observations){
-            const {interior,segmentationProvenance}=observed;
+        const before=verified.length;
+        const evaluate=(interior: import("./motif-interiors.js").InteriorObservation,
+            segmentationProvenance:"original-closed-line"|"original-sobel-gradient-mask",
+            contourRecovered=false):void=>{
             if(interior.status!=="observed"){
                 noteFailure(1,interior.reason);
-                continue;
+                return;
             }
             // All positions share the same integral lattice addresses and one
             // rigid period fit. Sobel-derived masks cannot vote as source ink.
@@ -154,20 +125,20 @@ export function investigatePeriodicMotif(
             });
             if(topology.status!=="derived"){
                 noteFailure(2,topology.reason);
-                continue;
+                return;
             }
             // A higher contour simplification tolerance can stabilize a
             // genuinely repeated polygon but move its arbitrary first anchor.
             // Use an actual least-drift raster contour only for this retry.
-            const contourRecovered=segmentationProvenance==="original-closed-line"
-                && interior!==ordinary;
+            const recovered=segmentationProvenance==="original-closed-line"
+                && contourRecovered;
             const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,{
                 ...options.globalFit,
-                ...(contourRecovered ? {useRobustObservedAnchor:true} : {})
+                ...(recovered ? {useRobustObservedAnchor:true} : {})
             });
             if(globalFit.status!=="supported"){
                 noteFailure(3,globalFit.reason);
-                continue;
+                return;
             }
             const motifCells:ExperimentalMotifCell[]=topology.cells.map(cell=>({
                 classId:cell.classId,
@@ -175,13 +146,54 @@ export function investigatePeriodicMotif(
                 boundaries:cell.boundaries
             }));
             verified.push({symbol:topology.dsSymbol,hypothesisIndex,
-                segmentationProvenance,contourRecovered,basis:chosenBasis,motifCells,
+                segmentationProvenance,contourRecovered:recovered,basis:chosenBasis,motifCells,
                 minimum:topology.minimumEdgeObservations,
                 rasterSupport:globalFit.originalRasterEdgeSupport,
                 rigidResidual:globalFit.maxVertexResidualPixels,
                 refinementResidual:refined.status==="refined"?refined.residualPixels:null,
                 interior,topology});
+
+        };
+        evaluate(ordinary,"original-closed-line");
+        if(verified.length>before)continue;
+        if(ordinary.status==="inconclusive"
+            &&ordinary.reason==="Repeated cell contours disagree on junction subdivision"
+            &&options.interiors?.contourTolerancePixels===undefined)
+            evaluate(observeMotifInteriors(raster,hypothesis.basis,{
+                ...options.interiors,contourTolerancePixels:6
+            }),"original-closed-line",true);
+        if(verified.length>before)continue;
+        // Use observed original gradient contours whenever an ordinary contour
+        // fails at ANY stage, not only when grayscale contrast is insufficient.
+        if(globalMasks===null){
+            const masks:GrayscaleRaster[]=[];
+            for(const radius of [0,1]){
+                const generated=deriveInteriorMasksFromOriginalEdges(raster,{
+                    dilationRadius:radius,edgeField:edgeField()
+                });
+                if(generated.status==="generated")
+                    masks.push(...generated.masks.map(m=>m.raster));
+            }
+            globalMasks=masks;
         }
+        for(const mask of globalMasks){
+            evaluate(observeMotifInteriors(mask,hypothesis.basis,options.interiors),
+                "original-sobel-gradient-mask");
+            if(verified.length>before)break;
+        }
+        if(verified.length>before)continue;
+        // Repair a fragmented *segmentation substrate* by corroborating
+        // oriented source gradients at independently repeated lattice sites.
+        // A derived mask never counts as original image ink verification.
+        const periodic=derivePeriodicallyCorroboratedInteriorMask(raster,
+            hypothesis.basis,{edgeField:edgeField()});
+        if(periodic.status==="generated"){
+            for(const mask of periodic.masks){
+                evaluate(observeMotifInteriors(mask.raster,hypothesis.basis,options.interiors),
+                    "original-sobel-gradient-mask");
+                if(verified.length>before)break;
+            }
+        }else if(periodic.status==="inconclusive")noteFailure(1,periodic.reason);
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
