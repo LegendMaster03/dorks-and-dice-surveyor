@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { observeMotifInteriors } from "../dist/src/analysis/periodic-tiling/motif-interiors.js";
 import { splitObservedTJunctionSides } from "../dist/src/analysis/periodic-tiling/raster-t-junctions.js";
+import { deriveObservedTopology } from "../dist/src/analysis/periodic-tiling/observed-topology.js";
+import { verifyRigidMotifFit } from "../dist/src/analysis/periodic-tiling/global-motif-fit.js";
 
 /**
  * The real uploaded Fallout 9x9 maps revealed that every full tile contains
@@ -68,4 +70,29 @@ test("D02: no grid can be manufactured from a flat grayscale raster",()=>{
     const pixels=new Uint8Array(width*width).fill(193);
     assert.equal(observeMotifInteriors({width,height:width,pixels},
         [{x:80,y:0},{x:0,y:80}]).status,"inconclusive");
+});
+
+test("D02: a witnessed thick outer frame does not contaminate interior polygon metric fitting",()=>{
+    const raster=letteredRaster();
+    const {width,pixels}=raster;
+    const stroke=(x0,y0,x1,y1)=>{
+        for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)
+            pixels[y*width+x]=39;
+    };
+    // Independent printed crop frame is thicker than internal cell strokes.
+    stroke(0,0,width-1,5);
+    stroke(0,width-6,width-1,width-1);
+    stroke(0,0,5,width-1);
+    stroke(width-6,0,width-1,width-1);
+    const basis=[{x:176,y:0},{x:0,y:176}];
+    const observed=observeMotifInteriors(raster,basis);
+    assert.equal(observed.status,"observed",observed.reason);
+    assert.equal(observed.interiors.length,49,
+        "The 7×7 unobstructed interior cells provide independent repeating geometry");
+    assert.deepEqual(observed.classes.map(c=>c.sideCount),[4]);
+    const topology=deriveObservedTopology(observed,basis);
+    assert.equal(topology.status,"derived",topology.reason);
+    const fit=verifyRigidMotifFit(raster,observed,basis);
+    assert.equal(fit.status,"supported",fit.reason);
+    assert.ok(fit.originalRasterEdgeSupport>=.83);
 });

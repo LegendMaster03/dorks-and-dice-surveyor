@@ -239,6 +239,37 @@ export function observeMotifInteriors(
             return empty("inconclusive","Too many locally ambiguous contours to establish repeated cell geometry",components.length);
         found.splice(0,found.length,...complete);
     }
+    // A heavy decorative ink frame differs from the actual repeated interior
+    // boundaries. Its first/last cells can have contour corners displaced
+    // diagonally by more than the *unchanged* 6 px metric residual bound even
+    // when the interior grid is exact. Observe the original source raster's
+    // four crop edges, not the candidate tiling shape, to identify a frame.
+    // Ignore uncertain border-cell CONTOURS as motif votes, but keep all
+    // original pixels for global metric/held-out source projection checks.
+    const frameSampleCount=96;
+    const frameInkFraction=(edge:number):number=>{
+        let supported=0;
+        for(let i=0;i<frameSampleCount;i++){
+            const t=(i+0.5)/frameSampleCount;
+            const x=edge===0||edge===1
+                ? Math.min(width-1,Math.floor(t*width))
+                : edge===2 ? 3 : width-4;
+            const y=edge===2||edge===3
+                ? Math.min(height-1,Math.floor(t*height))
+                : edge===0 ? 3 : height-4;
+            if(pixels[y*width+x]<contrast.inkUpperExclusive)supported++;
+        }
+        return supported/frameSampleCount;
+    };
+    const fullFrame=[0,1,2,3].filter(edge=>frameInkFraction(edge)>=.60).length>=3;
+    if(fullFrame){
+        const margin=Math.max(8,Math.ceil(tolerance*2+3));
+        const interior=found.filter(cell=>cell.polygon.every(p=>
+            p.x>=margin&&p.x<=width-margin&&
+            p.y>=margin&&p.y<=height-margin));
+        if(interior.length>=6 && interior.length>=Math.ceil(found.length*.25))
+            found.splice(0,found.length,...interior);
+    }
     if (normalized.restoredVertices > 0) {
         // An intact white component very near the crop can lack a complete
         // neighboring component beyond the image. Its long side can only be
