@@ -221,9 +221,17 @@ export function registerObservedMetric(
     for(const kind of kinds){
         const polygon=Array.from({length:kind.sideCount},(_,i)=>
             fitted[key(kind.id,i)]);
-        const center=mul(polygon.reduce(add,{x:0,y:0}),1/polygon.length);
-        const period=coordinates(center);
-        const u=Math.round(period.x-.5),v=Math.round(period.y-.5);
+        // The periodic origin is a free integer translation, not an image
+        // coordinate. Center the WHOLE polygon's lattice-coordinate bounding
+        // box near zero, rather than only its centroid near +1/2. A valid
+        // contour crossing a period seam must not be rejected solely because
+        // its arbitrary first observed cell lies far from the image origin.
+        // No vertex is moved relative to any other vertex.
+        const periods=polygon.map(coordinates);
+        const u=Math.round((Math.min(...periods.map(p=>p.x))
+            +Math.max(...periods.map(p=>p.x)))/2);
+        const v=Math.round((Math.min(...periods.map(p=>p.y))
+            +Math.max(...periods.map(p=>p.y)))/2);
         if(!Number.isSafeInteger(u)||!Number.isSafeInteger(v)
             ||Math.abs(u)>2048||Math.abs(v)>2048)
             return unsupported("Periodic motif class address exceeds bounded normalization");
