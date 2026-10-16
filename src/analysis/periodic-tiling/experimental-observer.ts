@@ -133,7 +133,6 @@ export function investigatePeriodicMotif(
                 && contourRecovered;
             const globalFit=verifyRigidMotifFit(raster,interior,chosenBasis,{
                 ...options.globalFit,
-                ...(recovered ? {useRobustObservedAnchor:true} : {})
             });
             if(globalFit.status!=="supported"){
                 noteFailure(3,globalFit.reason);
@@ -241,7 +240,7 @@ export function investigatePeriodicMotif(
     // original image projection and independent metric closure remain mandatory.
     const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology,
         preferred.basis, preferred.contourRecovered
-            ? {maximumContourResidualPixels:7,useRobustObservedAnchor:true} : {});
+            ? {maximumContourResidualPixels:7} : {});
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;
