@@ -86,7 +86,6 @@ export function investigatePeriodicMotif(
         rasterSupport: number;
         rigidResidual: number;
         refinementResidual: number | null;
-        motifCells: readonly ExperimentalMotifCell[];
         interior: import("./motif-interiors.js").InteriorObservation;
         topology: Extract<ReturnType<typeof deriveObservedTopology>, { status: "derived" }>;
     }[] = [];
@@ -140,13 +139,8 @@ export function investigatePeriodicMotif(
                 noteFailure(3,globalFit.reason);
                 return;
             }
-            const motifCells:ExperimentalMotifCell[]=topology.cells.map(cell=>({
-                classId:cell.classId,
-                polygonAnalysisPixels:interior.interiors.find(example=>example.motifClass===cell.classId)!.polygon,
-                boundaries:cell.boundaries
-            }));
             verified.push({symbol:topology.dsSymbol,hypothesisIndex,
-                segmentationProvenance,contourRecovered:recovered,basis:chosenBasis,motifCells,
+                segmentationProvenance,contourRecovered:recovered,basis:chosenBasis,
                 minimum:topology.minimumEdgeObservations,
                 rasterSupport:globalFit.originalRasterEdgeSupport,
                 rigidResidual:globalFit.maxVertexResidualPixels,
@@ -226,13 +220,7 @@ export function investigatePeriodicMotif(
         const candidate=primitive.candidate;
         preferred={...preferred,symbol:candidate.topology.dsSymbol,
             basis:candidate.basis,interior:candidate.interior,topology:candidate.topology,
-            rasterSupport:candidate.rasterSupport,rigidResidual:candidate.rigidResidual,
-            motifCells:candidate.topology.cells.map(cell=>({
-                classId:cell.classId,
-                polygonAnalysisPixels:candidate.interior.interiors.find(example=>
-                    example.motifClass===cell.classId)!.polygon,
-                boundaries:cell.boundaries
-            }))};
+            rasterSupport:candidate.rasterSupport,rigidResidual:candidate.rigidResidual};
     }
     const base = inspectDSymbol(preferred.symbol, 2048);
     if (base.status !== "euclidean")
@@ -290,13 +278,68 @@ export function investigatePeriodicMotif(
                 : `Incomplete source polygon projection: ${sourceProjection.status === "supported" ? "Proof unavailable" : sourceProjection.reason}`,
             checkedHypotheses: checked
         };
+    // A candidate MUST publish the exact same jointly fitted polygon cover
+    // independently checked against the unchanged raster. Previously the
+    // output used the FIRST noisy interior contour of each motif class, while
+    // metric registration and full-image projection proved a DIFFERENT,
+    // normalized shared-vertex cover. That inconsistency can produce a preview
+    // shifted by several pixels even when the evidence says "registered".
+    //
+    // The validated cover also derives its own reciprocal boundary lattice
+    // offsets after normalizing each motif class's integer periodic origin.
+    // Never combine fitted polygons with offsets from the prefit observation.
+    const metricCells:ExperimentalMotifCell[]=[];
+    const byId=new Map(geometry.cover.cells.map(cell=>[cell.id,cell]));
+    for(const cell of geometry.cover.cells){
+        if(!/^observed-(0|[1-9][0-9]*)$/.test(cell.id))
+            return {status:"inconclusive",
+                reason:"Metric registration returned an unrecognized observed cell identity",
+                checkedHypotheses:checked};
+        const classId=Number(cell.id.slice("observed-".length));
+        const sourceCell=preferred.topology.cells[classId];
+        // The published v3 polygon contract allows one atomic interface per
+        // vertex-to-vertex side. Never silently discard a subdivided interface.
+        if(!sourceCell||sourceCell.classId!==classId
+            ||cell.boundary.length!==cell.polygon.length
+            ||cell.boundary.some((edge,i)=>edge.edgeIndex!==i||edge.sideIndex!==i))
+            return {status:"inconclusive",
+                reason:"Verified polygon interfaces cannot be represented as one boundary per side",
+                checkedHypotheses:checked};
+        const boundaries:ObservedBoundary[]=[];
+        for(const edge of cell.boundary){
+            const target=byId.get(edge.target.motifCell);
+            const reciprocal=target?.boundary[edge.reciprocalEdgeIndex];
+            if(!target||!reciprocal
+                ||!/^observed-(0|[1-9][0-9]*)$/.test(target.id)
+                ||reciprocal.edgeIndex!==reciprocal.sideIndex
+                ||reciprocal.target.motifCell!==cell.id
+                ||reciprocal.reciprocalEdgeIndex!==edge.edgeIndex)
+                return {status:"inconclusive",
+                    reason:"Verified metric cover has an unrepresentable reciprocal interface",
+                    checkedHypotheses:checked};
+            boundaries.push({
+                sideIndex:edge.sideIndex,
+                targetClass:Number(target.id.slice("observed-".length)),
+                targetSide:reciprocal.sideIndex,
+                translation:edge.target.lattice,
+                supportingObservations:sourceCell.boundaries[edge.sideIndex]?.supportingObservations??0
+            });
+        }
+        metricCells.push({
+            classId,polygonAnalysisPixels:cell.polygon,boundaries
+        });
+    }
+    if(metricCells.length!==preferred.topology.cells.length)
+        return {status:"inconclusive",
+            reason:"Verified metric cover omitted an observed motif class",
+            checkedHypotheses:checked};
     // Retain an observed minimal presentation, never assert that the absolute
     // maximal symmetry quotient was reconstructed from this evidence alone.
     return {
         status: "consistent-candidate",
         candidateDsSymbol: preferred.symbol,
         basis: preferred.basis,
-        motifCells: preferred.motifCells,
+        motifCells: metricCells,
         matchedHypotheses: new Set(verified.map(h=>h.hypothesisIndex)).size,
         checkedHypotheses: checked,
         rejectedHypotheses: checked - new Set(verified.map(h=>h.hypothesisIndex)).size,
