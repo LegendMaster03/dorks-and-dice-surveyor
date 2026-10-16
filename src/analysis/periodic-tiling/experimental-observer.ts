@@ -163,6 +163,20 @@ export function investigatePeriodicMotif(
                 ...options.interiors,contourTolerancePixels:6
             }),"original-closed-line",true);
         if(verified.length>before)continue;
+        // Repair a fragmented *segmentation substrate* by corroborating
+        // original source gradients at independently repeated lattice sites.
+        // This shape-neutral recovery is cheaper than trying all gradient
+        // thresholds when the repeated boundary is only locally interrupted.
+        const periodic=derivePeriodicallyCorroboratedInteriorMask(raster,
+            hypothesis.basis,{edgeField:edgeField()});
+        if(periodic.status==="generated"){
+            for(const mask of periodic.masks){
+                evaluate(observeMotifInteriors(mask.raster,hypothesis.basis,options.interiors),
+                    "original-sobel-gradient-mask");
+                if(verified.length>before)break;
+            }
+        }else if(periodic.status==="inconclusive")noteFailure(1,periodic.reason);
+        if(verified.length>before)continue;
         // Use observed original gradient contours whenever an ordinary contour
         // fails at ANY stage, not only when grayscale contrast is insufficient.
         if(globalMasks===null){
@@ -182,18 +196,6 @@ export function investigatePeriodicMotif(
             if(verified.length>before)break;
         }
         if(verified.length>before)continue;
-        // Repair a fragmented *segmentation substrate* by corroborating
-        // oriented source gradients at independently repeated lattice sites.
-        // A derived mask never counts as original image ink verification.
-        const periodic=derivePeriodicallyCorroboratedInteriorMask(raster,
-            hypothesis.basis,{edgeField:edgeField()});
-        if(periodic.status==="generated"){
-            for(const mask of periodic.masks){
-                evaluate(observeMotifInteriors(mask.raster,hypothesis.basis,options.interiors),
-                    "original-sobel-gradient-mask");
-                if(verified.length>before)break;
-            }
-        }else if(periodic.status==="inconclusive")noteFailure(1,periodic.reason);
     }
     const checked = translations.hypotheses.length;
     if (verified.length === 0)
