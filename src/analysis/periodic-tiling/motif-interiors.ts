@@ -127,7 +127,12 @@ function traceContour(component:Component, labels:Int32Array,id:number,width:num
         if(current.x===start.x&&current.y===start.y)break;
         if(poly.length>maxEdges)return null;
     }
-    if(starts.size)return null; // holes, ambiguous corners or multiple boundaries
+    // The topmost/leftmost boundary point belongs to this component's outer
+    // contour. Other cycles are interiors of dark marks (letters, labels,
+    // symbols, artwork), not evidence that its surrounding cell is open.
+    // Critically, do not promote the dark hole boundaries to tile edges:
+    // only this outer contour may contribute to polygon reconstruction.
+    // Ambiguous junctions on the selected outer cycle still fail above.
     return poly;
 }
 function fraction(value:number):number{return ((value%1)+1)%1;}
@@ -223,6 +228,17 @@ export function observeMotifInteriors(
     if (normalized.status !== "split")
         return empty("inconclusive", normalized.reason, components.length);
     for (let i = 0; i < found.length; i++) found[i].polygon = normalized.polygons[i];
+    if(normalized.unresolvedIndices.length){
+        // Labels, roads, and icons can intersect the actual printed edge of
+        // an otherwise valid cell. Never make its incompatible contour a
+        // fabricated polygon, and never let one bad local contour veto all
+        // independent, distant periodic cell observations.
+        const rejected=new Set(normalized.unresolvedIndices);
+        const complete=found.filter((_,i)=>!rejected.has(i));
+        if(complete.length<6||rejected.size>Math.floor(found.length*.20))
+            return empty("inconclusive","Too many locally ambiguous contours to establish repeated cell geometry",components.length);
+        found.splice(0,found.length,...complete);
+    }
     if (normalized.restoredVertices > 0) {
         // An intact white component very near the crop can lack a complete
         // neighboring component beyond the image. Its long side can only be
