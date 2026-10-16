@@ -98,7 +98,7 @@ test("D02: a witnessed thick outer frame does not contaminate interior polygon m
 });
 test("D02: a locally displaced first contour cannot poison the global original-image ink template",()=>{
     const width=800,height=800,pixels=new Uint8Array(width*height).fill(255);
-    for(let n=0;n<=10;n++){
+    for(let n=0;n<10;n++){
         for(let t=0;t<width;t++){
             pixels[n*80*width+t]=0;
             pixels[t*width+n*80]=0;
