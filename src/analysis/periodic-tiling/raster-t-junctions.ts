@@ -3,7 +3,9 @@ import type { ObservedPoint } from "./motif-interiors.js";
 type Point = ObservedPoint;
 type Side = { owner: number; from: Point; to: Point; length: number };
 export type TJunctionSplitting =
-    | { status: "split"; polygons: Point[][]; restoredVertices: number }
+    | { status: "split"; polygons: Point[][]; restoredVertices: number;
+        /** Source contour indices omitted from downstream topology evidence. */
+        unresolvedIndices: readonly number[] }
     | { status: "inconclusive"; reason: string };
 
 const CELL_SIZE = 48;
@@ -57,9 +59,16 @@ export function splitObservedTJunctionSides(
         }
     }
     const result: Point[][] = [];
+    const unresolvedIndices:number[]=[];
     let restoredVertices = 0;
     for (let owner = 0; owner < polygons.length; owner++) {
         const poly = polygons[owner], reconstructed: Point[] = [];
+        if(poly.length>maxSides){
+            unresolvedIndices.push(owner);
+            result.push([...poly]);
+            continue;
+        }
+        let localRestored=0,overLimit=false;
         for (let i = 0; i < poly.length; i++) {
             // Tiny raster contour segments were never indexed.
             const from = poly[i], to = poly[(i + 1) % poly.length];
@@ -119,15 +128,27 @@ export function splitObservedTJunctionSides(
                 if (t - last < 7 || distance - t < 7) continue;
                 const point = { x: from.x + direction.x * t, y: from.y + direction.y * t };
                 reconstructed.push(point);
-                restoredVertices++;
+                localRestored++;
                 last = t;
-                if (reconstructed.length > maxSides)
-                    return { status: "inconclusive", reason: "T-junction subdivision exceeds supported polygon complexity" };
+                if (reconstructed.length > maxSides) {
+                    overLimit=true;
+                    break;
+                }
             }
+            if(overLimit)break;
         }
-        if (reconstructed.length > maxSides)
-            return { status: "inconclusive", reason: "T-junction subdivision exceeds supported polygon complexity" };
+        if(overLimit){
+            unresolvedIndices.push(owner);
+            result.push([...poly]);
+            continue;
+        }
+        restoredVertices+=localRestored;
         result.push(reconstructed);
     }
-    return { status: "split", polygons: result, restoredVertices };
+    // A minority of locally corrupted contours may be excluded. A motif
+    // whose majority cannot be traced is still inconclusive, rather than
+    // having unsupported vertex identities guessed.
+    if(unresolvedIndices.length>Math.max(1,Math.floor(polygons.length*.20)))
+        return {status:"inconclusive",reason:"Too many contour subdivisions exceed supported polygon complexity"};
+    return { status: "split", polygons: result, restoredVertices, unresolvedIndices };
 }
