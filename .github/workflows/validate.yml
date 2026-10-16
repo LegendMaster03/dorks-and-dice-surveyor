@@ -30,7 +30,10 @@ jobs:
         # Use the official Docker Hub image through the public Google mirror in
         # ephemeral CI runners, where unauthenticated Hub pulls get HTTP 429.
         # The Dockerfile's production/deployment default remains unchanged.
-        run: docker build --build-arg NODE_BASE_IMAGE=mirror.gcr.io/library/node:24-bookworm-slim -t dorks-and-dice-surveyor:test .
+        run: |
+          docker build --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --build-arg NODE_BASE_IMAGE=mirror.gcr.io/library/node:24-bookworm-slim \
+            -t dorks-and-dice-surveyor:test .
       - name: Container liveness, readiness, and analysis smoke
         run: |
           set -euo pipefail
@@ -68,3 +71,21 @@ jobs:
           assert value['status'] in ('detected','inconclusive','gridless'), value
           assert value['source']['mediaType']=='image/png', value
           PY
+
+      # Export only the image that passed container and API smoke testing.
+      # workflow_run deployments fetch this artifact from their own validated run.
+      - name: Package validated image for deployment
+        run: |
+          set -euo pipefail
+          image_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' dorks-and-dice-surveyor:test)"
+          test "$image_revision" = "$GITHUB_SHA"
+          docker save dorks-and-dice-surveyor:test | gzip -1 > "$RUNNER_TEMP/surveyor-validated-image.tar.gz"
+          gzip -t "$RUNNER_TEMP/surveyor-validated-image.tar.gz"
+
+      - name: Publish validated deployment image
+        uses: actions/upload-artifact@v4
+        with:
+          name: surveyor-validated-${{ github.sha }}
+          path: ${{ runner.temp }}/surveyor-validated-image.tar.gz
+          if-no-files-found: error
+          retention-days: 14
