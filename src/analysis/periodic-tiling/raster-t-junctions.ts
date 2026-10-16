@@ -148,7 +148,7 @@ export function splitObservedTJunctionSides(
     // A minority of locally corrupted contours may be excluded. A motif
     // whose majority cannot be traced is still inconclusive, rather than
     // having unsupported vertex identities guessed.
-    if(unresolvedIndices.length>Math.max(1,Math.floor(polygons.length*.20)))
+    if(unresolvedIndices.length>Math.floor(polygons.length*.20))
         return {status:"inconclusive",reason:"Too many contour subdivisions exceed supported polygon complexity"};
     return { status: "split", polygons: result, restoredVertices, unresolvedIndices };
 }

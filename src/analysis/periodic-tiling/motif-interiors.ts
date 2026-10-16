@@ -235,7 +235,7 @@ export function observeMotifInteriors(
         // independent, distant periodic cell observations.
         const rejected=new Set(normalized.unresolvedIndices);
         const complete=found.filter((_,i)=>!rejected.has(i));
-        if(complete.length<6||rejected.size>Math.max(1,Math.floor(found.length*.20)))
+        if(complete.length<6||rejected.size>Math.floor(found.length*.20))
             return empty("inconclusive","Too many locally ambiguous contours to establish repeated cell geometry",components.length);
         found.splice(0,found.length,...complete);
     }
