@@ -7,6 +7,15 @@ on:
     types: [ completed ]
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      validation_run_id:
+        description: Successful main-branch Validate Surveyor run ID for this commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: dorks-and-dice-surveyor
@@ -15,6 +24,7 @@ concurrency:
 
 env:
   DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  VALIDATION_RUN_ID: ${{ github.event.workflow_run.id || inputs.validation_run_id }}
 
 jobs:
   deploy:
@@ -67,12 +77,62 @@ jobs:
             -f docker-compose.yml config >/dev/null
           python3 .github/scripts/phase16-deployment-config.py verify dorks-and-dice-surveyor "$ENV_FILE" "$DEPLOY_SNAPSHOT_DIR"
 
-      - name: Build image
-        timeout-minutes: 10
+      # No TypeScript or Docker image build on the busy TrueNAS runner.
+      # Use only the exact successful main-branch CI image already smoke-tested.
+      - name: Verify validated artifact provenance
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker build --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
-            -t dorks-and-dice-surveyor:latest -t "dorks-and-dice-surveyor:$DEPLOY_SHA" \
-            .
+          set -euo pipefail
+          if ! [[ "$VALIDATION_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "Manual deployment requires the ID of a successful main-branch validation." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID" \
+            | python3 -c '
+          import json, os, sys
+          run = json.load(sys.stdin)
+          expected = os.environ["DEPLOY_SHA"]
+          if (run.get("head_sha") != expected
+              or run.get("name") != "Validate Surveyor"
+              or run.get("event") != "push"
+              or run.get("head_branch") != "main"
+              or run.get("status") != "completed"
+              or run.get("conclusion") != "success"):
+              details = {field: run.get(field) for field in
+                  ("id", "head_sha", "head_branch", "status", "conclusion")}
+              raise SystemExit("Refusing unvalidated image: expected={}, actual={}".format(expected, details))
+          print("Verified successful main validation for {}.".format(expected))
+          '
+
+      - name: Download exact validated image
+        uses: actions/download-artifact@v4
+        with:
+          name: surveyor-validated-${{ env.DEPLOY_SHA }}
+          path: ${{ runner.temp }}/surveyor-release-image
+          run-id: ${{ env.VALIDATION_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load smoke-tested image, verify commit, and tag for deployment
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/surveyor-release-image/surveyor-validated-image.tar.gz"
+          test -s "$archive"
+          gzip -t "$archive"
+          docker load --input "$archive"
+          image_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' dorks-and-dice-surveyor:test)"
+          if [ "$image_revision" != "$DEPLOY_SHA" ]; then
+            echo "Validated image revision $image_revision does not match requested $DEPLOY_SHA" >&2
+            exit 1
+          fi
+          docker image tag dorks-and-dice-surveyor:test dorks-and-dice-surveyor:latest
+          docker image tag dorks-and-dice-surveyor:test "dorks-and-dice-surveyor:$DEPLOY_SHA"
+          echo "Loaded hosted-CI smoke-tested image $DEPLOY_SHA."
 
       - name: Smoke test container
         timeout-minutes: 5
