@@ -48,13 +48,7 @@ export function verifyRigidMotifFit(
     const p = (x: number, y: number): ObservedPoint => ({ x, y });
     const representative = observation.classes.map(kind => {
         const copies = observation.interiors.filter(cell => cell.motifClass === kind.id);
-        // Every proposed template must be one actually observed contour, but
-        // its selection must not depend on raster traversal order. The first
-        // cell can touch a thicker decorative frame or nearby map artwork.
-        // Choose a least-drifting observed medoid by default; all observations
-        // still contribute to the unchanged 5 px residual and ink-support
-        // proof. Callers may explicitly opt out for diagnostic comparisons.
-        if (options.useRobustObservedAnchor === false || copies.length < 3) return copies[0];
+        if (!options.useRobustObservedAnchor || copies.length < 3) return copies[0];
         // Retain ONE actual observed polygon as the global rigid template.
         // The bounded medoid search never adjusts an individual cell's
         // position, vertices, lattice address, or original-image evidence.

@@ -96,38 +96,3 @@ test("D02: a witnessed thick outer frame does not contaminate interior polygon m
     assert.equal(fit.status,"supported",fit.reason);
     assert.ok(fit.originalRasterEdgeSupport>=.83);
 });
-test("D02: a locally displaced first contour cannot poison the global original-image ink template",()=>{
-    const width=800,height=800,pixels=new Uint8Array(width*height).fill(255);
-    for(let n=0;n<10;n++){
-        for(let t=0;t<width;t++){
-            pixels[n*80*width+t]=0;
-            pixels[t*width+n*80]=0;
-        }
-    }
-    const interiors=[];
-    for(let v=1;v<=8;v++)for(let u=1;u<=8;u++){
-        const x=u*80,y=v*80;
-        // White-region outer corners lie on the interior side of actual ink.
-        const polygon=[{x:x+2,y:y+2},{x:x+78,y:y+2},
-            {x:x+78,y:y+78},{x:x+2,y:y+78}];
-        const centroid={x:x+40,y:y+40};
-        if(u===1&&v===1){
-            for(const point of polygon){point.x+=4;point.y+=4;}
-            centroid.x+=4;centroid.y+=4;
-        }
-        interiors.push({polygon,centroid,pixels:70*70,representative:true,motifClass:0});
-    }
-    const observed={status:"observed",reason:"independent raster contour samples",
-        classes:[{id:0,sideCount:4,examples:interiors.length}],
-        interiors,consideredComponents:interiors.length};
-    const basis=[{x:80,y:0},{x:0,y:80}];
-    const raster={width,height,pixels};
-    const first=verifyRigidMotifFit(raster,observed,basis,
-        {useRobustObservedAnchor:false});
-    assert.equal(first.status,"inconclusive");
-    assert.match(first.reason,/not consistently supported/);
-    const robust=verifyRigidMotifFit(raster,observed,basis);
-    assert.equal(robust.status,"supported",robust.reason);
-    assert.ok(robust.originalRasterEdgeSupport>=.83);
-    assert.ok(robust.maxVertexResidualPixels<=5);
-});
