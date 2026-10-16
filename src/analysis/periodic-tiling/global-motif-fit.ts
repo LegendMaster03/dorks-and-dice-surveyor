@@ -6,7 +6,10 @@ import type { TranslationVector } from "./translations.js";
 
 export type RigidMotifFit =
     | { status: "supported"; maxVertexResidualPixels: number; rmsVertexResidualPixels: number;
-        originalRasterEdgeSupport: number; supportedRegions: number; checkedCells: number }
+        originalRasterEdgeSupport: number; supportedRegions: number; checkedCells: number;
+        /** Local contour traces excluded from median geometry ONLY.
+         * They still contribute to the unchanged-source ink evidence. */
+        excludedContourObservations: number }
     | { status: "inconclusive" | "unsupported"; reason: string };
 
 export type RigidFitOptions = {
@@ -159,5 +162,6 @@ export function verifyRigidMotifFit(
         return inconclusive("Rigid motif edges are not consistently supported by source raster ink");
     return { status: "supported", maxVertexResidualPixels: worst,
         rmsVertexResidualPixels: Math.sqrt(sumSq / vertexCount), originalRasterEdgeSupport: support,
-        supportedRegions: seenRegions.size, checkedCells: observation.interiors.length };
+        supportedRegions: seenRegions.size, checkedCells: observation.interiors.length,
+        excludedContourObservations: outlierCells };
 }

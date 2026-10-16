@@ -41,6 +41,7 @@ test("D02 one locally displaced first contour cannot determine global motif alig
     assert.ok(fit.maxVertexResidualPixels<=5);
     assert.ok(fit.supportedRegions>=4);
     assert.equal(fit.checkedCells,49);
+    assert.equal(fit.excludedContourObservations,1);
 });
 test("D02 a basis that accumulates drift is rejected despite centering",()=>{
     const {raster,observation}=grid();
@@ -48,6 +49,13 @@ test("D02 a basis that accumulates drift is rejected despite centering",()=>{
     const fit=verifyRigidMotifFit(raster,observation,wrong);
     assert.equal(fit.status,"inconclusive");
     assert.match(fit.reason,/drift|addresses|contradict/i);
+});
+test("D02 a small minority of damaged local cells cannot alter the global phase",()=>{
+    const {raster,observation}=grid(4);
+    const fit=verifyRigidMotifFit(raster,observation,basis);
+    assert.equal(fit.status,"supported",fit.reason);
+    assert.equal(fit.excludedContourObservations,4);
+    assert.ok(fit.originalRasterEdgeSupport>=.83);
 });
 test("D02 a substantial fraction of damaged cell observations is inconclusive",()=>{
     const {raster,observation}=grid(10);
