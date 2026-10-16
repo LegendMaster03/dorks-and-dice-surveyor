@@ -1,3 +1,4 @@
+import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import { buildEdgeField, type GrayscaleRaster } from "../hex-grid/detector.js";
 
 /** An experimental alternative *segmentation substrate*, not a detector.
@@ -28,10 +29,10 @@ export function deriveInteriorMasksFromOriginalEdges(
     } = {}
 ): EdgeDerivedMasks {
     const { width, height, pixels } = raster;
-    const maxPixels = options.maxPixels ?? 1_500_000;
+    const maxPixels = options.maxPixels ?? PERIODIC_ANALYSIS_MAX_PIXELS;
     const radius = options.dilationRadius ?? 1;
     const thresholds = options.thresholds ?? [0.92, 0.75, 0.58];
-    if(!Number.isSafeInteger(maxPixels)||maxPixels<100||maxPixels>2_000_000
+    if(!Number.isSafeInteger(maxPixels)||maxPixels<100||maxPixels>PERIODIC_ANALYSIS_MAX_PIXELS
         ||!Number.isSafeInteger(width)||!Number.isSafeInteger(height)
         ||width<96||height<96||width*height>maxPixels
         ||pixels.length!==width*height
