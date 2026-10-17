@@ -3,6 +3,7 @@ import { PERIODIC_ANALYSIS_MAX_PIXELS } from "./analysis-raster-limits.js";
 import type { GrayscaleRaster } from "../hex-grid/detector.js";
 import type { TranslationVector } from "./translations.js";
 import { splitObservedTJunctionSides } from "./raster-t-junctions.js";
+import { alignPeriodicContourCorners } from "./periodic-contour-corner-alignment.js";
 
 export type ObservedPoint = { x: number; y: number };
 export type ObservedInterior = {
@@ -338,11 +339,33 @@ export function observeMotifInteriors(
         ||retained.length<6
         ||discarded.size>Math.max(3,Math.floor(found.length*0.15)))
         return empty("inconclusive","Insufficient complete repeated contour witnesses",components.length);
+    // Every copy of a periodic motif class must name the SAME physical
+    // polygon corners in the SAME cyclic order. Contour tracing selects the
+    // topmost surviving raster vertex, which can be a *different corner* when
+    // artwork obscures the top-left boundary of a cell. That is a one-period
+    // vertex-index error, not a translation or scaling error.
+    //
+    // Select a geometry-neutral medoid from multiple independently observed
+    // copies, rotate corner INDEXES only, and exclude isolated incompatible
+    // contours. No vertices are moved or snapped, and no polygon type or
+    // ruleset is supplied. Original source ink remains authoritative later.
+    const corners=alignPeriodicContourCorners(retained, groups.length, {
+        maximumShapeResidualPixels:Math.max(8,tolerance*3),
+        maximumRejectedFraction:.15
+    });
+    if(corners.status!=="aligned")
+        return empty("inconclusive",corners.reason,components.length);
+    const alignedCounts=groups.map((_,id)=>
+        corners.observations.filter(o=>o.classId===id).length);
+    if(alignedCounts.some(n=>n<3)||corners.observations.length<6)
+        return empty("inconclusive","Insufficient consistently indexed original-image contour witnesses",components.length);
     return {
         status:"observed",reason:"Repeated closed cell interiors observed; topology and D-symbol remain unverified",
         consideredComponents:components.length,
-        classes:groups.map((g,id)=>({id,sideCount:g.sides,examples:retainedCounts[id]})),
-        interiors:retained.map(o=>({polygon:o.polygon,pixels:o.count,centroid:o.centroid,
-            representative:true,motifClass:o.classId}))
+        classes:groups.map((g,id)=>({id,sideCount:g.sides,examples:alignedCounts[id]})),
+        interiors:corners.observations.map(o=>({
+            polygon:o.polygon,pixels:o.count,centroid:o.centroid,
+            representative:true,motifClass:o.classId
+        }))
     };
 }
