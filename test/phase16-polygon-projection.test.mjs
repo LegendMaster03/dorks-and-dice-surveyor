@@ -9,7 +9,7 @@ const cover=deriveTranslationMotif({units:'pixel',
     basis:[pt(40,0),pt(0,40)],
     cells:[{id:'square',polygon:[pt(29,37),pt(69,37),pt(69,77),pt(29,77)]}]});
 
-function source({eraseRight=false,eraseCorner=false,blackCenters=false}={}){
+function source({eraseRight=false,eraseCorner=false,blackCenters=false,filledInteriors=false}={}){
  const width=640,height=640,pixels=new Uint8Array(width*height).fill(255);
  const near=(v,phase)=>Math.abs(((v-phase+16000)%40))<=1;
  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
@@ -19,7 +19,11 @@ function source({eraseRight=false,eraseCorner=false,blackCenters=false}={}){
      &&Math.abs(((x-49+16000)%40))<6
      &&Math.abs(((y-57+16000)%40))<6
      &&Math.floor((x-29)/40)%2===0;
-   if(near(x,29)||near(y,37)||paintCenter)pixels[y*width+x]=0;
+   const paintedInterior=filledInteriors
+     &&Math.abs(((x-29+16000)%40)-20)<13
+     &&Math.abs(((y-37+16000)%40)-20)<13
+     &&Math.floor((x-29)/40)%2===0;
+   if(near(x,29)||near(y,37)||paintCenter||paintedInterior)pixels[y*width+x]=0;
  }
  return {width,height,pixels};
 }
@@ -46,8 +50,13 @@ test('local occlusion need not invalidate all distant original-image evidence',(
  assert.ok(result.supportedRegions>=7);
  assert.ok(result.supportedRegions<9);
 });
-test('painted-in polygon interiors contradict negative-space evidence even if all edges remain',()=>{
+test('small center labels do not stand in for the whole polygon interior',()=>{
  const result=project(source({blackCenters:true}),cover);
+ assert.equal(result.status,'supported',result.reason);
+ assert.ok(result.interiorSupport>=.82);
+});
+test('painted-in polygon interiors contradict negative-space evidence even if all edges remain',()=>{
+ const result=project(source({filledInteriors:true}),cover);
  assert.equal(result.status,'inconclusive');
  assert.match(result.reason,/negative space|contradict/);
 });

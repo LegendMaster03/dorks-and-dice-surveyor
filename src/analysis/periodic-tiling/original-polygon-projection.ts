@@ -128,19 +128,22 @@ export function verifyProjectedPolygonsInOriginalRaster(
                     if(++samples>160_000)return unsupported("Raster projection sample budget exceeded");
                 }
             }
-            // One candidate interior sample from the image at the polygon's
-            // geometric mean. Concave or thin polygons can have an invalid
-            // centroid, so count only points clearly at least 5 pixels from
-            // EVERY predicted edge; do not assert empty space outside a cell.
-            const center={x:poly.reduce((s,p)=>s+p.x,0)/poly.length,
-                y:poly.reduce((s,p)=>s+p.y,0)/poly.length};
-            if(within(center.x,center.y)&&interiorPoint(center,poly)
-                &&poly.every((p,i)=>
-                    segmentDistance(center,p,poly[(i+1)%poly.length])>=5)){
-                const slot=region(center.x,center.y);
-                interiors[slot]++;
-                if(pixels[Math.round(center.y)*width+Math.round(center.x)]>=contrast.verificationInteriorFloor)
-                    interiorsMatched[slot]++;
+            // Validate negative space across the interior, not only at its
+            // centroid: map labels and POI symbols deliberately occupy cell
+            // centers. Keep the same source-contrast and support thresholds.
+            // The geometric inside/edge-distance tests also work for concave
+            // and mixed motifs; no named shape or expected count is used.
+            for(const fx of [.25,.5,.75])for(const fy of [.25,.5,.75]){
+                const point={x:bounds[0]+fx*(bounds[2]-bounds[0]),
+                    y:bounds[1]+fy*(bounds[3]-bounds[1])};
+                if(within(point.x,point.y)&&interiorPoint(point,poly)
+                    &&poly.every((p,i)=>segmentDistance(point,p,poly[(i+1)%poly.length])>=5)){
+                    const slot=region(point.x,point.y);
+                    interiors[slot]++;
+                    if(pixels[Math.round(point.y)*width+Math.round(point.x)]>=contrast.verificationInteriorFloor)
+                        interiorsMatched[slot]++;
+                    if(++samples>160_000)return unsupported("Raster projection sample budget exceeded");
+                }
             }
         }
     }

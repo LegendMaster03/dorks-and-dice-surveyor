@@ -44,21 +44,32 @@ export function refineRigidTranslationBasis(
     if (!Number.isFinite(det) || Math.abs(det) < 4) return unsupported("Translation vectors are dependent");
 
     type Sample = { classId: number; x: number; y: number; u: number; v: number };
-    const anchors = observation.classes.map(kind => cells.find(cell => cell.motifClass === kind.id)?.centroid);
+    // Flood-fill mass centroids move when labels/POIs remove interior pixels.
+    // Polygon vertex means translate with the boundary itself, independent of
+    // artwork inside it. Point-only observations retain their supplied center.
+    const center=(cell:(typeof cells)[number])=>cell.polygon.length>=3
+        ? {x:cell.polygon.reduce((sum,p)=>sum+p.x,0)/cell.polygon.length,
+            y:cell.polygon.reduce((sum,p)=>sum+p.y,0)/cell.polygon.length}
+        : cell.centroid;
+    const anchors = observation.classes.map(kind => {
+        const cell=cells.find(cell=>cell.motifClass===kind.id);
+        return cell?center(cell):undefined;
+    });
     if (anchors.some(anchor => !anchor)) return reject("Motif classes lack translation anchors");
     const samples: Sample[] = [];
     for (const cell of cells) {
         const anchor = anchors[cell.motifClass];
-        if (!anchor || !Number.isFinite(cell.centroid.x) || !Number.isFinite(cell.centroid.y))
+        const at=center(cell);
+        if (!anchor || !Number.isFinite(at.x) || !Number.isFinite(at.y))
             return unsupported("Nonfinite or unclassified centroid");
-        const dx = cell.centroid.x - anchor.x, dy = cell.centroid.y - anchor.y;
+        const dx = at.x - anchor.x, dy = at.y - anchor.y;
         const fu = (dx * b.y - dy * b.x) / det;
         const fv = (a.x * dy - a.y * dx) / det;
         const u = Math.round(fu), v = Math.round(fv);
         if (!Number.isSafeInteger(u) || !Number.isSafeInteger(v)
             || Math.max(Math.abs(fu - u), Math.abs(fv - v)) > 0.12)
             return reject("Cell addresses do not repeat reliably under the original candidate");
-        samples.push({ classId: cell.motifClass, x: cell.centroid.x, y: cell.centroid.y, u, v });
+        samples.push({ classId: cell.motifClass, x: at.x, y: at.y, u, v });
     }
     if (samples.length < minimumSamples) return reject("Too few independent repeated cell observations");
 
