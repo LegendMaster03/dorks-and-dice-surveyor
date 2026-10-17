@@ -44,3 +44,20 @@ test('underconstrained, malformed, and inaccurate seeds fail without a made-up f
  assert.equal(refineRigidTranslationBasis({...observed,interiors:observed.interiors.slice(0,5)},[{x:128,y:0},{x:0,y:64}]).status,'inconclusive');
  assert.equal(refineRigidTranslationBasis(observed,[{x:128,y:0},{x:0,y:64}],{maximumCorrectionPixels:Infinity}).status,'unsupported');
 });
+
+test('interior artwork mass cannot distort periods measured by polygon boundaries',()=>{
+ const actual=[{x:280,y:0},{x:0,y:280}];
+ const observed=observations(actual,1);
+ for(const cell of observed.interiors){
+   const {x,y}=cell.centroid;
+   cell.polygon=[{x:x-130,y:y-130},{x:x+130,y:y-130},
+     {x:x+130,y:y+130},{x:x-130,y:y+130}];
+   // Removing white pixels for a landmark biases the component centroid
+   // systematically with row/column, despite unchanged printed boundaries.
+   cell.centroid={x:x+x*.003,y:y-y*.002};
+ }
+ const fit=refineRigidTranslationBasis(observed,[{x:279.5,y:0},{x:0,y:279.5}]);
+ assert.equal(fit.status,'refined',fit.reason);
+ assert.ok(Math.abs(fit.basis[0].x-280)<1e-8);
+ assert.ok(Math.abs(fit.basis[1].y-280)<1e-8);
+});

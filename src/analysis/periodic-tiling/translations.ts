@@ -13,6 +13,7 @@ export type TranslationEvidence = {
     vector: TranslationVector;
     support: number;
     regionSupport: readonly number[];
+    regionSamples: readonly number[];
     worstRegionSupport: number;
 };
 export type TranslationHypothesis = {
@@ -53,8 +54,11 @@ function region(x: number, y: number, width: number, height: number): number {
 function rankVector(field: EdgeField, vector: TranslationVector, source: readonly EdgeSample[], orientation: Float32Array): TranslationEvidence {
     const matched = new Float64Array(9), considered = new Int32Array(9);
     for (const sample of source) {
+        // Crop frames are not repeated cell strokes. Only compare positions
+        // whose Sobel neighborhoods lie within the usable raster overlap.
+        if (sample.x < 6 || sample.y < 6 || sample.x >= field.width - 6 || sample.y >= field.height - 6) continue;
         const x = sample.x + vector.x, y = sample.y + vector.y;
-        if (x < 1 || x >= field.width - 1 || y < 1 || y >= field.height - 1) continue;
+        if (x < 6 || x >= field.width - 6 || y < 6 || y >= field.height - 6) continue;
         const r = region(sample.x, sample.y, field.width, field.height);
         considered[r]++;
         let best = 0;
@@ -74,6 +78,7 @@ function rankVector(field: EdgeField, vector: TranslationVector, source: readonl
         vector,
         support: total >= 200 ? hits / total : 0,
         regionSupport: regional,
+        regionSamples: Array.from(considered),
         worstRegionSupport: supported.length ? Math.min(...supported) : 0
     };
 }
@@ -83,6 +88,18 @@ function rankVector(field: EdgeField, vector: TranslationVector, source: readonl
  * polygon incidence and derive a D-symbol before a pattern may be reported.
  */
 export function discoverTranslations(field: EdgeField, options: TranslationOptions = {}): TranslationSearch {
+    // Preserve the established bounded proposal pass. Expand the spatial
+    // search only when it cannot supply an independent lattice; a coarse
+    // raster must not force different hypotheses on already supported maps.
+    const first=searchTranslations(field,options,false);
+    const expanded=Math.min(Math.min(field.width,field.height)/2,
+        options.maxDistance??Math.min(field.width,field.height)/2);
+    const initial=Math.min(Math.min(field.width,field.height)/2,options.maxDistance??220);
+    return first.status==="candidates"||expanded<=initial
+        ? first : searchTranslations(field,{...options,maxDistance:expanded},true);
+}
+
+function searchTranslations(field: EdgeField, options: TranslationOptions, expanded:boolean): TranslationSearch {
     for (const [name, value] of Object.entries(options)) {
         if (!Number.isFinite(value) || value <= 0) {
             throw new RangeError(`${name} must be finite and positive`);
@@ -93,12 +110,19 @@ export function discoverTranslations(field: EdgeField, options: TranslationOptio
     if (options.maxPairVotes !== undefined && !Number.isSafeInteger(options.maxPairVotes))
         throw new RangeError("maxPairVotes must be an exact positive integer");
     const min = Math.max(8, options.minDistance ?? 12);
-    const max = Math.min(Math.min(field.width, field.height) / 2, options.maxDistance ?? 220);
+    // Bound by visible overlap, not an arbitrary pixel pitch (coarse maps
+    // have periods greater than 220px). Voting cost stays capped below.
+    const overlapLimit = Math.min(field.width, field.height) / 2;
+    const max = Math.min(overlapLimit, options.maxDistance ?? 220);
     const maxVotes = Math.min(1_000_000, Math.max(1000, options.maxPairVotes ?? 500_000));
     if (field.samples.length < 500 || max <= min + 2)
         return {status:"inconclusive",reason:"Insufficient repeated edge evidence",vectors:[],hypotheses:[]};
-    const anchors = uniformSamples(field.samples, 128);
-    const comparison = uniformSamples(field.samples, Math.max(1, Math.floor(maxVotes / anchors.length)));
+    const overlappingSamples=expanded?field.samples.filter(p=>p.x>=6&&p.y>=6
+        &&p.x<field.width-6&&p.y<field.height-6):field.samples;
+    if(overlappingSamples.length<500)
+        return {status:"inconclusive",reason:"Insufficient interior edge evidence",vectors:[],hypotheses:[]};
+    const anchors = uniformSamples(overlappingSamples, 128);
+    const comparison = uniformSamples(overlappingSamples, Math.max(1, Math.floor(maxVotes / anchors.length)));
     const frequencies = new Map<string, number>();
     const maxSq = max * max, minSq = min * min;
     for (const anchor of anchors) for (const sample of comparison) {
@@ -106,12 +130,26 @@ export function discoverTranslations(field: EdgeField, options: TranslationOptio
         if (dx < 0 || (dx === 0 && dy < 0)) { dx = -dx; dy = -dy; }
         const squared = dx * dx + dy * dy;
         if (squared < minSq || squared > maxSq || halfTurnDistance(anchor.normal, sample.normal) > 0.17) continue;
+        // A slide along one straight stroke is not evidence of a repeated
+        // stroke. Otherwise arbitrary tangent distances fill the vote budget.
+        const normalDistance=dx*Math.cos(anchor.normal)+dy*Math.sin(anchor.normal);
+        if(expanded&&normalDistance*normalDistance<.04*squared)continue;
         const qx = Math.round(dx / 2), qy = Math.round(dy / 2);
         const key = `${qx},${qy}`;
         frequencies.set(key, (frequencies.get(key) ?? 0) + 1);
     }
-    const votes = [...frequencies].sort((a,b) => b[1] - a[1]).slice(0, 40);
-    const testing = uniformSamples(field.samples, 5_000);
+    const sectors:{key:string;x:number;y:number}[][]=Array.from({length:8},()=>[]);
+    for(const [key] of [...frequencies].sort((a,b)=>b[1]-a[1])){
+        const [x,y]=key.split(',').map(Number);
+        const slot=Math.min(7,Math.max(0,Math.floor((Math.atan2(y,x)+PI/2)/PI*8)));
+        const bucket=sectors[slot];
+        if(bucket.length<5&&!bucket.some(p=>Math.hypot(p.x-x,p.y-y)<3))bucket.push({key,x,y});
+    }
+    // Still at most 40 proposals; distribute them so one direction cannot
+    // hide the second independent period before verification even starts.
+    const votes=expanded?sectors.flat().map(p=>[p.key] as const)
+        :[...frequencies].sort((a,b)=>b[1]-a[1]).slice(0,40);
+    const testing = uniformSamples(overlappingSamples, 5_000);
     // Spatial sample caps are for bounded voting cost, not for measuring
     // translation support. Looking up only the thinned samples aliases one
     // lattice direction on large, regular printed grids.
@@ -127,10 +165,19 @@ export function discoverTranslations(field: EdgeField, options: TranslationOptio
             const forward = rankVector(field,{x,y},testing,orientation);
             const backwards = rankVector(field,{x:-x,y:-y},testing,orientation);
             const score = Math.min(forward.support,backwards.support);
+            // Opposite shifts have different visible overlaps. Requiring both
+            // in the SAME source region incorrectly erases outer rows/columns
+            // on coarse grids. Pool their measured regional evidence while
+            // retaining the independent bidirectional whole-image score.
+            const counts=forward.regionSamples.map((n,i)=>n+backwards.regionSamples[i]);
+            const regional=counts.map((n,i)=>n>=18
+                ? (forward.regionSupport[i]*forward.regionSamples[i]
+                    +backwards.regionSupport[i]*backwards.regionSamples[i])/n : 0);
+            const supportedRegions=regional.filter((_,i)=>counts[i]>=18);
             const evidence: TranslationEvidence = {
                 vector: {x,y}, support: score,
-                regionSupport: forward.regionSupport.map((v,i)=>Math.min(v,backwards.regionSupport[i])),
-                worstRegionSupport: Math.min(...forward.regionSupport,...backwards.regionSupport)
+                regionSupport: regional, regionSamples:counts,
+                worstRegionSupport: supportedRegions.length?Math.min(...supportedRegions):0
             };
             if (!best || evidence.support > best.support) best = evidence;
         }

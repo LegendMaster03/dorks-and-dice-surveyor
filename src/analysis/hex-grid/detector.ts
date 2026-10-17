@@ -275,8 +275,14 @@ export function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): Edg
             const i = y * width + x;
             const magnitude = rawMagnitude[i];
             strength[i] = Math.min(1, magnitude / normalizer);
-            if (magnitude >= threshold) {
+            // Dense lookup is corroborating evidence, not the sparse voting
+            // sample. A repeated stroke over a slightly darker cell background
+            // can fall below the sample quantile while remaining a strong edge.
+            // Preserve its measured normal for translation checks. The v2
+            // sample set and its fitting behavior remain unchanged.
+            if (magnitude >= Math.max(6, threshold * 0.35))
                 denseNormals[i] = rawNormal[i];
+            if (magnitude >= threshold) {
                 candidates.push({ x, y, normal: rawNormal[i] });
             }
         }

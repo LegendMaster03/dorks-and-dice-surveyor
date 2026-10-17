@@ -112,6 +112,13 @@ export function investigatePeriodicMotif(
                 noteFailure(1,interior.reason);
                 return;
             }
+            if(segmentationProvenance==="original-sobel-gradient-mask"){
+                // A crop frame closes components too, but its inset is not a
+                // repeated cell boundary. Withhold these border observations
+                // from fitting; full-image projection still checks that area.
+                interior={...interior,interiors:interior.interiors.filter(cell=>
+                    cell.polygon.every(p=>p.x>8&&p.y>8&&p.x<raster.width-9&&p.y<raster.height-9))};
+            }
             // All positions share the same integral lattice addresses and one
             // rigid period fit. Sobel-derived masks cannot vote as source ink.
             const refined=refineRigidTranslationBasis(interior,hypothesis.basis,options.refinement);
@@ -201,8 +208,16 @@ export function investigatePeriodicMotif(
     // onto it as a chamber cover. A size difference alone is not such proof.
     const sorted = [...verified].sort((a, b) => {
         const an = inspectDSymbol(a.symbol, 2048), bn = inspectDSymbol(b.symbol, 2048);
-        return (an.status === "euclidean" ? an.symbol.chamberCount : Infinity)
+        const size = (an.status === "euclidean" ? an.symbol.chamberCount : Infinity)
              - (bn.status === "euclidean" ? bn.symbol.chamberCount : Infinity);
+        // Equivalent lattice presentations can be extremely sheared. Prefer
+        // the best-conditioned observed basis at equal chamber count instead
+        // of arbitrary vote order, without changing any measured vector.
+        const condition = (basis: typeof a.basis): number => {
+            const [u,v]=basis;
+            return (u.x*u.x+u.y*u.y+v.x*v.x+v.y*v.y)/Math.abs(u.x*v.y-u.y*v.x);
+        };
+        return size || condition(a.basis)-condition(b.basis);
     });
     let preferred = sorted[0];
     // The Sobel candidate basis may span a strict translation sublattice.
@@ -238,9 +253,14 @@ export function investigatePeriodicMotif(
     // have a geometric corner uncertainty below sqrt(6²+3²) + rounding.
     // Allow a seven-pixel bound only for this measured contour-recovery path;
     // original image projection and independent metric closure remain mandatory.
+    // A Sobel/dilation contour can be inset five pixels along BOTH incident
+    // sides: its corner uncertainty is ceil(sqrt(5²+5²)) = 8px. This is not
+    // the permitted final overlay error; whole-image source projection below
+    // retains its original 3px ink search and all regional support thresholds.
     const geometry = registerObservedMetric(raster, preferred.interior, preferred.topology,
-        preferred.basis, preferred.contourRecovered
-            ? {maximumContourResidualPixels:7} : {});
+        preferred.basis, preferred.segmentationProvenance==="original-sobel-gradient-mask"
+            ? {maximumContourResidualPixels:8}
+            : preferred.contourRecovered ? {maximumContourResidualPixels:7} : {});
     const crossCheck = geometry.status === "registered"
         ? crossCheckMetricSymmetryWithOriginalRaster(raster, geometry.cover)
         : null;

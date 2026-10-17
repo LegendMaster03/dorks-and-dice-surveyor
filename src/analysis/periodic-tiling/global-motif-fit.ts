@@ -103,11 +103,13 @@ export function verifyRigidMotifFit(
     let outlierCells=0;
     const retainedPerClass=new Array<number>(consensus.length).fill(0);
     const seenRegions = new Set<number>();
-    // Use samples distributed along every predicted side. Pixels within three
-    // of its white-region contour should contain part of the original ink stroke.
+    // This preflight measures white-region contours, not mathematical line
+    // centers. Sobel plus one-pixel mask dilation can inset that contour four
+    // source pixels from the ink. The final registered-cover projection still
+    // uses its separate, unchanged three-pixel original-ink bound.
     const darkNear = (x: number, y: number): boolean => {
         const cx = Math.round(x), cy = Math.round(y);
-        for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
             const xx = cx + dx, yy = cy + dy;
             if (xx >= 0 && xx < width && yy >= 0 && yy < height && pixels[yy * width + xx] < contrast.inkUpperExclusive)
                 return true;
@@ -130,7 +132,10 @@ export function verifyRigidMotifFit(
                 const next=template.polygon[(i+1)%template.polygon.length]!;
                 // Outlying contours are not allowed to erase source evidence:
                 // still check EVERY predicted edge at the ORIGINAL pixels.
-                for(const t of [.25,.5,.75]){
+                // Coarse/cropped maps can have only a few complete observed
+                // cells. Gather more independent positions along each side
+                // instead of lowering the minimum source-evidence budget.
+                for(const t of [.1,.3,.5,.7,.9]){
                     const x=predicted.x+(next.x-template.polygon[i]!.x)*t;
                     const y=predicted.y+(next.y-template.polygon[i]!.y)*t;
                     if(x<4||x>=width-4||y<4||y>=height-4)continue;
