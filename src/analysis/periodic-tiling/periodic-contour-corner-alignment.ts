@@ -80,14 +80,22 @@ export function alignPeriodicContourCorners<T extends PeriodicContourObservation
         const count=Math.min(24,copies.length);
         const candidateIndices=Array.from({length:count},(_,i)=>
             count===1?0:Math.floor(i*(copies.length-1)/(count-1)));
-        let selected=0,bestScore=Infinity;
+        let selected=0,bestScore=Infinity,bestReindexCount=Infinity;
         for(const index of candidateIndices){
-            const errors=normalized.map(poly=>bestShift(normalized[index]!,poly).worst)
-                .sort((a,b)=>a-b);
+            const comparisons=normalized.map(poly=>bestShift(normalized[index]!,poly));
+            const errors=comparisons.map(match=>match.worst).sort((a,b)=>a-b);
             // 65th percentile, rather than the maximum, prevents one badly
             // painted source cell from determining the motif's corner order.
             const percentile=errors[Math.floor((errors.length-1)*.65)]!;
-            if(percentile<bestScore){bestScore=percentile;selected=index;}
+            // Cyclic index gauge is arbitrary, but prefer the modal observed
+            // corner start if multiple equally consistent representatives
+            // exist. Otherwise one unusual FIRST cell would reindex 80 good
+            // observations even though it cannot corrupt their geometry.
+            const reindexCount=comparisons.filter(match=>match.shift!==0).length;
+            if(percentile<bestScore-1e-6 ||
+                (Math.abs(percentile-bestScore)<=1e-6 && reindexCount<bestReindexCount)){
+                bestScore=percentile;bestReindexCount=reindexCount;selected=index;
+            }
         }
         const template=normalized[selected]!;
         let droppedClass=0,retainedClass=0;
