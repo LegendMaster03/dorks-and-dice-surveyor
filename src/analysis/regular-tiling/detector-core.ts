@@ -172,6 +172,8 @@ function triangularReason(reason: string): string {
         .replace(/hex(?:agonal)?[- ]lattice/gi, "triangular lattice");
 }
 
+// Square detection requires two perpendicular repeating edge families, a
+// consistent shared pitch, and a rigid fit across separated image regions.
 function detectSquareLattice(
     raster: GrayscaleRaster,
     options: RegularLatticeDetectionOptions): RegularLatticeDetection {
@@ -232,6 +234,8 @@ function detectSquareLattice(
         phaseScore: phase.coherence
     };
 
+    // A locally convincing grid is not sufficient to register a whole raster.
+    // Require support from distant regions and reject excessive overlay drift.
     const threshold = options.minimumConfidence ?? 0.52;
     const excessiveResidual = residual.worst > Math.max(2, pitch * 0.08);
     if (confidence < threshold || residual.supportedRegions < 6 || excessiveResidual) {
@@ -360,6 +364,8 @@ function evaluateSquareOrientation(field: EdgeField, degrees: number): Orientati
     };
 }
 
+// Favor pitches supported by both perpendicular line families; strong texture
+// in only one direction must not masquerade as a square grid.
 function fitSquarePeriod(
     field: EdgeField,
     orientation: OrientationCandidate,
@@ -524,6 +530,8 @@ function wrapAnchor(
     return best;
 }
 
+// Each supported distant region must agree in both line directions. Missing
+// directional evidence reduces coverage instead of implying a perfect fit.
 function measureSquareResidual(
     field: EdgeField,
     degrees: number,

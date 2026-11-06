@@ -872,6 +872,8 @@ function isBetterDistantResidual(
     return false;
 }
 
+// Check the selected global lattice against independent image regions. A
+// strong average correlation must not conceal local phase drift at the edges.
 function measureDistantOverlayResidual(
     field: EdgeField,
     baseNormalDegrees: number,
