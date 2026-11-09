@@ -1,3 +1,4 @@
+/** Expected client failure with an explicit HTTP status and stable API error code. */
 export class SurveyorRequestError extends Error {
     public constructor(
         public readonly statusCode: number,
@@ -8,6 +9,7 @@ export class SurveyorRequestError extends Error {
     }
 }
 
+/** Admission rejected because neither an idle worker nor queue space is available. */
 export class WorkerPoolOverloadedError extends Error {
     public constructor() {
         super("Surveyor analysis capacity is currently full.");
@@ -15,6 +17,7 @@ export class WorkerPoolOverloadedError extends Error {
     }
 }
 
+/** A running analysis exceeded its deadline and its worker must be replaced. */
 export class WorkerJobTimeoutError extends Error {
     public constructor() {
         super("Surveyor analysis exceeded its configured timeout.");
@@ -22,6 +25,7 @@ export class WorkerJobTimeoutError extends Error {
     }
 }
 
+/** The request was aborted or shutdown prevented completion. */
 export class WorkerJobCancelledError extends Error {
     public constructor() {
         super("Surveyor analysis was cancelled.");

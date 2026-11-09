@@ -55,6 +55,8 @@ export function verifyRigidMotifFit(
         shift: ObservedPoint;
         centroidPhase: ObservedPoint;
     };
+    // Median corner coordinates suppress isolated label/road distortions
+    // without treating any single scanned cell as the global template.
     const median = (values: number[]): number => {
         values.sort((x,y)=>x-y);
         const n=values.length, i=Math.floor(n/2);

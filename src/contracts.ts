@@ -11,6 +11,7 @@ export const PeriodicMotifInvestigationApiVersion = "v3" as const;
 export const SupportedRasterMediaTypes = ["image/png", "image/jpeg", "image/webp"] as const;
 
 export type SupportedRasterMediaType = typeof SupportedRasterMediaTypes[number];
+/** Inconclusive means evidence was insufficient or ambiguous; gridless means no supported pattern was found. */
 export type PeriodicTilingDetectionStatus = "detected" | "inconclusive" | "gridless";
 
 export type PublicPeriodicTilingDetectionOptions = Pick<
@@ -21,6 +22,7 @@ export type PeriodicTilingIdentity = {
     dsSymbol: string;
 };
 
+/** v2 detection result; only a positive result contains an authoritative observed tiling identity. */
 export type SurveyorPeriodicTilingAnalysis = {
     apiVersion: typeof SurveyorApiVersion;
     capability: typeof PeriodicTilingDetectionCapability;
@@ -51,6 +53,7 @@ export type SurveyorTiming = {
     totalMs: number;
 };
 
+/** Stable error envelope shared by production and experimental API versions. */
 export type SurveyorErrorResponse = {
     apiVersion: typeof SurveyorApiVersion | typeof PeriodicMotifInvestigationApiVersion;
     capability: string;

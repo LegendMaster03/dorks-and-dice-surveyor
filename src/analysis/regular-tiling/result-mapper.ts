@@ -1,5 +1,6 @@
 import type { RegularLatticeDetection } from "./detector.js";
 
+/** Restore all geometry-dependent measurements to source pixels without changing confidence. */
 export function mapRegularDetectionToSourceImage(
     detection: RegularLatticeDetection,
     analysisScale: number): RegularLatticeDetection {
@@ -16,6 +17,7 @@ export function mapRegularDetectionToSourceImage(
             ...(detection.fit.centerSpacingPixels == null
                 ? {}
                 : { centerSpacingPixels: detection.fit.centerSpacingPixels / analysisScale }),
+            // Sample centers need the same half-pixel convention as the hex mapper.
             anchorPixel: {
                 x: (detection.fit.anchorPixel.x + 0.5) / analysisScale,
                 y: (detection.fit.anchorPixel.y + 0.5) / analysisScale
@@ -25,6 +27,8 @@ export function mapRegularDetectionToSourceImage(
     };
 }
 
+// Diagnostic strings can contain measured pixel distances; keep their
+// units consistent with the coordinates returned in the response.
 function mapPixelMeasurementsToSourceImage(reason: string, analysisScale: number): string {
     if (Math.abs(analysisScale - 1) <= Number.EPSILON) return reason;
     return reason.replace(/(-?[0-9]+(?:\.[0-9]+)?) px\b/g, (_match, raw: string) => {

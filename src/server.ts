@@ -10,6 +10,7 @@ export type SurveyorReadinessSnapshot = {
     queueLimit: number;
 };
 
+/** Readiness describes the production analysis lane, not process liveness. */
 export type SurveyorReadinessProvider = {
     readonly canAccept: boolean;
     snapshot(): SurveyorReadinessSnapshot;
@@ -20,6 +21,7 @@ export type SurveyorServerDependencies = {
     readiness: SurveyorReadinessProvider;
 };
 
+/** Register independent resources behind one HTTP server, rejecting conflicting capability IDs or paths at startup. */
 export function createSurveyorServer(dependencies: SurveyorServerDependencies): Server {
     const resources = [...dependencies.resources];
     assertUniqueResourceRegistration(resources);
@@ -39,10 +41,14 @@ async function route(
     resources: readonly SurveyorResource[]): Promise<void> {
     const url = new URL(request.url ?? "/", "http://surveyor.local");
 
+    // Liveness means the HTTP process is responding; it does not claim that
+    // a worker can accept another analysis request.
     if (request.method === "GET" && url.pathname === "/health/live") {
         return writeJson(response, 200, { status: "live", service: "surveyor" });
     }
 
+    // Backpressure is externally observable through readiness so callers can
+    // retry rather than treating saturation as an available worker.
     if (request.method === "GET" && url.pathname === "/health/ready") {
         const snapshot = readiness.snapshot();
         const ready = readiness.canAccept;

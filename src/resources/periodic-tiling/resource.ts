@@ -42,6 +42,7 @@ const capabilityDescriptor = {
     notationParsers: [{ notation: "Delaney-Dress", grammarDriven: true }]
 } as const;
 
+/** Production v2 endpoint: compare implemented detector hypotheses and return image-derived identity. */
 export function createPeriodicTilingResource(dependencies: PeriodicTilingResourceDependencies): SurveyorResource {
     return {
         id: "periodic-tiling",
@@ -115,6 +116,8 @@ async function detectPeriodicTiling(
                 : -1;
             attempts.push({ definition, result: workerResult, mapped, score });
         }
+        // A detector's positive result is a hypothesis, not an identity claim.
+        // Prefer the best supported fit only when it beats alternatives clearly.
         const candidates = attempts.filter(item => item.mapped.status === "detected" && item.mapped.fit);
         candidates.sort((a, b) => b.score - a.score);
         // Confidence scales across detector families are not fully calibrated.
@@ -209,6 +212,7 @@ function parseDetectionOptions(parameters: URLSearchParams): PublicPeriodicTilin
     };
 }
 
+/** Pixel spacing options arrive in source coordinates and must follow preprocessing downscale. */
 function mapOptionsToAnalysisSpace(
     sourceOptions: PublicPeriodicTilingDetectionOptions,
     analysisScale: number): PublicPeriodicTilingDetectionOptions {
@@ -247,6 +251,7 @@ function optionalFinite(
     return value;
 }
 
+/** Report stage durations to API clients without exposing internal worker data. */
 function serverTiming(result: SurveyorPeriodicTilingAnalysis): string {
     const timing = result.timing;
     return [

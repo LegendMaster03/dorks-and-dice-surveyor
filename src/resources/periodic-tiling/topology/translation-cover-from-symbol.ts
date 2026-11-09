@@ -6,6 +6,7 @@ export type AbstractTranslationAdjacency = {
     reciprocalEdge: number;
     shift: readonly [number, number];
 };
+/** Combinatorial motif cell with deck shifts; no metric coordinates are implied. */
 export type AbstractTranslationCell = {
     id: number;
     sides: number;

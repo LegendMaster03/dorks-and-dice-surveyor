@@ -20,6 +20,11 @@ type WorkerSlot<TRequest, TResponse> = {
     replacing: boolean;
 };
 
+/**
+ * Runs CPU-bound analysis in isolated workers with bounded admission.
+ * Timeouts and cancellation replace a busy worker, since a synchronous
+ * detector cannot be interrupted safely while it runs.
+ */
 export class BoundedWorkerPool<TRequest, TResponse> {
     private readonly slots: WorkerSlot<TRequest, TResponse>[] = [];
     private readonly queue: PendingJob<TRequest, TResponse>[] = [];
@@ -48,6 +53,7 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         };
     }
 
+    /** Reject excess work before allocating a job; only waiting jobs count toward the queue limit. */
     public run(payload: TRequest, options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<TResponse> {
         if (this.closed) return Promise.reject(new WorkerJobCancelledError());
         if (options.signal?.aborted) return Promise.reject(new WorkerJobCancelledError());
@@ -132,6 +138,8 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         job.signal.addEventListener("abort", listener, { once: true });
     }
 
+    // A terminated or replaced worker may produce a stale response. Only the
+    // active job identifier is allowed to settle the promise.
     private onMessage(slot: WorkerSlot<TRequest, TResponse>, message: WorkerResponseEnvelope<TResponse>): void {
         const job = slot.current;
         if (!job || message.jobId !== job.id) return;
@@ -150,6 +158,8 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         void this.replaceWorker(slot).then(() => this.dispatch());
     }
 
+    // Cancellation of running CPU work requires replacing the entire thread;
+    // the slot stays unavailable until its replacement is attached.
     private cancelRunning(slot: WorkerSlot<TRequest, TResponse>, job: PendingJob<TRequest, TResponse>, error: Error): void {
         if (slot.current !== job || slot.replacing) return;
         slot.current = null;
@@ -168,6 +178,8 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         this.attachWorkerListeners(slot);
     }
 
+    // Move queued work only into idle slots. Rebind its abort signal to the
+    // running slot so cancellation can terminate the correct worker.
     private dispatch(): void {
         if (this.closed) return;
         while (this.queue.length > 0) {
@@ -182,6 +194,7 @@ export class BoundedWorkerPool<TRequest, TResponse> {
         }
     }
 
+    // All completion paths clear both timeout and abort listeners.
     private finish(job: PendingJob<TRequest, TResponse>, error: Error | null, value?: TResponse): void {
         if (job.timeout) clearTimeout(job.timeout);
         if (job.abortListener && job.signal) job.signal.removeEventListener("abort", job.abortListener);

@@ -118,6 +118,8 @@ export function verifyMetricChamberSymmetry(
     if(combinatorial.status!=="reduced")
         return inconclusive("Cannot independently prove the combinatorial reference quotient");
 
+    // Only geometry-verified automorphisms contribute equivalence classes;
+    // algebraic flag permutations alone do not establish rigid isometries.
     const parent=Array.from({length:n+1},(_,i)=>i);
     const find=(p:number):number=>{while(parent[p]!==p){parent[p]=parent[parent[p]];p=parent[p];}return p;};
     const union=(x:number,y:number):void=>{

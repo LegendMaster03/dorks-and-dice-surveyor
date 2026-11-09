@@ -40,6 +40,8 @@ function orbit(maps: readonly (readonly number[])[], i: number, start: number): 
     }
     return queue;
 }
+// Traverse the connected chamber graph from a chosen root and emit its
+// compressed canonical syntax under that numbering.
 function relabel(size: number, maps: readonly (readonly number[])[], labels: readonly (readonly number[])[], root: number): string {
     const oldToNew = new Array<number>(size + 1).fill(0);
     const newToOld = [0, root]; oldToNew[root] = 1;
@@ -62,6 +64,7 @@ function relabel(size: number, maps: readonly (readonly number[])[], labels: rea
     }).join(",");
     return `<${size}:${compact}:${numbers}>`;
 }
+/** Choose the lexicographically least root relabeling so chamber numbers do not affect identity. */
 export function canonicalDSymbol(
     involutions: readonly [readonly number[], readonly number[], readonly number[]],
     m01: readonly number[], m12: readonly number[]): string {
@@ -74,6 +77,7 @@ export function canonicalDSymbol(
     return best;
 }
 
+/** Validate bounded notation, chamber incidence, multiplicities, and exact Euclidean curvature. */
 export function inspectDSymbol(text: string, chamberLimit = 256): DSymbolInspection {
     try {
         // Reject oversized untrusted notation before attempting any parsing or
@@ -147,6 +151,8 @@ export function inspectDSymbol(text: string, chamberLimit = 256): DSymbolInspect
                 }
             }
         }
+        // Rational curvature is evaluated with a common BigInt denominator;
+        // floating-point cancellation must not misclassify flat symbols.
         let denominator = 2n;
         for (let c = 1; c <= size; c++) for (const value of [ms[0][c], ms[1][c]]) {
             const b = BigInt(value); denominator = denominator / gcd(denominator, b) * b;

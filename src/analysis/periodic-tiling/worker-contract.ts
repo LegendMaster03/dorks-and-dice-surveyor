@@ -14,5 +14,6 @@ export type ExperimentalMotifWorkerResult = {
     detectorTotalMs: number;
 };
 
+/** Discriminated union keeps experimental research requests distinct from production detection. */
 export type AnalysisWorkerRequest = RegularTilingWorkerRequest | ExperimentalMotifWorkerRequest;
 export type AnalysisWorkerResult = RegularTilingWorkerResult | ExperimentalMotifWorkerResult;
