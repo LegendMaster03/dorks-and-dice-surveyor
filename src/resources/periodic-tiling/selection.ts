@@ -3,6 +3,7 @@ import { findPeriodicTilingByDsSymbol, periodicTilingDefinitions } from "./catal
 import { DelaneyDressNotationError, parseDelaneyDressNotation } from "./notation/index.js";
 import type { PeriodicTilingDefinition } from "./types.js";
 
+/** The hint controls attempt order only; every implemented geometry is still evaluated. */
 export type PeriodicTilingSelection = {
     expectedDsSymbol: string | null;
     prioritizedDetectors: readonly PeriodicTilingDefinition[];

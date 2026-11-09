@@ -1,5 +1,6 @@
 import type { HexLatticeDetection } from "./detector.js";
 
+/** Convert a fit from reduced analysis pixels to original image coordinates. */
 export function mapDetectionToSourceImage(
     detection: HexLatticeDetection,
     analysisScale: number): HexLatticeDetection {
@@ -12,6 +13,8 @@ export function mapDetectionToSourceImage(
         fit: {
             ...detection.fit,
             centerSpacingPixels: detection.fit.centerSpacingPixels / analysisScale,
+            // The half-pixel offset maps an analysis sample center rather
+            // than the corner of the downsampled pixel.
             anchorPixel: {
                 x: (detection.fit.anchorPixel.x + 0.5) / analysisScale,
                 y: (detection.fit.anchorPixel.y + 0.5) / analysisScale

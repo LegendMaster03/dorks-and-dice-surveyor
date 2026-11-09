@@ -11,6 +11,8 @@ export function mapExperimentalMotifToSource(
 ): { candidate: Candidate; evidence: Evidence } {
     if (!Number.isFinite(analysisScale) || analysisScale <= 0 || analysisScale > 1)
         throw new Error("Invalid image analysis scale.");
+    // World topology is not constructed here: provisional IDs and integer
+    // lattice shifts are preserved while measured geometry changes units.
     const point = (p: { x: number; y: number }) => ({
         x: p.x / analysisScale, y: p.y / analysisScale
     });
