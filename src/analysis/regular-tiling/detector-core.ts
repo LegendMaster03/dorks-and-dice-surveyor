@@ -370,6 +370,8 @@ function evaluateSquareOrientation(field: EdgeField, degrees: number): Orientati
     };
 }
 
+// Favor pitches supported by both perpendicular line families; strong
+// texture in only one direction must not masquerade as a square grid.
 function fitSquarePeriod(
     field: EdgeField,
     orientation: OrientationCandidate,
@@ -536,6 +538,8 @@ function wrapAnchor(
 }
 
 /** Test the same phase in a 3x3 partition to reject fits supported by only one image region. */
+// Missing directional evidence reduces coverage instead of implying a
+// perfect fit in a region with no samples from one line family.
 function measureSquareResidual(
     field: EdgeField,
     degrees: number,
