@@ -36,6 +36,8 @@ export function projectChambers(cover: DSymbol, quotient: DSymbol): readonly num
     return null;
 }
 
+// Only explicit, well-formed intervals with matching keys and units can
+// establish a metric contradiction; absent constraints are not evidence.
 function constraintConflict(left: readonly MetricConstraint[], right: readonly MetricConstraint[]): boolean {
     for (const a of left) for (const b of right) {
         if (a.key === b.key && a.unit === b.unit && Number.isFinite(a.min) && Number.isFinite(a.max)
@@ -73,6 +75,8 @@ export function compareDSymbols(
     if (distinctValues(l.symbol.m01) !== distinctValues(r.symbol.m01)
         || distinctValues(l.symbol.m12) !== distinctValues(r.symbol.m12))
         return { status: "structurally-incompatible", reason: "Face-degree or vertex-valence invariants differ" };
+    // Different finite quotients may describe the same infinite tiling.
+    // A supplied common chamber cover is a positive proof, not a guess.
     if (options.commonCover) {
         const witness = inspectDSymbol(options.commonCover, 2048);
         if (witness.status === "euclidean"

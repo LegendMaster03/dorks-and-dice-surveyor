@@ -34,6 +34,8 @@ export function reduceCombinatorialChamberSymmetry(
         return { status: "inconclusive", reason: "Canonical source was not a valid D-symbol" };
     const symbol: DSymbol = normalized.symbol;
     const n = symbol.chamberCount, maps = symbol.involutions;
+    // Union automorphism orbits to form the smallest quotient without
+    // enumerating arbitrary chamber permutations.
     const parent = Array.from({ length: n + 1 }, (_, i) => i);
     const find = (value: number): number => {
         while (parent[value] !== value) {
@@ -91,6 +93,8 @@ export function reduceCombinatorialChamberSymmetry(
     ) as [number[], number[], number[]];
     const quotientM01 = representatives.map((old, i) => i === 0 ? 0 : symbol.m01[old]);
     const quotientM12 = representatives.map((old, i) => i === 0 ? 0 : symbol.m12[old]);
+    // Reinspect and independently project the constructed quotient before
+    // reporting it; an orbit partition alone is not a valid D-symbol proof.
     const candidate = canonicalDSymbol(quotientMaps, quotientM01, quotientM12);
     const quotient = inspectDSymbol(candidate, chamberLimit);
     if (quotient.status !== "euclidean"

@@ -19,6 +19,7 @@ export type BoundaryInterface = {
     reciprocalEdgeIndex: number;
 };
 export type OperationalCell = { id: string; polygon: readonly Point2[]; boundary: readonly BoundaryInterface[] };
+/** A verified, integer-addressed geometric witness; not a detected image or map-owned world state. */
 export type OperationalCover = {
     kind: "witness-verified";
     quotientSymbol: string;
@@ -28,6 +29,7 @@ export type OperationalCover = {
     cells: readonly OperationalCell[];
     quotientChamberProjection: readonly number[];
 };
+/** Invalid geometry or periodic incidence in a proposed world-space witness. */
 export class CoverValidationError extends Error {
     constructor(message: string) { super(message); this.name = "CoverValidationError"; }
 }

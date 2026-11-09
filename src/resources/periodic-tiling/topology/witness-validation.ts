@@ -66,6 +66,8 @@ export function validateWireTopologyWitness(witness: WireTopologyWitness): true 
     }
     const offsets = [0];
     for (const cell of cells) offsets.push(offsets[offsets.length - 1] + cell.boundary.length);
+    // Two oriented flags per boundary interface reconstruct the complete
+    // chamber involutions, including the cross-cell s2 relation.
     const n = offsets[cells.length] * 2;
     if (n > 2048) fail("Translation chamber graph exceeds 2048 flags");
     const maps = Array.from({ length: 3 }, () => new Array<number>(n + 1).fill(0));
@@ -97,6 +99,8 @@ export function validateWireTopologyWitness(witness: WireTopologyWitness): true 
             adjacency[cellIndex].push({ target, shift });
         }
     }
+    // A vertex orbit must close at the same integer deck displacement;
+    // matching only the finite combinatorial cycle would permit holonomy.
     const m12 = new Array<number>(n + 1).fill(0);
     const seen = new Set<number>();
     for (let root = 1; root <= n; root++) {
