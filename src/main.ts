@@ -6,6 +6,8 @@ import { createPeriodicTilingResource } from "./resources/periodic-tiling/resour
 import { createPeriodicMotifInvestigationResource } from "./resources/periodic-tiling/investigation-resource.js";
 import { createSurveyorServer } from "./server.js";
 
+// Construct independent production and experimental worker lanes before
+// accepting requests; production readiness depends only on the v2 lane.
 const config = loadConfig();
 const periodicTilingPool = new BoundedWorkerPool<AnalysisWorkerRequest, AnalysisWorkerResult>(
     new URL("./analysis/worker.js", import.meta.url),
@@ -36,6 +38,7 @@ server.listen(config.port, "0.0.0.0", () => {
 });
 
 let stopping = false;
+/** Stop HTTP admission and drain both worker pools on process termination. */
 async function shutdown(signal: string): Promise<void> {
     if (stopping) return;
     stopping = true;
