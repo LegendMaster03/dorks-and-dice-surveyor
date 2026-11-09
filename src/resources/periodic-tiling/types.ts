@@ -2,6 +2,7 @@ import type { RegularTilingGeometryId } from "../../analysis/regular-tiling/dete
 
 export type PeriodicTilingDetectorId = "regular-lattice";
 
+/** Maps a recognized canonical tiling identity to a production detector implementation. */
 export type PeriodicTilingDefinition = {
     id: string;
     dsSymbol: string;

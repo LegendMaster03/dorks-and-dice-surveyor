@@ -68,9 +68,13 @@ export function verifyProjectedPolygonsInOriginalRaster(
     const maxU=Math.ceil(Math.max(...corners.map(p=>p.x)))+3;
     const minV=Math.floor(Math.min(...corners.map(p=>p.y)))-3;
     const maxV=Math.ceil(Math.max(...corners.map(p=>p.y)))+3;
+    // Enumerate the entire original-image period envelope, including cells
+    // missing from the earlier enclosed-region segmentation.
     const total=(maxU-minU+1)*(maxV-minV+1)*registeredPixelCover.cells.length;
     if(!Number.isSafeInteger(total)||total>8000||total<1)
         return unsupported("Full-image projection exceeds the bounded periodic cell count");
+    // Score a 3x3 image partition, not only global averages. The final
+    // projection must have support spanning distant rows and columns.
     const region=(x:number,y:number)=>Math.min(2,Math.floor(3*x/width))
         +3*Math.min(2,Math.floor(3*y/height));
     const edge=new Int32Array(9),edgeMatched=new Int32Array(9);

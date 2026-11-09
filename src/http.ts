@@ -8,6 +8,7 @@ import {
     WorkerPoolOverloadedError
 } from "./errors.js";
 
+/** Check both the declared size and streamed bytes; a forged Content-Length must not bypass the upload limit. */
 export async function readBodyBounded(
     request: IncomingMessage, limit: number, signal?: AbortSignal
 ): Promise<Buffer> {
@@ -48,6 +49,7 @@ export async function readBodyBounded(
     }
 }
 
+/** Authenticate every analysis request using the configured service token, not a caller-supplied capability. */
 export function requireServiceToken(request: IncomingMessage, expected: string): void {
     const header = request.headers.authorization ?? "";
     const prefix = "Bearer ";
@@ -56,11 +58,13 @@ export function requireServiceToken(request: IncomingMessage, expected: string):
     }
 }
 
+/** Keep valid caller correlation IDs; otherwise generate a bounded, log-safe identifier. */
 export function correlationIdentifier(value: string | string[] | undefined): string {
     const candidate = Array.isArray(value) ? value[0] : value;
     return candidate && /^[A-Za-z0-9._:-]{1,128}$/.test(candidate) ? candidate : randomUUID();
 }
 
+/** Translate expected request and worker failures into stable API errors without exposing internal exceptions. */
 export function writeError(
     response: ServerResponse, error: unknown, capability: string,
     apiVersion: SurveyorErrorResponse["apiVersion"] = SurveyorApiVersion
@@ -114,6 +118,8 @@ export function writeJson(response: ServerResponse, statusCode: number, value: u
     response.end(body);
 }
 
+// Hash both strings to fixed-size buffers before using timing-safe comparison;
+// direct byte comparison would leak token length.
 function secureEqual(candidate: string, expected: string): boolean {
     const left = createHash("sha256").update(candidate).digest();
     const right = createHash("sha256").update(expected).digest();

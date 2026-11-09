@@ -16,6 +16,7 @@ export type OriginalRasterContrast = {
     mode: "strong-source-contrast" | "separable-source-contrast";
 };
 
+/** Select a source-image-only ink/background threshold; return null when separation is not defensible. */
 export function originalRasterContrast(
     raster: GrayscaleRaster
 ): OriginalRasterContrast | null {

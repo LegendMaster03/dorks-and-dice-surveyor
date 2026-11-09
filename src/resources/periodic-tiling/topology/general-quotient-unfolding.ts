@@ -167,6 +167,10 @@ function assignVoltages(graph: Graph, charges: readonly number[], n: number): bo
     return flux.every((sum, i) => sum === modulo(charges[i], n));
 }
 
+/**
+ * Remove orientation and finite rotational stabilizers before constructing
+ * a primitive translation cover. Neither step supplies a metric embedding.
+ */
 export function constructGeneralEuclideanTranslationCover(
     source: string, chamberLimit = 1024
 ): GeneralEuclideanTranslationCover {
@@ -211,6 +215,8 @@ export function constructGeneralEuclideanTranslationCover(
         voltage[arc.involution][arc.chamber] = arc.voltage;
         voltage[arc.involution][opposite] = modulo(-arc.voltage, sheets);
     }
+    // The cyclic sheet index carries local orbifold holonomy; connected
+    // exploration avoids counting unreachable sheets as extra chambers.
     const pairs: Array<readonly [number, number]> = [[1, 0]];
     const key = (chamber: number, sheet: number): number =>
         (chamber - 1) * sheets + sheet;

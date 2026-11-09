@@ -95,6 +95,8 @@ export function realizeGeneralEuclideanQuotient(
     const periodCosine = Math.cos(periodAngle), periodSine = Math.sin(periodAngle);
     if (periodSine <= 1e-8)
         return unresolved("The requested period angle collapses the fundamental domain");
+    // A valid abstract Euclidean translation cover need not admit this
+    // bounded, nondegenerate harmonic realization; keep failure unresolved.
     const abstract = constructGeneralEuclideanTranslationCover(source, chamberLimit);
     if (abstract.status !== "constructed")
         return abstract.status === "unsupported" || abstract.status === "invalid"

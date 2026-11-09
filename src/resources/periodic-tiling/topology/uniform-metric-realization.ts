@@ -85,6 +85,8 @@ function matchSeedFlags(raw: ReturnType<typeof seedFlags>, symbol: DSymbol): num
     return null;
 }
 
+// Polygon faces are (s0,s1) chamber orbits. Their ordering is derived
+// from the symbol rather than a registered tiling name.
 function quotientFaces(symbol: DSymbol): { which: number[]; orbits: number[][] } {
     const which = new Array<number>(symbol.chamberCount + 1).fill(-1), orbits: number[][] = [];
     for (let start = 1; start <= symbol.chamberCount; start++) {

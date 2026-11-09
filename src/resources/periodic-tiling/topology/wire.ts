@@ -16,6 +16,7 @@ export type WireBoundaryInterface = {
     reciprocalInterfaceIndex: number;
 };
 export type WireMotifCell = { id: string; boundary: readonly WireBoundaryInterface[] };
+/** Integer-addressed finite incidence proof; not a polygon embedding or a raster observation. */
 export type WireTopologyWitness = {
     contractVersion: 1;
     quotientDsSymbol: string;
@@ -23,6 +24,7 @@ export type WireTopologyWitness = {
     motifCells: readonly WireMotifCell[];
     provenance: string;
 };
+/** Optional world-space geometry, kept distinct from exact combinatorial topology. */
 export type WireMetricRealization = {
     units: string;
     translationU: Point2;
@@ -30,6 +32,7 @@ export type WireMetricRealization = {
     polygons: Readonly<Record<string, readonly Point2[]>>;
     constraints: readonly MetricConstraint[];
 };
+/** Optional world-to-pixel registration; this record alone does not establish image correspondence. */
 export type WireRasterRegistration = {
     sourceAssetId: string;
     pixelWidth: number;

@@ -38,6 +38,11 @@ type HoneycombOccupancy = {
     gapSamples: number;
 };
 
+/**
+ * For triangular and hexagonal hypotheses, the shared fitter locates a
+ * repeating three-family lattice. Edge continuity distinguishes triangular carrier lines from segmented
+ * hexagonal honeycomb edges, which can otherwise fit the same lattice.
+ */
 export function detectRegularLattice(
     raster: GrayscaleRaster,
     geometryId: RegularTilingGeometryId,
@@ -115,6 +120,8 @@ function threeFamilyModel(
     };
 }
 
+// Normalize Sobel gradients by a robust high quantile so occupancy
+// measurements are comparable across raster contrast levels.
 function buildOrientedEdgeEvidence(raster: GrayscaleRaster): OrientedEdgeEvidence {
     validateRaster(raster);
     const size = raster.width * raster.height;
@@ -148,6 +155,7 @@ function buildOrientedEdgeEvidence(raster: GrayscaleRaster): OrientedEdgeEvidenc
     return { width: raster.width, height: raster.height, strength, normal };
 }
 
+/** Sample both predicted edges and their collinear extensions to distinguish continuous lines from gaps. */
 function measureHoneycombOccupancy(
     evidence: OrientedEdgeEvidence,
     baseNormalDegrees: number,

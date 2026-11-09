@@ -1,5 +1,6 @@
 import { availableParallelism } from "node:os";
 
+/** Validated service limits shared by HTTP ingestion and the worker pool. */
 export type SurveyorConfig = {
     port: number;
     serviceToken: string;
@@ -11,6 +12,10 @@ export type SurveyorConfig = {
     analysisMaximumDimension: number;
 };
 
+/**
+ * Read configuration once at startup and reject invalid bounds immediately.
+ * Leave at least one parallel execution lane by default when CPUs permit.
+ */
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): SurveyorConfig {
     const defaultWorkers = Math.min(8, Math.max(1, availableParallelism() - 1));
     const workerCount = positiveInteger(environment.SURVEYOR_WORKER_COUNT ?? String(defaultWorkers), "SURVEYOR_WORKER_COUNT", 64);

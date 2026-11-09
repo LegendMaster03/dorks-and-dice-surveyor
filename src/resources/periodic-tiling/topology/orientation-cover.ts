@@ -14,6 +14,8 @@ export type OrientationCoverResult =
     }
     | { status: "invalid" | "unsupported" | "inconclusive"; reason: string };
 
+// Orbit lengths below the full local multiplicity expose stabilizers that
+// an orientation double cover does not necessarily remove.
 function countBranchedOrbits(symbol: DSymbol): number {
     let branched = 0;
     const n = symbol.chamberCount;
@@ -74,6 +76,8 @@ export function constructOrientableChamberCover(
         return unsupported("The orientation double would exceed the bounded chamber capacity");
 
     type Chamber = readonly [number, 0 | 1];
+    // Build only the connected component of the parity-lifted graph;
+    // an already orientable input must not be doubled unnecessarily.
     const pairs: Chamber[] = [[1, 0]];
     const key = (c: number, parity: 0 | 1) => (c - 1) * 2 + parity;
     const which = new Map<number, number>([[key(1, 0), 1]]);

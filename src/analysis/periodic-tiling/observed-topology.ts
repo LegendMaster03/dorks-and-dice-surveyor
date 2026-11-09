@@ -99,6 +99,8 @@ export function deriveObservedTopology(
     });
     const anchor = observation.classes.map(c => interiors.find(i => i.motifClass === c.id)?.centroid);
     if (anchor.some(p => !p)) return inconclusive("Not all motif classes have image instances");
+    // Address cells relative to a representative of their observed class;
+    // integer lattice shifts must arise from image geometry, not a template.
     const addresses = interiors.map(cell => {
         const relative = coordinates(sub(cell.centroid, anchor[cell.motifClass]!));
         const u = Math.round(relative.x), v = Math.round(relative.y);
@@ -108,6 +110,8 @@ export function deriveObservedTopology(
     if (addresses.some(a => a.discrepancy > 0.08)) return inconclusive("Cell centers do not repeat under the proposed translation basis");
 
     type Vote = { targetClass: number; targetSide: number; shift: readonly [number, number]; points: ObservedPoint[] };
+    // Gather independent reciprocal-interface votes for each motif side;
+    // a single local side match is not a periodic adjacency proof.
     const evidence = observation.classes.map(c => Array.from({ length: c.sideCount }, () => new Map<string, Vote>()));
     const perClass = observation.classes.map(() => new Set<string>());
     // Index observed centroids once; repeatedly scanning every cell against

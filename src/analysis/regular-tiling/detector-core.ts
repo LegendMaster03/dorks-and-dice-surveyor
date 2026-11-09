@@ -14,6 +14,7 @@ export type RegularTilingGeometryId =
 
 export type RegularLatticeDetectionOptions = HexLatticeDetectionOptions;
 
+/** Source-raster fit measurements shared by the three production regular geometries. */
 export type RegularLatticeFit = {
     geometryId: RegularTilingGeometryId;
     rotationDegrees: number;
@@ -77,6 +78,7 @@ const ORIENTATION_TOLERANCE = 7 * DEG;
 const MAX_LAG = 640;
 const DISTANT_TILES = 3;
 
+/** Dispatch regular geometry hypotheses without conflating a fitted lattice with an accepted map topology. */
 export function detectRegularLattice(
     raster: GrayscaleRaster,
     geometryId: RegularTilingGeometryId,
@@ -116,6 +118,7 @@ function adaptHexagonal(
     };
 }
 
+/** Convert the three-family lattice detector's spacing and orientation into triangular edge geometry. */
 function adaptTriangular(
     raster: GrayscaleRaster,
     options: RegularLatticeDetectionOptions): RegularLatticeDetection {
@@ -172,6 +175,7 @@ function triangularReason(reason: string): string {
         .replace(/hex(?:agonal)?[- ]lattice/gi, "triangular lattice");
 }
 
+/** Fit two perpendicular line families, a common pitch, and one phase across distant raster regions. */
 function detectSquareLattice(
     raster: GrayscaleRaster,
     options: RegularLatticeDetectionOptions): RegularLatticeDetection {
@@ -209,6 +213,8 @@ function detectSquareLattice(
     const phaseConfidence = clamp01((phase.coherence - 0.20) / 0.70);
     const residualConfidence = clamp01(1 - residual.worst / Math.max(1.5, pitch * 0.10));
     const uniqueness = clamp01((period.score - period.competitorScore) / 0.18);
+    // Confidence combines distinct signals: edge orientation, periodicity,
+    // phase agreement, distant residual, and competing-period separation.
     const confidence = clamp01(
         orientationConfidence * 0.22
         + periodicityConfidence * 0.24
@@ -233,6 +239,8 @@ function detectSquareLattice(
     };
 
     const threshold = options.minimumConfidence ?? 0.52;
+    // A locally plausible fit remains inconclusive unless distant regions
+    // agree with the same rigid overlay within the residual bound.
     const excessiveResidual = residual.worst > Math.max(2, pitch * 0.08);
     if (confidence < threshold || residual.supportedRegions < 6 || excessiveResidual) {
         return {
@@ -263,6 +271,7 @@ function validateRaster(raster: GrayscaleRaster): void {
     }
 }
 
+/** Extract bounded Sobel-normal samples; sampling is spatially deterministic. */
 function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): EdgeField {
     const magnitudes = new Float32Array(raster.width * raster.height);
     const normals = new Float32Array(raster.width * raster.height);
@@ -300,6 +309,7 @@ function buildEdgeField(raster: GrayscaleRaster, maxSamples: number): EdgeField 
     return { width: raster.width, height: raster.height, samples: result };
 }
 
+/** Coarsely search quarter-turn-equivalent orientations, then refine the best angle locally. */
 function findSquareModel(
     field: EdgeField,
     minimumSpacing: number,
@@ -390,6 +400,7 @@ function fitSquarePeriod(
     };
 }
 
+/** Correlate edge projections along a candidate line normal to identify repeating pitch. */
 function projectionAutocorrelation(samples: EdgeSample[], normal: number, maxLag: number): Float64Array {
     const rhos = samples.map(sample => sample.x * Math.cos(normal) + sample.y * Math.sin(normal));
     if (rhos.length < 120) return new Float64Array(maxLag + 1);
@@ -524,6 +535,7 @@ function wrapAnchor(
     return best;
 }
 
+/** Test the same phase in a 3x3 partition to reject fits supported by only one image region. */
 function measureSquareResidual(
     field: EdgeField,
     degrees: number,

@@ -50,6 +50,8 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
             const started = performance.now();
             const correlationId = correlationIdentifier(request.headers["x-correlation-id"]);
             response.setHeader("x-correlation-id", correlationId);
+            // One deadline covers upload, decoding, analysis, and serialization;
+            // worker-only deadlines would leave costly preparation unbounded.
             const controller = new AbortController();
             let admitted = false;
             let deadlineExpired = false;
@@ -91,6 +93,8 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                     dependencies.config.analysisMaximumDimension,
                     controller.signal);
                 ensureActive();
+                // Charge worker execution against time already spent preparing
+                // the request instead of granting it a second full timeout.
                 const remainingMs = Math.max(1, Math.floor(deadline - performance.now()));
                 const workerResult = await dependencies.pool.run({
                     mode: "periodic-motif-investigation",
@@ -103,6 +107,8 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                 const mapped = observation.status === "consistent-candidate"
                     ? mapExperimentalMotifToSource(observation, prepared.analysisScale)
                     : null;
+                // A consistent candidate remains research evidence, not an
+                // authoritative detected tiling or accepted map topology.
                 const candidate = mapped?.candidate ?? null;
                 const evidence = mapped?.evidence ?? null;
                 const totalMs = performance.now() - started;
@@ -157,6 +163,7 @@ export function createPeriodicMotifInvestigationResource(dependencies: {
                 if (!response.headersSent && !response.destroyed
                     && (!controller.signal.aborted || deadlineExpired))
                     writeError(response, failure, PeriodicMotifInvestigationCapability, PeriodicMotifInvestigationApiVersion);
+            // Release the admission slot on every exit, including disconnects.
             } finally {
                 if (deadlineTimer !== null) clearTimeout(deadlineTimer);
                 if (admitted) inFlight--;

@@ -1,6 +1,7 @@
 import type { GrayscaleRaster } from "../../image/raster.js";
 import type { HexLatticeDetection, HexLatticeDetectionOptions } from "./detector.js";
 
+/** Legacy hex worker payload retained for source compatibility. */
 export type HexGridWorkerRequest = {
     raster: GrayscaleRaster;
     options: Omit<HexLatticeDetectionOptions, "timingSink">;

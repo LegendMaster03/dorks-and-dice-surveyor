@@ -46,6 +46,8 @@ export function deriveInteriorMasksFromOriginalEdges(
     const field=options.edgeField??buildEdgeField(raster,60_000);
     if(field.samples.length<500)
         return {status:"inconclusive",reason:"Insufficient source image Sobel boundaries"};
+    // Threshold alternatives are only segmentation candidates. None can
+    // substitute for subsequent verification on the unchanged source image.
     const masks:EdgeDerivedMask[]=[];
     for(const threshold of thresholds){
         const mask=new Uint8Array(pixels.length).fill(255);

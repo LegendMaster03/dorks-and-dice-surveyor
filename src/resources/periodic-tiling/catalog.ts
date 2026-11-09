@@ -19,6 +19,7 @@ for (const definition of definitions) {
 
 export const periodicTilingDefinitions = definitions;
 
+/** Resolve only known production detectors; notation validity is checked independently. */
 export function findPeriodicTilingByDsSymbol(canonical: string): PeriodicTilingDefinition | undefined {
     return bySymbol.get(canonical);
 }

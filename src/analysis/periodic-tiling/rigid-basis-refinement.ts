@@ -73,6 +73,8 @@ export function refineRigidTranslationBasis(
     }
     if (samples.length < minimumSamples) return reject("Too few independent repeated cell observations");
 
+    // Center within each motif class before fitting the two shared basis
+    // vectors: different classes have independent geometric intercepts.
     const means = observation.classes.map(() => ({ x: 0, y: 0, u: 0, v: 0, n: 0 }));
     for (const sample of samples) {
         const mean = means[sample.classId];
@@ -93,6 +95,8 @@ export function refineRigidTranslationBasis(
         minU = Math.min(minU, sample.u); maxU = Math.max(maxU, sample.u);
         minV = Math.min(minV, sample.v); maxV = Math.max(maxV, sample.v);
     }
+    // Reject near-singular evidence. Repeats along just one direction cannot
+    // determine two independent translation vectors.
     const gramDet = uu * vv - uv * uv;
     if (!Number.isFinite(gramDet) || gramDet < 0.01 * uu * vv || uu < 1 || vv < 1)
         return reject("Repetitions do not independently constrain both translation directions");
@@ -120,6 +124,8 @@ export function refineRigidTranslationBasis(
     };
     const before = measure(a, b), after = measure(fittedA, fittedB);
     if (after.worst > maxResidual) return reject("Repetitions cannot share one rigid translation model");
+    // An allowed correction must improve the shared residual rather than
+    // merely perturbing a locally plausible lattice.
     if (after.rms > before.rms + 1e-7) return reject("Global centroid refinement did not improve the original candidate");
     return { status: "refined", basis: [fittedA, fittedB], residualPixels: after.rms,
         initialResidualPixels: before.rms, maxResidualPixels: after.worst,

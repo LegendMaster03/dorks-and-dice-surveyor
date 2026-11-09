@@ -83,6 +83,8 @@ function alignCorners(polygon: readonly ObservedPoint[],
     return Array.from({length:n},(_,i)=>polygon[(i+bestIndex)%n]);
 }
 
+// Under a shorter period, previously distinct motif classes may be
+// translations of one another; regroup only matching observed polygons.
 function repartition(source: InteriorObservation, basis: Basis,
                      expectedClasses: number): InteriorObservation | null {
     if (source.status !== "observed" || source.interiors.length > 600 ||
@@ -113,6 +115,8 @@ function repartition(source: InteriorObservation, basis: Basis,
         id,sideCount:g.example.polygon.length,examples:g.count
     })),interiors};
 }
+// Every proper finite-index superlattice admits a prime-index step.
+// Enumerating these steps avoids assumptions about polygon family.
 function primeOverlattices(basis: Basis, count: number): Basis[] {
     const [a,b]=basis, results:Basis[]=[];
     for (const p of primeFactors(count)) {
