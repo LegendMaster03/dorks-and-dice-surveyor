@@ -55,8 +55,8 @@ parentPort.on("message", (message: WorkerRequestEnvelope<AnalysisWorkerRequest>)
             }
         };
         parentPort!.postMessage(response);
-    // Failure is scoped to this job; the parent pool controls replacement,
-    // retries, and the HTTP error mapping.
+    // Report failure with the job ID. The parent pool settles that promise;
+    // the HTTP resource owns the public error response.
     } catch (error) {
         const response: WorkerResponseEnvelope<AnalysisWorkerResult> = {
             jobId: message.jobId,

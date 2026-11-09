@@ -32,7 +32,7 @@ export type WireMetricRealization = {
     polygons: Readonly<Record<string, readonly Point2[]>>;
     constraints: readonly MetricConstraint[];
 };
-/** Optional registration from an independently accepted world realization to source pixels. */
+/** Optional world-to-pixel registration; this record alone does not establish image correspondence. */
 export type WireRasterRegistration = {
     sourceAssetId: string;
     pixelWidth: number;

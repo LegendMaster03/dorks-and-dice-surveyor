@@ -87,8 +87,8 @@ export async function prepareRaster(
     const decodeStarted = performance.now();
     let decoded: RawImageResult;
     try {
-        // Remove alpha before deriving luminance, rather than treating
-        // transparent RGB channels as usable boundary evidence.
+        // Remove alpha before the luminance pass so the raw RGB decoder
+        // layout does not expose an alpha byte as a color sample.
         let pipeline = sharp(encoded, {
             failOn: "error",
             limitInputPixels: maxPixels,

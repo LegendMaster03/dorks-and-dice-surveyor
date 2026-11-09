@@ -39,8 +39,8 @@ type HoneycombOccupancy = {
 };
 
 /**
- * The shared lattice fitter finds the repeating three-family period.
- * Edge continuity then distinguishes triangular carrier lines from segmented
+ * For triangular and hexagonal hypotheses, the shared fitter locates a
+ * repeating three-family lattice. Edge continuity distinguishes triangular carrier lines from segmented
  * hexagonal honeycomb edges, which can otherwise fit the same lattice.
  */
 export function detectRegularLattice(
