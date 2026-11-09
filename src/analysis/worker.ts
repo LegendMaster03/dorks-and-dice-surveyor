@@ -7,11 +7,15 @@ import type { WorkerRequestEnvelope, WorkerResponseEnvelope } from "../infrastru
 
 if (!parentPort) throw new Error("Surveyor analysis worker requires a worker-thread parent port.");
 
+// Each thread executes one synchronous analysis message at a time. Job IDs
+// are echoed so the pool can ignore replies from obsolete workers.
 parentPort.on("message", (message: WorkerRequestEnvelope<AnalysisWorkerRequest>) => {
     const started = performance.now();
     let edgeFieldMs = 0;
     try {
         const payload = message.payload;
+        // The experimental motif investigation is a distinct, opt-in request
+        // contract and must not be interpreted as a regular geometry selector.
         if ("mode" in payload) {
             if (payload.mode !== "periodic-motif-investigation")
                 throw new Error("Unknown analysis worker mode.");
@@ -27,6 +31,7 @@ parentPort.on("message", (message: WorkerRequestEnvelope<AnalysisWorkerRequest>)
             parentPort!.postMessage(response);
             return;
         }
+        // Only implemented production geometries reach the regular detector.
         const geometryId = payload.geometryId;
         if (geometryId !== "regular.triangular"
             && geometryId !== "regular.square"
@@ -50,6 +55,8 @@ parentPort.on("message", (message: WorkerRequestEnvelope<AnalysisWorkerRequest>)
             }
         };
         parentPort!.postMessage(response);
+    // Failure is scoped to this job; the parent pool controls replacement,
+    // retries, and the HTTP error mapping.
     } catch (error) {
         const response: WorkerResponseEnvelope<AnalysisWorkerResult> = {
             jobId: message.jobId,

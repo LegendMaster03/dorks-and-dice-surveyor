@@ -1,3 +1,4 @@
+/** Emit one structured JSON record per line for container log collection. */
 export function log(level: "info" | "error", event: string, fields: Record<string, unknown> = {}): void {
     const record = {
         timestamp: new Date().toISOString(),
